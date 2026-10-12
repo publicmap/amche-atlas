@@ -1154,11 +1154,30 @@
             if (!StylePropertyEditor || !currentLayer) return;
 
             if (!styleEditor) {
-                styleEditor = new StylePropertyEditor({ onChange: handleStyleChange });
+                styleEditor = new StylePropertyEditor({
+                    onChange: handleStyleChange,
+                    getFields: () => currentLayer?.inspect?.fields || [],
+                    getSamples: sampleLayerFeatures
+                });
                 $('#style-editor-content').empty().append(styleEditor.element);
             }
 
             styleEditor.setLayer(currentLayer);
+        }
+
+        /**
+         * Properties of the features the map currently has loaded for this
+         * layer, which the By-data style controls turn into a field's
+         * categories and numeric class breaks. Empty when the panel isn't
+         * embedded in the map, or the layer has no data on it yet.
+         */
+        function sampleLayerFeatures() {
+            if (window.self === window.top || !currentLayer) return [];
+            try {
+                return window.parent.sampleLayerProperties?.(originalLayerId || currentLayer.id, currentLayer) || [];
+            } catch (e) {
+                return [];
+            }
         }
 
         /**

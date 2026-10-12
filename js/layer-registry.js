@@ -225,6 +225,9 @@ export class LayerRegistry {
             style: config.style || null,
             inspect: config.inspect || null,
             stylePresets: config.stylePresets || null,
+            // Reusable values the atlas file declared, kept so style references
+            // (`"$name"`) added at runtime can still be resolved - see js/style-references.js.
+            constants: config.constants || null,
             cadastralSearch: config.cadastralSearch || null
         });
 
@@ -458,6 +461,7 @@ export class LayerRegistry {
             style: metadata.style || (config && config.style) || null,
             inspect: metadata.inspect || (config && config.inspect) || null,
             stylePresets: metadata.stylePresets || (config && config.stylePresets) || null,
+            constants: metadata.constants || (config && config.constants) || null,
             isImported: true
         });
         window.dispatchEvent?.(new CustomEvent('atlasChanged', { detail: { atlasId } }));

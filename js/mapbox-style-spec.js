@@ -25,7 +25,7 @@ export const STYLE_PROPERTY_MAPPING = {
         hillshade: []
     },
     paint: {
-        fill: ['fill-color', 'fill-opacity', 'fill-outline-color', 'fill-translate'],
+        fill: ['fill-color', 'fill-opacity', 'fill-outline-color', 'fill-translate', 'fill-pattern'],
         'fill-extrusion': ['fill-extrusion-opacity', 'fill-extrusion-color', 'fill-extrusion-translate', 'fill-extrusion-height', 'fill-extrusion-base', 'fill-extrusion-vertical-gradient'],
         line: ['line-color', 'line-width', 'line-opacity', 'line-dasharray', 'line-translate', 'line-offset'],
         symbol: ['icon-color', 'icon-opacity', 'text-color', 'text-halo-color', 'text-halo-width', 'text-halo-blur', 'text-opacity'],
@@ -60,6 +60,7 @@ const CONFIG_TYPE_MAP_LAYER_TYPES = {
     geojson: VECTOR_MAP_LAYER_TYPES,
     csv: VECTOR_MAP_LAYER_TYPES,
     overpass: VECTOR_MAP_LAYER_TYPES,
+    arcgis: VECTOR_MAP_LAYER_TYPES,
     js: VECTOR_MAP_LAYER_TYPES,
     style: [...VECTOR_MAP_LAYER_TYPES, 'raster', 'background', 'hillshade'],
     'layer-group': [...VECTOR_MAP_LAYER_TYPES, 'raster', 'background', 'hillshade'],

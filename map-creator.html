@@ -54,7 +54,7 @@
             cursor: pointer;
         }
 
-        input[type="color"] {
+        .color-picker-wrapper input[type="color"] {
             position: absolute;
             opacity: 0;
             width: 40px;
@@ -741,6 +741,13 @@ File upload only: .zip containing shapefile">
                     </div>
 
                     <div class="mb-4" id="service-output-section" style="display:none;">
+                        <div id="service-style-section" class="mb-3" style="display:none;">
+                            <label class="flex items-center gap-2 cursor-pointer select-none text-sm font-medium">
+                                <input type="checkbox" id="service-style-inherit" class="w-4 h-4" checked>
+                                Use the service's own styling
+                            </label>
+                            <div id="service-style-note" class="text-xs text-gray-500 mt-1" style="margin-left: 24px;"></div>
+                        </div>
                         <details>
                             <summary class="cursor-pointer text-sm font-medium py-1">
                                 Advanced: data output
@@ -1032,6 +1039,23 @@ File upload only: .zip containing shapefile">
                         </select>
                         <div class="text-xs text-gray-500 mt-1">Field shown as a map label on this layer</div>
                     </div>
+                </div>
+
+                <!-- Advanced style: the same property-by-property editor as the layer info panel -->
+                <div id="advanced-style-section" class="mt-4 pt-4 border-t border-gray-200">
+                    <details id="advanced-style-details" open>
+                        <summary class="cursor-pointer text-sm font-semibold py-1 flex items-center gap-2">
+                            <span>Advanced style</span>
+                            <button type="button" id="advanced-style-reset"
+                                class="ml-auto text-xs text-blue-400 hover:text-blue-300 font-normal"
+                                title="Discard these edits and rebuild the style from the simple controls above">↺ Reset to simple controls</button>
+                        </summary>
+                        <p class="step-hint" style="margin-top:6px;">
+                            Style any property by value, <strong>by category</strong> or <strong>graduated</strong> from a field, with
+                            hover and selected colours and a fallback. Changing the simple controls above replaces these edits.
+                        </p>
+                        <div id="advanced-style-editor"></div>
+                    </details>
                 </div>
 
                 <!-- Configuration JSON Section -->

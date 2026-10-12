@@ -12,6 +12,8 @@
  * can be drawn to look like what the map actually renders.
  */
 
+import { resolveStyleReferences } from './style-references.js';
+
 const EXPRESSION_OPERATORS = new Set([
     'get', 'has', 'id', 'zoom', 'properties', 'geometry-type', 'feature-state',
     'literal', 'at', 'in', 'index-of', 'length', 'slice',
@@ -34,6 +36,7 @@ const ZOOM_STOP_OPERATORS = new Set(['interpolate', 'interpolate-hcl', 'interpol
  */
 export function parseStyleVariants(style) {
     if (!style || typeof style !== 'object') return [{ prefix: '', style: {} }];
+    style = resolveStyleReferences(style);
 
     const order = [];
     const byPrefix = new Map();

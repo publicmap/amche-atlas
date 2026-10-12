@@ -88,3 +88,23 @@ describe('_intelligentStyleMerge keeps hover/selection branches', () => {
         expect(merged['line-width']).toEqual(zoomWidth);
     });
 });
+
+describe('user values that carry their own hover/selected branches', () => {
+    it('replace the default highlight instead of nesting under it', () => {
+        const custom = ['case',
+            ['boolean', ['feature-state', 'selected'], false], '#ff0000',
+            ['boolean', ['feature-state', 'hover'], false], '#00ff00',
+            '#0000ff'];
+        const merged = api._intelligentStyleMerge({ 'fill-color': custom }, api._getDefaultStylesForLayerType('fill'));
+
+        expect(merged['fill-color']).toEqual(custom);
+    });
+
+    it('still slot a plain data-driven match into the default fallback', () => {
+        const match = ['match', ['to-string', ['get', 'zone']], 'A', '#111111', '#222222'];
+        const merged = api._intelligentStyleMerge({ 'fill-color': match }, api._getDefaultStylesForLayerType('fill'));
+
+        expect(hasFeatureState(merged['fill-color'])).toBe(true);
+        expect(merged['fill-color'][merged['fill-color'].length - 1]).toEqual(match);
+    });
+});

@@ -8,6 +8,8 @@ import { KMLConverter } from './kml-converter.js';
 import { LayerConfigGenerator } from './layer-creator-ui.js';
 import { OverpassLoader } from './overpass-loader.js';
 import { ArcgisAPI } from './arcgis-url-api.js';
+import { resolveStyleReferences } from './style-references.js';
+import { installHatchPatterns } from './hatch-patterns.js';
 import { OSMApi } from './osm-url-api.js';
 import { MapContextMessagesControl, LOADING_ICON_HTML } from './map-context-messages-control.js';
 import ConfigManager from './config-manager.js';
@@ -72,6 +74,8 @@ function registerPMTilesProvider() {
 export class MapboxAPI {
     constructor(map, atlasConfig = {}) {
         this._map = map;
+        // Hatch fills ("fill-pattern": "hatch|...") are drawn when a layer first asks for them.
+        if (map && typeof map.on === 'function') installHatchPatterns(map);
         this._atlasConfig = atlasConfig;
         this._defaultStyles = atlasConfig.styles || {};
         this._orderedGroups = atlasConfig.orderedGroups || []; // Store ordered groups for layer positioning
@@ -532,6 +536,12 @@ export class MapboxAPI {
         if (!style || typeof style !== 'object') {
             return [{ prefix: '', style: {} }];
         }
+
+        // Colours that inherit from a constant, another property or another
+        // layer ("$name", "@fill-color", "@layer#fill-color") are replaced by
+        // what they point at before the style is split into variants, so a
+        // reference can cross variant prefixes.
+        style = resolveStyleReferences(style);
 
         const order = []; // Order in which unique prefixes are encountered (reverse iter)
         const byPrefix = new Map(); // prefix → un-prefixed style object
@@ -1141,7 +1151,7 @@ export class MapboxAPI {
             const isBaseVariant = variant.prefix === '';
 
             // Check if user has explicitly defined any styles
-            const userHasFillStyles = variantStyle['fill-color'] || variantStyle['fill-opacity'];
+            const userHasFillStyles = variantStyle['fill-color'] || variantStyle['fill-opacity'] || variantStyle['fill-pattern'];
             const userHasLineStyles = variantStyle['line-color'] || variantStyle['line-width'];
             const userHasTextStyles = variantStyle['text-field'];
             const userHasCircleStyles = variantStyle['circle-radius'] || variantStyle['circle-color'];
@@ -2419,7 +2429,7 @@ export class MapboxAPI {
                 : (variantFilter || unclusteredFilter);
 
             // Check if user has explicitly defined any styles
-            const userHasFillStyles = variantStyle['fill-color'] || variantStyle['fill-opacity'];
+            const userHasFillStyles = variantStyle['fill-color'] || variantStyle['fill-opacity'] || variantStyle['fill-pattern'];
             const userHasLineStyles = variantStyle['line-color'] || variantStyle['line-width'];
             const userHasTextStyles = variantStyle['text-field'];
             const userHasCircleStyles = variantStyle['circle-radius'] || variantStyle['circle-color'];
@@ -4277,6 +4287,13 @@ export class MapboxAPI {
 
         // If the user value contains a zoom expression (interpolate/step with zoom), use it directly
         if (Array.isArray(userValue) && this._hasZoomExpression(userValue)) {
+            return userValue;
+        }
+
+        // A value that brings its own hover/selected branches (the style editor's
+        // state overrides) wins outright: nested inside the default's fallback it
+        // would never be reached, since the default's state branches match first.
+        if (Array.isArray(userValue) && this._hasFeatureState(userValue)) {
             return userValue;
         }
 

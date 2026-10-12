@@ -177,13 +177,14 @@ describe('StylePropertyEditor', () => {
 
     it('switches a row between its typed control and JSON', () => {
         const { editor } = mount(layer);
-        rowFor(editor, 'fill-color').querySelector('.spe-btn').click();
+        const modeButton = (row, text) => [...row.querySelectorAll('.spe-btn')].find(b => b.textContent === text);
+        modeButton(rowFor(editor, 'fill-color'), '{ }').click();
 
         const row = rowFor(editor, 'fill-color');
         expect(row.querySelector('textarea')).not.toBeNull();
         expect(JSON.parse(row.querySelector('textarea').value)).toBe('#ff0000');
 
-        row.querySelector('.spe-btn').click();
+        modeButton(row, 'value').click();
         expect(rowFor(editor, 'fill-color').querySelector('input[type="color"]')).not.toBeNull();
     });
 

@@ -1,3 +1,5 @@
+import { drawingInfoToStyle } from './arcgis-symbology.js';
+
 const OPERATIONS = new Set(['query', 'export', 'identify', 'find', 'exportimage', 'generatekml', 'queryrelatedrecords', 'info']);
 const SERVICE_TYPE_RE = /^(FeatureServer|MapServer|ImageServer|VectorTileServer|GeocodeServer|GPServer|GeometryServer|SceneServer|WFSServer|WMSServer|NAServer|StreamServer)$/i;
 const BROWSABLE_TYPES = new Set(['featureserver', 'mapserver']);
@@ -179,7 +181,7 @@ export class ArcgisAPI {
         return options;
     }
 
-    static async describeLayer(url, { output = 'auto', where } = {}) {
+    static async describeLayer(url, { output = 'auto', where, inheritStyle = true } = {}) {
         const parsed = this.parseUrl(url);
         if (!parsed || parsed.kind !== 'layer') throw new Error('Not an ArcGIS layer URL');
         const layerWhere = where !== undefined ? where : parsed.where;
@@ -234,7 +236,16 @@ export class ArcgisAPI {
             Object.assign(config, { type: 'geojson', url: this.geojsonQueryUrl(parsed.url, layerWhere) });
         }
 
-        return { config, output: chosen, outputs, fields, allFields, geometryTypes, count, parsed, info, where: layerWhere };
+        // The service's own symbology, carried over unless the caller opts out.
+        // Raster output is already drawn by the server in that symbology.
+        const styleInfo = configOutput === 'raster' ? null : drawingInfoToStyle(info.drawingInfo, info.geometryType, info);
+        if (inheritStyle && styleInfo && styleInfo.style) {
+            config.style = styleInfo.style;
+            if (styleInfo.minzoom !== undefined) config.minzoom = styleInfo.minzoom;
+            if (styleInfo.maxzoom !== undefined) config.maxzoom = styleInfo.maxzoom;
+        }
+
+        return { config, output: chosen, outputs, styleInfo, inheritStyle, fields, allFields, geometryTypes, count, parsed, info, where: layerWhere };
     }
 
     static async fetchAllFeatures(config, { onProgress } = {}) {

@@ -7,6 +7,7 @@ import * as GoogleSheetsAPI from './google-sheets-api.js';
 import * as SourceResolver from './layer-source-resolver.js';
 import { styleLiteral, toHexColor, colorAlpha } from './layer-style-utils.js';
 import { ServiceImport } from './service-import.js';
+import { CreatorStyleEditor } from './creator-style-editor.js';
 
 // Re-exported for the Style controls' own callers (and their tests), which have
 // always imported these from here; they now live in js/layer-style-utils.js so
@@ -47,9 +48,11 @@ export class MapCreator {
         // service-import.js). While active, a geojson-type config is a URL
         // layer (currentLayerType 'geojson-url'), not local data.
         this.service = new ServiceImport(this);
+        this.styleEditor = new CreatorStyleEditor(this);
     }
 
     init() {
+        this.styleEditor.init();
         this.setupEventListeners();
         this.setupColorPickers();
         this.setupMessageListener();
@@ -216,6 +219,7 @@ export class MapCreator {
         });
 
         $('#service-output-select').on('change', (e) => this.service.changeOutput(e.target.value));
+        $('#service-style-inherit').on('change', (e) => this.service.setInheritStyle(e.target.checked));
 
         $('#google-sheet-select').on('change', () => {
             this.handleLoadData();
@@ -2204,6 +2208,7 @@ export class MapCreator {
     }
 
     schedulePreview() {
+        this.styleEditor.sync();
         clearTimeout(this._previewTimer);
         this._previewTimer = setTimeout(() => this.sendPreview(), 150);
     }

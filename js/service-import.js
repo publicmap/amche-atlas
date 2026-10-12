@@ -49,7 +49,7 @@ export class ServiceImport {
     async show(service, description = null) {
         const { provider, parsed } = service;
         const api = PROVIDERS[provider];
-        this.state = { provider, parsed, description, sourceUrl: description ? description.parsed.url || description.config.url : null };
+        this.state = { provider, parsed, description, inheritStyle: true, sourceUrl: description ? description.parsed.url || description.config.url : null };
 
         const rootNode = api.rootNode(parsed);
         this._renderBrowser(provider, rootNode);
@@ -186,7 +186,7 @@ export class ServiceImport {
         this.creator.setLoadingState('loading');
         try {
             const description = provider === 'arcgis'
-                ? await ArcgisAPI.describeLayer(node.url, { where: node.url === parsed.url ? undefined : null })
+                ? await ArcgisAPI.describeLayer(node.url, { where: node.url === parsed.url ? undefined : null, inheritStyle: this.state.inheritStyle })
                 : await WfsAPI.describeLayer(node.url, { typeName: node.typeName });
             if (token !== this._token) return;
             this.state.sourceUrl = provider === 'arcgis' ? node.url : description.config.url;
@@ -213,9 +213,27 @@ export class ServiceImport {
         });
         $select.val(description.output);
         this._updateOutputHint(description);
+        this._renderStyleSection(description);
         const count = description.count;
         $('#service-output-count').text(count === null ? '' : `${count.toLocaleString()} feature${count === 1 ? '' : 's'}`);
         $('#service-output-section').show();
+    }
+
+    // Offered only when the service actually carries symbology to inherit.
+    _renderStyleSection(description) {
+        const info = description.styleInfo;
+        const available = !!(info && (info.style || info.warnings.length));
+        $('#service-style-section').toggle(available);
+        if (!available) return;
+
+        $('#service-style-inherit').prop('checked', this.state.inheritStyle).prop('disabled', !info.style);
+        const notes = [info.summary, ...info.warnings.map(w => `Approximated: ${w}`)].filter(Boolean);
+        $('#service-style-note').text(notes.join(' · '));
+    }
+
+    async setInheritStyle(inherit) {
+        this.state.inheritStyle = inherit;
+        await this.changeOutput(this.state.description.output);
     }
 
     _updateOutputHint(description) {
@@ -229,9 +247,10 @@ export class ServiceImport {
         try {
             const url = provider === 'arcgis' ? description.parsed.url : description.config.url;
             const next = provider === 'arcgis'
-                ? await ArcgisAPI.describeLayer(url, { output, where: description.where })
+                ? await ArcgisAPI.describeLayer(url, { output, where: description.where, inheritStyle: this.state.inheritStyle })
                 : await WfsAPI.describeLayer(url, { typeName: description.parsed.typeName, output });
             this.state.description = next;
+            this._renderStyleSection(next);
             this._updateOutputHint(next);
             await this._applyOutput(next);
         } catch (error) {
@@ -266,6 +285,13 @@ export class ServiceImport {
         creator.currentData = config;
         creator.currentDataSource = sourceUrl;
         creator.showTileLayerSuccess(config);
+
+        // showTileLayerSuccess rebuilds the style from the simple controls; the
+        // service's own symbology has to survive that, so hold it as an edit.
+        if (config.style) {
+            creator._styleManuallyEdited = true;
+            creator.currentData = { ...creator.currentData, style: config.style };
+        }
 
         if (config.type === 'tms') return;
         creator.autoCheckStyleTypes(geometryTypes);

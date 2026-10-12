@@ -15,6 +15,11 @@
 
 import { getSpecProperties, guessPropertyKind, lookupPropertyKind } from './mapbox-style-spec.js';
 import { toHexColor, colorAlpha, styleLiteral, resolveValue, formatLabel } from './layer-style-utils.js';
+import { SymbologyEditor } from './symbology-editor.js';
+import { parseSymbology } from './style-expressions.js';
+import {
+    isStyleReference, parseStyleReference, formatStyleReference, previewReference, referenceCandidates
+} from './style-references.js';
 
 const NUMERIC_RANGES = {
     'circle-radius': { min: 0, max: 100, step: 1 },
@@ -88,6 +93,17 @@ export function uiControlKind(property, value) {
     return null;
 }
 
+/**
+ * Whether a property can be driven by data through the symbology editor, and
+ * what it outputs: 'color' or 'number'. Only the properties a feature value
+ * can sensibly pick between - not dash arrays, fonts or offsets.
+ */
+export function symbologyKind(property) {
+    const kind = uiControlKind(property, undefined);
+    if (kind === 'color' || kind === 'number') return kind;
+    return null;
+}
+
 /** The property name without its variant prefix ("overlay/line-color"). */
 function propertyName(key) {
     const slash = key.indexOf('/');
@@ -122,8 +138,11 @@ function el(tag, className, props = {}) {
 }
 
 export class StylePropertyEditor {
-    constructor({ onChange } = {}) {
+    constructor({ onChange, getFields, getSamples, getReferences } = {}) {
         this._onChange = onChange || (() => {});
+        // Where the symbology editor finds field names and sample feature
+        // properties; the host owns the data, so it may change after construction.
+        this._context = { getFields, getSamples, getReferences };
         this._style = {};
         this._layerType = null;
         // Per-property control choice ('ui' | 'json'), kept across re-renders so
@@ -145,10 +164,16 @@ export class StylePropertyEditor {
      */
     setLayer(layer, { resetControlModes = false } = {}) {
         this._layerType = layer?.type || null;
+        this._layerId = layer?.id || null;
         this._style = { ...(layer?.style || {}) };
         this._drafts.clear();
         if (resetControlModes) this._modes.clear();
         this.render();
+    }
+
+    /** Swap in the data sources behind the By-data controls (see SymbologyEditor). */
+    setContext({ getFields, getSamples, getReferences } = {}) {
+        this._context = { getFields, getSamples, getReferences };
     }
 
     /** The edited style, as it should be written back to the layer config. */
@@ -283,16 +308,22 @@ export class StylePropertyEditor {
         head.appendChild(el('span', 'spe-spacer'));
 
         if (controlKind) {
-            const toggle = el('button', 'spe-btn', {
-                type: 'button',
-                textContent: mode === 'json' ? controlKind : '{ }',
-                title: mode === 'json' ? `Edit as ${controlKind}` : 'Edit as JSON'
+            const choices = [['ui', 'value', `A single ${controlKind}`]];
+            if (symbologyKind(property)) choices.push(['symbology', 'by data', 'Categories or graduated classes from a field, with hover / selected states']);
+            const linkable = controlKind === 'color' && this._hasLinkTargets(key);
+            if (linkable || mode === 'link') choices.push(['link', 'link', 'Inherit from an atlas constant, another property or another layer']);
+            choices.push(['json', '{ }', 'Edit as JSON']);
+            choices.forEach(([choice, text, title]) => {
+                const button = el('button', `spe-btn${choice === mode ? ' spe-active' : ''}`, { type: 'button', textContent: text, title });
+                button.addEventListener('click', () => {
+                    if (choice === mode) return;
+                    if (mode === 'link') this._detach(key);
+                    if (choice === 'link') this._setValue(key, this._defaultReference(key), { rerender: false });
+                    this._modes.set(key, choice);
+                    this.render();
+                });
+                head.appendChild(button);
             });
-            toggle.addEventListener('click', () => {
-                this._modes.set(key, mode === 'json' ? 'ui' : 'json');
-                this.render();
-            });
-            head.appendChild(toggle);
         }
 
         const remove = el('button', 'spe-btn spe-remove', { type: 'button', textContent: '✕', title: 'Remove property' });
@@ -302,9 +333,10 @@ export class StylePropertyEditor {
         row.appendChild(head);
 
         const error = el('div', 'spe-error');
-        row.appendChild(mode === 'json'
-            ? this._buildJsonControl(key, value, error)
-            : this._buildTypedControl(key, property, controlKind, value, error));
+        if (mode === 'json') row.appendChild(this._buildJsonControl(key, value, error));
+        else if (mode === 'link') row.appendChild(this._buildReferenceControl(key));
+        else if (mode === 'symbology') row.appendChild(this._buildSymbologyControl(key, property, value));
+        else row.appendChild(this._buildTypedControl(key, property, controlKind, value, error));
         row.appendChild(error);
         return row;
     }
@@ -314,8 +346,162 @@ export class StylePropertyEditor {
         if (this._modes.has(key)) return this._modes.get(key);
         // An expression opens as JSON so it stays visible and intact; a plain
         // literal opens in its typed control.
+        if (controlKind === 'color' && isStyleReference(value)) return 'link';
         const isLiteral = typeof value === 'string' || typeof value === 'number';
-        return isLiteral ? 'ui' : 'json';
+        if (isLiteral) return 'ui';
+        // An expression the symbology editor can read back (categories, classes,
+        // hover / selected overrides) opens in it; anything else stays JSON.
+        return symbologyKind(propertyName(key)) && parseSymbology(value).mode !== 'custom' ? 'symbology' : 'json';
+    }
+
+    // -- links to other values ------------------------------------------------
+
+    _referenceSources() {
+        const read = this._context.getReferences || (() => referenceCandidates(this._layerId));
+        try {
+            const sources = read() || {};
+            return { constants: sources.constants || {}, layers: sources.layers || [] };
+        } catch (error) {
+            return { constants: {}, layers: [] };
+        }
+    }
+
+    _colorConstants(constants) {
+        return Object.keys(constants).filter(name => {
+            const value = constants[name];
+            return typeof value === 'string' || Array.isArray(value);
+        });
+    }
+
+    _colorKeys(style, exceptKey) {
+        return Object.keys(style || {}).filter(k => k !== exceptKey && /-color$/.test(propertyName(k)));
+    }
+
+    // A same-layer target is only offered when following it wouldn't loop back
+    // to this property.
+    _selfTargets(key) {
+        return this._colorKeys(this._style, key).filter(candidate =>
+            previewReference(`@${candidate}`, { ...this._style, [key]: `@${candidate}` }) !== undefined
+        );
+    }
+
+    _hasLinkTargets(key) {
+        const { constants, layers } = this._referenceSources();
+        return this._colorConstants(constants).length > 0
+            || this._selfTargets(key).length > 0
+            || layers.some(layer => this._colorKeys(layer.style).length > 0);
+    }
+
+    _defaultReference(key) {
+        const { constants, layers } = this._referenceSources();
+        const own = this._selfTargets(key)[0];
+        if (own) return formatStyleReference({ kind: 'property', layerId: null, property: own });
+        const constant = this._colorConstants(constants)[0];
+        if (constant) return formatStyleReference({ kind: 'constant', name: constant });
+        const layer = layers.find(l => this._colorKeys(l.style).length > 0);
+        return layer ? formatStyleReference({ kind: 'property', layerId: layer.id, property: this._colorKeys(layer.style)[0] }) : undefined;
+    }
+
+    // Replace a reference with a copy of what it points at, so leaving link
+    // mode keeps the colours the layer was showing.
+    _detach(key) {
+        const resolved = previewReference(this._style[key], this._style);
+        if (resolved === undefined) delete this._style[key];
+        else this._style[key] = resolved;
+        this._onChange(this.getStyle(), resolved === undefined ? { removed: [key] } : { property: key });
+    }
+
+    _buildReferenceControl(key) {
+        const wrap = el('div', 'spe-control spe-ref');
+        const { constants, layers } = this._referenceSources();
+        const reference = parseStyleReference(this._style[key]) || { kind: 'property', layerId: null, property: '' };
+        const set = (next) => this._setValue(key, next);
+
+        const constantNames = this._colorConstants(constants);
+        const selfKeys = this._selfTargets(key);
+        const layerChoices = layers.filter(layer => this._colorKeys(layer.style).length > 0);
+
+        const sourceType = reference.kind === 'constant' ? 'constant' : reference.layerId ? 'layer' : 'self';
+        const types = [];
+        if (selfKeys.length || sourceType === 'self') types.push(['self', 'This layer']);
+        if (constantNames.length || sourceType === 'constant') types.push(['constant', 'Atlas constant']);
+        if (layerChoices.length || sourceType === 'layer') types.push(['layer', 'Another layer']);
+
+        const typeSelect = this._refSelect(types, sourceType, (type) => {
+            if (type === 'self') set(`@${selfKeys[0] || ''}`);
+            else if (type === 'constant') set(`$${constantNames[0]}`);
+            else set(formatStyleReference({ kind: 'property', layerId: layerChoices[0].id, property: this._colorKeys(layerChoices[0].style)[0] }));
+        });
+        wrap.appendChild(typeSelect);
+
+        if (sourceType === 'constant') {
+            const names = constantNames.includes(reference.name) ? constantNames : [reference.name, ...constantNames];
+            wrap.appendChild(this._refSelect(names.map(n => [n, `$${n}`]), reference.name, (name) => set(`$${name}`)));
+        } else if (sourceType === 'self') {
+            const keys = selfKeys.includes(reference.property) ? selfKeys : [reference.property, ...selfKeys];
+            wrap.appendChild(this._refSelect(keys.map(k => [k, k]), reference.property, (property) => set(`@${property}`)));
+        } else {
+            const target = layers.find(layer => layer.id === reference.layerId);
+            const layerOptions = target ? layerChoices : [{ id: reference.layerId, title: reference.layerId, style: {} }, ...layerChoices];
+            wrap.appendChild(this._refSelect(layerOptions.map(l => [l.id, l.title || l.id]), reference.layerId, (layerId) => {
+                const picked = layers.find(layer => layer.id === layerId);
+                set(formatStyleReference({ kind: 'property', layerId, property: this._colorKeys(picked.style)[0] }));
+            }));
+            const keys = target ? this._colorKeys(target.style) : [reference.property];
+            wrap.appendChild(this._refSelect(keys.map(k => [k, k]), reference.property, (property) => {
+                set(formatStyleReference({ kind: 'property', layerId: reference.layerId, property }));
+            }));
+        }
+
+        wrap.appendChild(this._buildReferencePreview(key));
+        return wrap;
+    }
+
+    _refSelect(choices, current, onSelect) {
+        const select = el('select', 'spe-input spe-select');
+        choices.forEach(([value, text]) => select.appendChild(el('option', null, { value, textContent: text, selected: value === current })));
+        select.addEventListener('change', () => onSelect(select.value));
+        return select;
+    }
+
+    _buildReferencePreview(key) {
+        const preview = el('div', 'spe-ref-preview');
+        const resolved = previewReference(this._style[key], this._style);
+        if (resolved === undefined) {
+            preview.appendChild(el('span', 'spe-note spe-ref-broken', {
+                textContent: 'Doesn’t resolve — this layer uses its default for this property'
+            }));
+            return preview;
+        }
+
+        const colors = [...new Set(collectColorLeaves(resolved).map(raw => cssColorToHex(raw)).filter(Boolean))];
+        colors.slice(0, 10).forEach(hex => preview.appendChild(el('span', 'spe-ref-chip', { style: `background:${hex}`, title: hex })));
+        const kind = Array.isArray(resolved) ? (resolved[0] === 'match' ? 'categories' : 'expression') : 'colour';
+        preview.appendChild(el('span', 'spe-note', { textContent: `inherits a ${kind}; changes there flow here` }));
+        return preview;
+    }
+
+    _buildSymbologyControl(key, property, value) {
+        const wrap = el('div', 'spe-control');
+        const editor = new SymbologyEditor({
+            property,
+            valueKind: symbologyKind(property),
+            range: numericRange(property),
+            getFields: this._context.getFields,
+            getSamples: this._context.getSamples,
+            states: guessPropertyKind(property) === 'paint',
+            onChange: (next) => this._setValue(key, next, { rerender: false })
+        });
+        editor.setValue(value === undefined ? literalOf(value) : value);
+        wrap.appendChild(editor.element);
+
+        const isCustom = Array.isArray(value) && parseSymbology(value).mode === 'custom';
+        if (isCustom) {
+            wrap.appendChild(el('div', 'spe-note', {
+                textContent: 'Custom expression — picking a mode or editing a value replaces it'
+            }));
+        }
+        return wrap;
     }
 
     _buildJsonControl(key, value, error) {
@@ -580,6 +766,12 @@ function injectStyles() {
         .spe-btn { font-size: 10px; font-family: 'Courier New', monospace; color: #9ca3af; background: transparent;
             border: 1px solid #374151; border-radius: 4px; padding: 1px 5px; cursor: pointer; }
         .spe-btn:hover { color: #fff; border-color: #6b7280; }
+        .spe-active { color: #fff; background: #2563eb; border-color: #2563eb; }
+        .spe-ref { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .spe-ref .spe-select { width: auto; flex: 1 1 120px; min-width: 0; }
+        .spe-ref-preview { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+        .spe-ref-chip { width: 16px; height: 16px; border-radius: 4px; border: 1px solid #374151; }
+        .spe-ref-broken { color: #fbbf24; font-style: normal; }
         .spe-remove:hover { color: #fff; background: #dc2626; border-color: #dc2626; }
         .spe-control { margin-top: 5px; }
         .spe-control-inline { display: flex; align-items: center; gap: 6px; }

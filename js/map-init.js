@@ -34,6 +34,8 @@ import { CameraUtils } from './map-camera-utils.js';
 import { resolveConstants } from './atlas-constants.js';
 import { isDynamicLayerShorthand, expandDynamicLayerShorthand, resolveDynamicLayerShorthands } from './dynamic-layer-shorthand.js';
 import { setAll as setMarkerRegistry, parseMarkersParam } from './marker-registry.js';
+import { installLayerSampler } from './layer-feature-samples.js';
+import { installStyleReferenceContext } from './style-reference-context.js';
 
 export class MapInitializer {
     // Note: location-based atlas selection is owned by SplashScreenManager
@@ -871,6 +873,8 @@ export class MapInitializer {
 
         // Make map accessible globally for debugging
         window.map = map;
+        installLayerSampler();
+        installStyleReferenceContext();
         window.dispatchEvent(new CustomEvent('mapInstanceReady', { detail: { map } }));
 
         // Mount the geolocation control IMMEDIATELY (before map.on('load')) so

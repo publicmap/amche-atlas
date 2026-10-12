@@ -651,6 +651,36 @@ An atlas can declare a `constants` dictionary and reference its entries elsewher
 
 `config/osm.atlas.json` uses this to share one landuse palette between the `landuse` polygons and the `pois` points.
 
+#### Inheriting a colour from another value
+
+A `*-color` property in a layer's `style` can name another value to inherit instead of carrying its own. The reference is a string that is **exactly** one of:
+
+| Reference | Inherits |
+|---|---|
+| `"$name"` | The atlas constant `name` (see [Atlas `constants`](#atlas-constants--reusable-values)) |
+| `"@fill-color"` | Another property of the same layer. Keys with a variant prefix work too (`"@overlay/line-color"`) |
+| `"@layer-id#fill-color"` | A property of another layer in the atlas |
+
+The whole value is inherited, so `"line-color": "@fill-color"` gives the outline the same categorized or graduated mapping as the fill, including any hover / selected overrides it carries (see [Styling by data](#styling-by-data-categories-classes-and-interaction-states)). In the style editor (layer info panel and layer creator) use the `link` button on a colour row; it lists the atlas constants, the layer's other colours and the colours of other layers, and **Detach** (switching the row to another mode) copies the inherited value in place.
+
+```json
+{
+  "constants": { "zone-colors": ["match", ["to-string", ["get", "zone"]], "R", "#f59e0b", "C", "#3b82f6", "#9ca3af"] },
+  "layers": [
+    { "id": "zones", "type": "geojson", "url": "zones.geojson",
+      "style": { "fill-color": "$zone-colors", "line-color": "@fill-color" } },
+    { "id": "zone-labels", "type": "geojson", "url": "zone-points.geojson",
+      "style": { "circle-color": "@zones#fill-color" } }
+  ]
+}
+```
+
+- References are resolved when the layer is drawn (and when its legend or thumbnail is drawn), against the layer's own style, the active atlas's `constants` and the live styles of other layers. The config itself keeps the reference, so it survives into `?layers=` and the layer info panel.
+- Constants in an atlas *file* are also substituted once when the file loads, so a `"$name"` written in a file reaches the layer already resolved. The `$name` form matters for layers added at runtime (inline `?layers=` JSON, the creator), which that load-time pass never sees. Constants come from the active atlas only.
+- A reference that points at nothing, or loops back on itself, is dropped with a console warning and the layer uses its default for that property. An unknown `$name` is left as-is, like in an atlas file.
+- Only `*-color` properties are resolved, so other strings (`text-field: "$5"`) are never touched.
+- A change to a layer's style is picked up by layers that reference it the next time those layers are drawn; they are not repainted live.
+
 #### Atlas-level `map` block
 
 The `map` block holds the options handed to the GL renderer's `Map` constructor, merged over `config/_defaults.json`'s own `map` block.
@@ -696,6 +726,21 @@ Layer ordering is unaffected — the `bottom`/`middle`/`top` anchors come from `
 - `label` — property whose value is shown as the popup heading.
 - `fields` — properties listed in the popup body.
 - `onClick` — name of a handler function exported from `config/{atlas}.js`'s `handlers` object. Called as `handler({ feature, layerId, layerConfig, map, lngLat })` and must return an HTML string (may include `<script>` tags, which are extracted and executed) appended into the popup. See `config/goa.js` (`getBhunakshaInfo`) and `config/mapillary.js` (`openMapillaryViewer`) for examples.
+
+#### Styling by data: categories, classes and interaction states
+
+Any colour or number in `style` can be driven by a feature property. The **Style** panel of the layer info page (`map-information.html`, Edit) and the **Advanced style** panel of the layer creator (`map-creator.html`) share one editor for this: each colour/number row has `value`, `by data` and `{ }` (JSON) modes, and `by data` offers **Single**, **Categorized** and **Graduated**, plus **hover** and **selected** overrides and a fallback. Values and class breaks are computed from the features the map has loaded for the layer (the creator uses the file's own data for uploads). The editor writes ordinary Mapbox expressions, so the result is plain JSON that can also be written by hand:
+
+| Mode | Expression written |
+|---|---|
+| Categorized | `["match", ["to-string", ["get", "use"]], "Park", "#16a34a", "Road", "#6b7280", "#9ca3af"]` — the last value is the fallback for any other value |
+| Graduated, classes | `["case", ["==", ["typeof", ["get", "area"]], "number"], ["step", ["get", "area"], "#fef3c7", 10, "#f59e0b", 50, "#b45309"], "#9ca3af"]` — one output per class |
+| Graduated, continuous | the same `case` wrapper around `["interpolate", ["linear"], ["get", "area"], 0, "#fef3c7", 100, "#b45309"]` |
+| Hover / selected | `["case", ["boolean", ["feature-state", "selected"], false], "#ff0", ["boolean", ["feature-state", "hover"], false], "#fa0", <base>]` |
+
+The fallback of a graduated expression applies to features whose value is missing or not a JSON number (a numeric string such as `"12"` is not classed). Categories compare as text, so numeric and text fields behave alike.
+
+Hover and selected highlights normally come from `config/_defaults.json`. A value that carries its own `feature-state` branches, like the last row above, replaces that default highlight for the property; a value without them keeps it, with the data-driven expression slotted into its fallback. Numeric properties work the same way (`circle-radius`, `line-width`, `fill-opacity`, ...), with numbers in place of colours. Layout properties such as `text-size` can be data-driven but cannot take hover/selected overrides, because Mapbox GL rejects `feature-state` in layout expressions.
 
 #### Multi-pass style variants
 
@@ -1326,6 +1371,42 @@ Pages are fetched up to 4 at a time once the total is known (`returnCountOnly`),
   "inspect": { "id": "objectid", "label": "zone", "fields": ["zone", "area"] }
 }
 ```
+
+#### Inheriting an ArcGIS layer's own styling
+
+ArcGIS layers carry their authored symbology in `drawingInfo` (`.../FeatureServer/N?f=json`). When the creator adds one it converts that into the layer's `style`, so the layer opens looking like the service's own map. The **Use the service's own styling** checkbox (shown when the service has a renderer) turns this off; the style then starts from the simple controls.
+
+| ArcGIS renderer | Becomes |
+|---|---|
+| `simple` | literal `fill-color` / `line-color` / `line-width` (or `line-*` for lines, `circle-*` for points) |
+| `uniqueValue` | a `match` per property on the renderer's field, the default symbol as the fallback (a missing default draws nothing, as in ArcGIS). Several fields match on their joined text |
+| `classBreaks` | a stepped expression per property on the renderer's field |
+
+The result is ordinary style JSON, so it opens in the Style editor's Categorized / Graduated modes. Also carried over: dash patterns (`line-dasharray`), the layer's `transparency` (as `fill-opacity` / `line-opacity`, since ArcGIS colours already hold their own alpha), a simple label field (`text-field`, `text-color`, `text-size`) and the service's `minScale` / `maxScale` as `minzoom` / `maxzoom`. Symbol sizes convert from points to pixels.
+
+Line-hatch fills (horizontal, vertical, forward / backward diagonal, cross, diagonal cross) are drawn as real hatches - see [Hatch fills](#hatch-fills-fill-pattern). Not everything survives: picture fills are drawn as a flat colour, picture and non-circle markers as circles, a dash pattern that differs per class uses one pattern, and heatmap and other renderer types are skipped. The creator lists what was approximated under the checkbox. Server-rendered raster output and static snapshots don't use this.
+
+#### Hatch fills (`fill-pattern`)
+
+A fill can be drawn as hatched lines by giving `fill-pattern` a hatch name: `"hatch|<kind>|<colour>|<spacing>|<width>"`, e.g. `"hatch|diagonal-cross|#000000|8|1"`.
+
+| Part | Values |
+|---|---|
+| `kind` | `horizontal`, `vertical`, `forward-diagonal` (`/`), `backward-diagonal` (`\`), `cross`, `diagonal-cross` |
+| `colour` | any hex or `rgb()` / `rgba()` colour (alpha is kept); the background stays transparent |
+| `spacing`, `width` | line spacing and line width in px; default `8` and `1` |
+
+There is no image to host: the map draws each hatch the first time a layer asks for it (the `styleimagemissing` event, supported by Mapbox GL JS and MapLibre), so `fill-pattern` also works as a data-driven expression, one image per distinct name. A pattern replaces `fill-color` for the polygons it covers, so to hatch only some classes put the pattern on its own style variant, scoped by a variant `filter`, over a plain fill that is transparent for those classes (this is what the ArcGIS import writes):
+
+```json
+"style": {
+  "hatch/filter": ["in", ["to-string", ["get", "use_zones"]], ["literal", ["G1", "G2"]]],
+  "hatch/fill-pattern": ["match", ["to-string", ["get", "use_zones"]], "G1", "hatch|forward-diagonal|#000000|8|1", "hatch|diagonal-cross|#000000|8|1"],
+  "fill-color": ["match", ["to-string", ["get", "use_zones"]], "R", "#f59e0b", "rgba(0, 0, 0, 0)"]
+}
+```
+
+Variants stack in reverse key order, so keys written first draw on top. Hover and selected highlights come from the plain fill underneath. Legends and thumbnails show the plain fill, so a hatched class appears as an outline only.
 
 #### Adding ArcGIS REST and WFS layers in the layer creator
 
