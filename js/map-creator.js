@@ -2265,6 +2265,7 @@ export class MapCreator {
 
     schedulePreview() {
         this.styleEditor.sync();
+        this.layerPage.refresh();
         clearTimeout(this._previewTimer);
         this._previewTimer = setTimeout(() => this.sendPreview(), 150);
     }

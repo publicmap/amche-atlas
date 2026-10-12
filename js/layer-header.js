@@ -20,8 +20,10 @@ export class LayerHeader {
      * @param {Object} options
      * @param {() => void} options.onClose - Close the whole panel
      * @param {(opacity: number) => void} [options.onOpacity] - The opacity slider moved
+     * @param {() => Object} [options.getConfig] - The layer as edited so far, for its shareable link
      */
-    constructor({ onClose, onOpacity } = {}) {
+    constructor({ onClose, onOpacity, getConfig } = {}) {
+        this.getConfig = getConfig;
         this._onClose = onClose || (() => {});
         this._onOpacity = onOpacity || (() => {});
         this.layer = null;
@@ -64,13 +66,10 @@ export class LayerHeader {
         this.layerId = layer.id || null;
         this.feature = feature;
 
-        $('#lh-thumbnail').empty().append(LayerThumbnail.generate(layer, 48));
-        $('#lh-title').text(layer.title || layer.id || 'Unknown Layer');
         $('#lh-zoom-feature').toggle(!!feature);
         $('#lh-export-selected').toggle(!!feature);
 
         this._renderBadges(layer);
-        this._renderUrl(layer);
         this._updateOpacityUI(layer.opacity);
         this._updateCompareButton();
         this._updateMaskButton();
@@ -89,10 +88,32 @@ export class LayerHeader {
 
     // -- badges and link -------------------------------------------------------
 
+    /**
+     * An atlas layer is linked by its id. A layer that exists only in the
+     * URL (a temporary one) has no id anyone else can resolve, so its link
+     * carries the layer's configuration.
+     */
+    _shareableLink(layer) {
+        const id = String($('#layer-id').val() || '').trim() || layer.id || 'no-id';
+        const atlasId = layer._sourceAtlas;
+        if (atlasId) {
+            return `${window.location.origin}/#${id.startsWith(`${atlasId}-`) ? id : `${atlasId}-${id}`}`;
+        }
+        const config = {};
+        Object.entries(this.getConfig?.() || layer).forEach(([key, value]) => {
+            if (!key.startsWith('_')) config[key] = value;
+        });
+        config.id = id;
+        const parentUrl = new URL(window.parent.location.href);
+        const params = new URLSearchParams();
+        ['renderer', 'atlas'].forEach(key => { if (parentUrl.searchParams.has(key)) params.set(key, parentUrl.searchParams.get(key)); });
+        const layers = encodeURIComponent(JSON.stringify(config).replace(/"/g, "'"));
+        return `${parentUrl.origin}${parentUrl.pathname}?${params.toString()}${params.size ? '&' : ''}layers=${layers}`;
+    }
+
     _renderBadges(layer) {
         const atlasId = layer._sourceAtlas;
         const layerId = layer.id || 'no-id';
-        const fullId = !atlasId || layerId.startsWith(`${atlasId}-`) ? `#${layerId}` : `#${atlasId}-${layerId}`;
         const copied = (selector, text) => {
             const $badge = $(selector);
             const original = $badge.text();
@@ -101,9 +122,13 @@ export class LayerHeader {
             return text;
         };
 
-        $('#lh-id-badge').text(fullId).off('click').on('click', () => {
-            navigator.clipboard.writeText(`${window.location.origin}/${fullId}`)
-                .then(() => copied('#lh-id-badge'))
+        $('#lh-copy-link').off('click').on('click', () => {
+            navigator.clipboard.writeText(this._shareableLink(layer))
+                .then(() => {
+                    const $icon = $('#lh-copy-link sl-icon');
+                    $icon.attr('name', 'check2');
+                    setTimeout(() => $icon.attr('name', 'link-45deg'), 1500);
+                })
                 .catch(err => console.error('Failed to copy URL:', err));
         });
 
@@ -135,23 +160,6 @@ export class LayerHeader {
         if (/^https?:\/\//i.test(atlasId)) return atlasId;
         if (meta?.isImported) return null;
         return `https://raw.githubusercontent.com/publicmap/amche-atlas/refs/heads/dev/config/${atlasId}.atlas.json`;
-    }
-
-    _renderUrl(layer) {
-        let url = layer.url || (layer.tiles && layer.tiles[0]) || (typeof layer.data === 'string' ? layer.data : '') || '';
-        if (!url && layer.source && typeof layer.source === 'object') url = layer.source.url || (layer.source.tiles && layer.source.tiles[0]) || '';
-
-        $('#lh-url-section').toggle(!!url);
-        if (!url) return;
-        $('#lh-url-input').val(url);
-        $('#lh-url-copy').off('click').on('click', () => {
-            $('#lh-url-input')[0].select();
-            navigator.clipboard.writeText(url).then(() => {
-                const $btn = $('#lh-url-copy span');
-                $btn.text('Copied!');
-                setTimeout(() => $btn.text('Copy URL'), 2000);
-            });
-        });
     }
 
     // -- opacity ---------------------------------------------------------------

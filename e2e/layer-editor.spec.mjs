@@ -56,6 +56,8 @@ async function openEditor(page) {
     await expect(frame.locator('#creator-heading')).toHaveText('Edit Map Layer');
     // seeded once the source has loaded
     await expect.poll(async () => frame.locator('#layer-id').inputValue(), { timeout: 30000 }).toBe('edit-test');
+    // the source has loaded
+    await expect(frame.locator('#config-preview')).toHaveValue(/"id": "edit-test"/, { timeout: 30000 });
     return frame;
 }
 
@@ -83,8 +85,9 @@ test('opens the editor on the layer with its source, details, inspect fields and
     expect(await frame.locator('#layer-description').inputValue()).toBe('A layer to edit');
     expect(await frame.locator('#layer-attribution').inputValue()).toBe('src.example.org');
 
-    // Inspect fields: the ones set on the layer are the ones shown, id and name included.
-    await expect(frame.locator('#data-fields-section')).toBeVisible();
+    // Inspect fields live in the data editor: the ones set on the layer are the ones shown, id and name included.
+    await frame.locator('#data-card .data-card-head').click();
+    await expect(frame.locator('#data-fields-section')).toBeVisible({ timeout: 30000 });
     expect(await frame.locator('#feature-id-field').inputValue()).toBe('id');
     expect(await frame.locator('#feature-name-field').inputValue()).toBe('name');
     const checked = await frame.locator('#inspect-fields-list input:checked').evaluateAll(els => els.map(e => e.value));
@@ -94,6 +97,7 @@ test('opens the editor on the layer with its source, details, inspect fields and
     const config = await configOf(frame);
     expect(config.style['fill-color']).toBe('#ff0000');
     expect(config.inspect).toMatchObject({ id: 'id', label: 'name', fields: ['name', 'kind'], fieldTitles: ['Name', 'Kind'] });
+    await frame.locator('#lh-thumbnail').click();
     await frame.locator('.spe-tab[data-tab="all"]').click();
     expect(await frame.locator('#advanced-style-editor .spe-name').allTextContents()).toEqual(expect.arrayContaining(['fill-color', 'fill-opacity', 'line-width']));
 
@@ -103,10 +107,11 @@ test('opens the editor on the layer with its source, details, inspect fields and
 
 test('Apply Changes replaces the layer in place, keeping its position in the stack', async ({ page }) => {
     await boot(page);
-    expect(await indexOf(page, 'edit-other')).toBeLessThan(await indexOf(page, 'edit-test'));
+    await expect.poll(async () => (await indexOf(page, 'edit-other')) < (await indexOf(page, 'edit-test')), { timeout: 20000 }).toBe(true);
 
     const frame = await openEditor(page);
     await frame.locator('#layer-title').fill('Renamed Layer');
+    await frame.locator('#desc-summary').click();
     await frame.locator('#layer-description').fill('Edited description');
     await expect.poll(async () => (await configOf(frame)).title).toBe('Renamed Layer');
     await expect.poll(() => titleOf(page, 'edit-test'), { timeout: 20000 }).toBe('Renamed Layer');
@@ -138,7 +143,7 @@ test('Cancel puts the original layer back, unchanged and in place', async ({ pag
     await expect.poll(() => titleOf(page, 'edit-test'), { timeout: 20000 }).toBe('Edit Test');
     expect(await groupsWith(page, 'edit-test')).toBe(1);
     expect(await groupsWith(page, 'edit-other')).toBe(1);
-    expect(await indexOf(page, 'edit-other')).toBeLessThan(await indexOf(page, 'edit-test'));
+    await expect.poll(async () => { const t = await indexOf(page, 'edit-test'); return t > 0 && (await indexOf(page, 'edit-other')) < t; }, { timeout: 20000 }).toBe(true);
 });
 
 test('replacing the source offers to keep the styling or restyle', async ({ page }) => {
@@ -172,47 +177,53 @@ test('replacing the source offers to keep the styling or restyle', async ({ page
 async function openOverview(page) {
     await page.evaluate((layer) => window.browserControl._openLayerInfo(layer), EDIT_LAYER);
     const frame = await creatorFrame(page);
-    await expect(frame.locator('#lh-title')).toHaveText('Edit Test', { timeout: 30000 });
+    await expect.poll(async () => frame.locator('#layer-title').inputValue(), { timeout: 30000 }).toBe('Edit Test');
     return frame;
 }
 
-test('layer info opens the editor on its Overview tab, and the Edit tab loads the form', async ({ page }) => {
+test('layer info opens one page: thumbnail, title, id and data, with sections that open on click', async ({ page }) => {
     await boot(page);
     const frame = await openOverview(page);
 
-    // One page: the layer's header and live actions, then Overview / Edit tabs.
     await expect(frame.locator('#layer-header')).toBeVisible();
-    await expect(frame.locator('#page-tabs')).toBeVisible();
-    await expect(frame.locator('#page-tab-overview')).toHaveClass(/page-tab-active/);
-    await expect(frame.locator('#creator-heading')).toHaveText('Layer');
+    await expect(frame.locator('#layer-actions')).toBeVisible();
+    await expect(frame.locator('#creator-heading')).toHaveText('Edit Map Layer');
+    expect(await frame.locator('#layer-id').inputValue()).toBe('edit-test');
     for (const id of ['#lh-compare', '#lh-isolate', '#lh-mask', '#lh-remove', '#lh-export-layer', '#lh-move-up', '#lh-move-down', '#lh-opacity']) {
         await expect(frame.locator(id)).toBeVisible();
     }
-
-    // Overview shows what the layer is; the form is not there yet and nothing has been swapped out.
-    await expect(frame.locator('#overview-tab')).toBeVisible();
-    await expect(frame.locator('#edit-tab')).toBeHidden();
-    await expect(frame.locator('#edit-footer')).toBeHidden();
-    await expect(frame.locator('#lo-description-content')).toHaveText('A layer to edit');
-    await expect(frame.locator('#lo-attribution-content')).toHaveText('src.example.org');
-    expect(await frame.locator('#lo-config-content').textContent()).toContain('"id": "edit-test"');
     expect(await groupsWith(page, 'edit-test')).toBe(1);
-    expect(await page.evaluate(() => !!window.browserControl._editSession)).toBe(false);
 
-    // The Edit tab is the form, filled in from the layer.
-    await frame.locator('#page-tab-edit').click();
-    await expect(frame.locator('#edit-tab')).toBeVisible();
-    await expect(frame.locator('#edit-footer')).toBeVisible();
-    await expect(frame.locator('#overview-tab')).toBeHidden();
-    await expect(frame.locator('#creator-heading')).toHaveText('Edit Map Layer');
-    await expect.poll(async () => frame.locator('#layer-id').inputValue(), { timeout: 30000 }).toBe('edit-test');
-    expect(await frame.locator('#layer-title').inputValue()).toBe('Edit Test');
-
-    // ...and back: the overview shows the layer as edited so far.
+    // Description: two lines and the attribution, until clicked.
+    await expect(frame.locator('#desc-summary-text')).toHaveText('A layer to edit');
+    await expect(frame.locator('#desc-summary-attribution')).toHaveText('src.example.org');
+    await expect(frame.locator('#desc-editor')).toBeHidden();
+    await frame.locator('#desc-summary').click();
+    await expect(frame.locator('#desc-editor')).toBeVisible();
+    await expect(frame.locator('#layer-description')).toHaveValue('A layer to edit');
+    await expect(frame.locator('#layer-attribution')).toHaveValue('src.example.org');
     await frame.locator('#layer-description').fill('Changed in the form');
     await expect.poll(async () => (await configOf(frame)).description).toBe('Changed in the form');
-    await frame.locator('#page-tab-overview').click();
-    await expect(frame.locator('#lo-description-content')).toHaveText('Changed in the form');
+    await frame.locator('#desc-done').click();
+    await expect(frame.locator('#desc-editor')).toBeHidden();
+    await expect(frame.locator('#desc-summary-text')).toHaveText('Changed in the form');
+
+    // Style: closed until the thumbnail is clicked.
+    await expect(frame.locator('#style-section')).toBeHidden();
+    await frame.locator('#lh-thumbnail').click();
+    await expect(frame.locator('#style-section')).toBeVisible();
+    await expect(frame.locator('#style-controls')).toBeVisible({ timeout: 30000 });
+    await frame.locator('#style-done').click();
+    await expect(frame.locator('#style-section')).toBeHidden();
+
+    // Data: collapsed to its link; clicking the card opens the editor, with the settings that go with the source.
+    await expect(frame.locator('#data-card')).toHaveClass(/is-collapsed/, { timeout: 30000 });
+    await expect(frame.locator('#data-settings')).toBeHidden();
+    await frame.locator('#data-card .data-card-head').click();
+    await expect(frame.locator('#data-settings')).toBeVisible();
+    await expect(frame.locator('#layer-type')).toBeVisible();
+    await frame.locator('#data-card .data-card-head').click();
+    await expect(frame.locator('#data-card')).toHaveClass(/is-collapsed/);
 });
 
 test('isolation is on while viewing and editing, and released when the panel closes', async ({ page }) => {
@@ -225,14 +236,11 @@ test('isolation is on while viewing and editing, and released when the panel clo
     await expect(frame.locator('#lh-isolate')).toContainText('Hiding Other Maps');
 
     // Editing swaps the layer for a draft on every change; the others stay dimmed.
-    await frame.locator('#page-tab-edit').click();
-    await expect.poll(async () => frame.locator('#layer-id').inputValue(), { timeout: 30000 }).toBe('edit-test');
     await frame.locator('#layer-title').fill('Draft Title');
     await expect.poll(() => titleOf(page, 'edit-test'), { timeout: 20000 }).toBe('Draft Title');
     expect(await isolated()).toBe(true);
 
     // It can be turned off, and back on.
-    await frame.locator('#page-tab-overview').click();
     await frame.locator('#lh-isolate').click();
     await expect.poll(isolated).toBe(false);
     await expect(frame.locator('#lh-isolate')).toContainText('Hide Other Maps');
@@ -250,7 +258,7 @@ test('the header\'s live actions work from the editor: layer order and opacity',
     await boot(page);
     const frame = await openOverview(page);
     // edit-other sits above edit-test: moving edit-test up swaps them.
-    expect(await indexOf(page, 'edit-other')).toBeLessThan(await indexOf(page, 'edit-test'));
+    await expect.poll(async () => { const t = await indexOf(page, 'edit-test'); return t > 0 && (await indexOf(page, 'edit-other')) < t; }, { timeout: 20000 }).toBe(true);
     await expect(frame.locator('#lh-move-up')).toBeEnabled({ timeout: 15000 });
     await frame.locator('#lh-move-up').click();
     await expect.poll(async () => (await indexOf(page, 'edit-test')) < (await indexOf(page, 'edit-other')), { timeout: 15000 }).toBe(true);

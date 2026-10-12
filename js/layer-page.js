@@ -1,78 +1,99 @@
 /**
- * The layer editor as one page for an existing layer (map-creator.html):
- * a header with the layer's identity and live actions, and two tabs - Overview
- * (what the layer is) and Edit (the form that adds or edits a layer).
+ * The layer editor as one page (map-creator.html), for a new layer and for an
+ * existing one: the layer's thumbnail, title and id, then its data source,
+ * description and style as sections that stay compact until clicked.
  *
- * A new layer has no header and no tabs, just the Edit form; opening an
- * existing layer shows the same page with the header, on whichever tab was
- * asked for. The edit session (source, live preview, Apply / Cancel) starts
- * the first time the Edit tab is shown.
+ * - The thumbnail opens the style editor.
+ * - The data card (js/data-card.js) shows the link; clicking it opens the data
+ *   source editor, with the output and field settings that go with the source.
+ * - The description card (js/description-card.js) shows two lines of the
+ *   description and one of the attribution; clicking it opens them as text.
+ *
+ * An existing layer also gets the header's live actions (js/layer-header.js)
+ * and starts an edit session (source, live preview, Apply / Cancel) at once.
  */
 
 import { LayerHeader } from './layer-header.js';
-import { renderOverview, bindOverview } from './layer-overview.js';
+import { LayerThumbnail } from './layer-thumbnail.js';
+import { DescriptionCard } from './description-card.js';
+import { renderOverview } from './layer-overview.js';
 
 export class LayerPage {
     constructor(creator) {
         this.creator = creator;
         this.active = false;
         this.layer = null;
-        this.tab = 'edit';
+        this.description = new DescriptionCard();
         this.header = new LayerHeader({
             onClose: () => creator.closeBrowser(),
-            onOpacity: () => { if (this.tab === 'overview') this._renderOverview(); }
+            onOpacity: () => this.refresh(),
+            getConfig: () => this.currentConfig()
         });
     }
 
     init() {
         this.header.bind();
-        bindOverview();
-        $('#page-tab-overview').on('click', () => this.showTab('overview'));
-        $('#page-tab-edit').on('click', () => this.showTab('edit'));
+        this.description.init();
+        $('#lh-thumbnail').on('click', () => this.setStyleOpen(!this.styleOpen));
+        $('#style-done').on('click', () => this.setStyleOpen(false));
         // Renaming the layer in the form: keep isolation and ordering on the right layer.
         $('#layer-id').on('change', (event) => this.header.setLayerId(event.target.value.trim()));
+
+        // A new layer has nothing to look at yet, so its style editor starts open.
+        this.setStyleOpen(true);
+        this.refresh();
     }
 
     /**
      * Open an existing layer.
      * @param {Object} layer
-     * @param {{tab?: 'overview'|'edit', feature?: Object|null}} [options]
+     * @param {{tab?: 'edit'|'style'|'data', feature?: Object|null}} [options] which section to open first
      */
-    open(layer, { tab = 'overview', feature = null } = {}) {
+    open(layer, { tab = 'edit', feature = null } = {}) {
         this.active = true;
         this.layer = layer;
-        $('#layer-header, #page-tabs').removeClass('hidden');
+        $('#edit-tab, #edit-footer, #layer-actions').removeClass('hidden');
         this.header.render(layer, { feature });
-        this.showTab(tab === 'edit' ? 'edit' : 'overview');
+
+        $('#layer-title').val(layer.title || layer.id || '');
+        $('#layer-id').val(layer.id || '');
+        $('#layer-description').val(layer.description || '');
+        $('#layer-attribution').val(layer.attribution || '');
+        $('#creator-heading').text('Edit Map Layer');
+
+        this.setStyleOpen(tab === 'style');
+        if (!this.creator.edit.active) this.creator.edit.start(layer);
+        if (tab === 'data') this.creator.dataCard.setCollapsed(false);
+        this.refresh();
     }
 
-    showTab(tab) {
-        this.tab = tab;
-        const editing = tab === 'edit';
-        $('#page-tab-overview').toggleClass('page-tab-active', !editing);
-        $('#page-tab-edit').toggleClass('page-tab-active', editing);
-        $('#overview-tab').toggleClass('hidden', editing);
-        $('#edit-tab, #edit-footer').toggleClass('hidden', !editing);
-        $('#creator-heading').text(editing ? 'Edit Map Layer' : 'Layer');
-
-        if (editing) {
-            if (!this.creator.edit.active) this.creator.edit.start(this.layer);
-        } else {
-            this._renderOverview();
-        }
+    get styleOpen() {
+        return !$('#style-section').hasClass('hidden');
     }
 
-    // While an edit is in progress the overview shows the layer as edited so far.
+    setStyleOpen(open) {
+        $('#style-section').toggleClass('hidden', !open);
+        $('#lh-thumbnail').toggleClass('is-open', open);
+        if (open) this.creator.styleEditor.sync();
+    }
+
+    // The layer as edited so far.
     currentConfig() {
-        if (this.creator.edit.active) {
-            try {
-                return { ...this.layer, ...JSON.parse($('#config-preview').val()) };
-            } catch (error) { /* mid-edit invalid JSON: fall back to the layer */ }
-        }
-        return this.layer;
+        try {
+            const parsed = JSON.parse($('#config-preview').val());
+            if (parsed && typeof parsed === 'object') return { ...this.layer, ...parsed };
+        } catch (error) { /* no config yet, or invalid JSON mid-edit */ }
+        return this.layer || {};
     }
 
-    _renderOverview() {
-        renderOverview(this.currentConfig());
+    /** Redraw what is derived from the form: thumbnail, description summary, legend and metadata. */
+    refresh() {
+        this.description.refresh();
+        const config = this.currentConfig();
+        const key = JSON.stringify(config);
+        if (key === this._renderedKey) return;
+        this._renderedKey = key;
+        $('#lh-thumbnail').empty().append(LayerThumbnail.generate(config, 54, { interactive: false, actionGlyph: '🎨' }));
+        renderOverview(config);
     }
 }

@@ -1,7 +1,6 @@
 /**
- * The layer editor's Overview tab: what a layer is, as it stands - its
- * description, attribution, legend, metadata and raw configuration. Read-only;
- * changing any of it is the Edit tab.
+ * The layer editor's read-only notes on a layer: its legend and metadata. The
+ * description, attribution and configuration are editable in their own sections.
  */
 
 import { LayerLegend } from './layer-legend.js';
@@ -18,20 +17,9 @@ function infoItem(key, value) {
     return $item;
 }
 
-function displayConfig(layer) {
-    const filtered = { ...layer };
-    delete filtered._originalJson;
-    return JSON.stringify(filtered, null, 2);
-}
-
-/** Fill the Overview tab from a layer config. */
+/** Fill the legend and metadata from a layer config. */
 export function renderOverview(layer) {
-    $('#lo-description-content, #lo-legend-content, #lo-metadata-content, #lo-attribution-content').empty();
-
-    $('#lo-description-content').html(layer.description || '<span class="text-gray-500">No description.</span>');
-
-    $('#lo-attribution-section').toggle(!!layer.attribution);
-    if (layer.attribution) $('#lo-attribution-content').html(layer.attribution);
+    $('#lo-legend-content, #lo-metadata-content').empty();
 
     const legend = LayerLegend.generate(layer);
     $('#lo-legend-section').toggle(!!legend);
@@ -44,16 +32,4 @@ export function renderOverview(layer) {
     if (layer.opacity !== undefined) metadata['Opacity'] = `${Math.round(layer.opacity * 100)}%`;
     $('#lo-metadata-section').toggle(Object.keys(metadata).length > 0);
     Object.entries(metadata).forEach(([key, value]) => $('#lo-metadata-content').append(infoItem(key, value)));
-
-    $('#lo-config-content').text(displayConfig(layer));
-}
-
-export function bindOverview() {
-    $('#lo-config-copy').on('click', () => {
-        navigator.clipboard.writeText($('#lo-config-content').text()).then(() => {
-            const $label = $('#lo-config-copy span');
-            $label.text('Copied!');
-            setTimeout(() => $label.text('Copy'), 2000);
-        }).catch(err => console.error('Failed to copy configuration:', err));
-    });
 }

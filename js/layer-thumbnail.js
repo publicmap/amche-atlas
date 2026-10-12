@@ -23,7 +23,7 @@ export class LayerThumbnail {
      * @returns {HTMLElement} Thumbnail element
      */
     static generate(layer, size = 80, options = {}) {
-        const { isInView = true, hasFeatures = true, layerDefaults = {}, interactive = true, title = null } = options;
+        const { isInView = true, hasFeatures = true, layerDefaults = {}, interactive = true, title = null, actionGlyph = 'ℹ️' } = options;
         // Same priority everywhere this is used: a curated headerImage wins,
         // then a curated legendImage, then an auto-generated preview (sample
         // tile for raster layers, or a style-derived/default SVG).
@@ -149,7 +149,7 @@ export class LayerThumbnail {
             transition: opacity 0.2s ease;
             pointer-events: none;
         `;
-        actionIcon.textContent = 'ℹ️';
+        actionIcon.textContent = actionGlyph;
         if (isInView) {
             container.appendChild(actionIcon);
         }

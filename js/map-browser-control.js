@@ -514,7 +514,7 @@ export class MapBrowserControl {
 
     // "Layer info" is the editor's Overview tab; "edit" is its Edit tab.
     _openLayerInfo(layer, options = {}) {
-        this.openLayerEditor(layer, { tab: options.edit ? 'edit' : 'overview', feature: options.feature || null });
+        this.openLayerEditor(layer, { tab: 'edit', feature: options.feature || null });
     }
 
     /**

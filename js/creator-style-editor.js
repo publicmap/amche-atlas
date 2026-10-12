@@ -41,7 +41,7 @@ export class CreatorStyleEditor {
     /** Reseed from the Configuration JSON after the creator regenerates it. */
     sync() {
         if (!this.editor || this._applying) return;
-        $('#advanced-style-section').toggle($('#style-controls').is(':visible'));
+        $('#advanced-style-section').toggle($('#style-controls').css('display') !== 'none');
         const config = this._currentConfig();
         if (config) this.editor.setLayer(config);
     }

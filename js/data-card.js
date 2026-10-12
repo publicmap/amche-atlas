@@ -24,9 +24,9 @@ export class DataCard {
             event.stopPropagation();
             this.setCollapsed(!this._collapsed);
         });
-        // The whole header opens a collapsed card, as the Edit button does.
+        // The whole header opens or closes the card, as the Edit button does.
         $('#data-card .data-card-head').on('click', (event) => {
-            if (this._collapsible && this._collapsed && !$(event.target).closest('#data-card-toggle').length) this.setCollapsed(false);
+            if (this._collapsible && !$(event.target).closest('#data-card-toggle').length) this.setCollapsed(!this._collapsed);
         });
 
         $('#url-input').on('input', () => this.refresh());

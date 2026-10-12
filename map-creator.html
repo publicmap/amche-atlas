@@ -73,6 +73,7 @@
             color: #f3f4f6;
         }
 
+        #settings-section.is-disabled,
         .section-box.is-disabled {
             opacity: 0.55;
             pointer-events: none;
@@ -436,31 +437,136 @@
             height: 20px;
         }
 
-        .page-tabs {
-            display: flex;
-            gap: 4px;
-            border-bottom: 1px solid #374151;
-            margin-bottom: 16px;
+        .lh-thumb {
+            width: 56px;
+            height: 56px;
+            padding: 0;
+            border: 1px solid #4b5563;
+            border-radius: 8px;
+            background: transparent;
+            cursor: pointer;
+            flex-shrink: 0;
+            overflow: hidden;
         }
 
-        .page-tab {
-            font-size: 13px;
-            font-weight: 600;
+        .lh-thumb:hover,
+        .lh-thumb.is-open {
+            border-color: #3b82f6;
+        }
+
+        .section-box input.lh-title-input {
+            width: 100%;
+            font-size: 16px;
+            font-weight: 700;
+            line-height: 1.25;
+            padding: 3px 6px;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 6px;
+        }
+
+        .section-box input.lh-id-input {
+            flex: 1;
+            min-width: 0;
+            font-family: ui-monospace, monospace;
+            font-size: 12px;
+            padding: 2px 6px;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 6px;
             color: #9ca3af;
+        }
+
+        .section-box input.lh-title-input:hover,
+        .section-box input.lh-id-input:hover,
+        .section-box input.lh-title-input:focus,
+        .section-box input.lh-id-input:focus {
+            background: #111827;
+            border-color: #4b5563;
+        }
+
+        .lh-hash {
+            color: #6b7280;
+            font-size: 12px;
+        }
+
+        .lh-icon-btn {
             background: transparent;
             border: 0;
-            border-bottom: 2px solid transparent;
-            padding: 8px 14px;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 2px 4px;
+        }
+
+        .lh-icon-btn:hover {
+            color: #fff;
+        }
+
+        .desc-card {
+            padding: 0;
+        }
+
+        .desc-summary {
+            display: block;
+            width: 100%;
+            text-align: left;
+            background: transparent;
+            border: 0;
+            padding: 14px 16px;
+            cursor: pointer;
+            color: #d1d5db;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .desc-summary:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .desc-clamp-2,
+        .desc-clamp-1 {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            word-break: break-word;
+        }
+
+        .desc-clamp-2 {
+            -webkit-line-clamp: 2;
+        }
+
+        .desc-clamp-1 {
+            -webkit-line-clamp: 1;
+            margin-top: 2px;
+            color: #9ca3af;
+            font-size: 12px;
+        }
+
+        .desc-empty {
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        #desc-editor {
+            padding: 14px 16px;
+        }
+
+        .section-done-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            color: #93c5fd;
+            background: transparent;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            padding: 3px 10px;
             cursor: pointer;
         }
 
-        .page-tab:hover {
-            color: #e5e7eb;
-        }
-
-        .page-tab-active {
+        .section-done-btn:hover {
             color: #fff;
-            border-bottom-color: #3b82f6;
+            border-color: #3b82f6;
         }
 
         @keyframes spin {
@@ -492,27 +598,24 @@
         <!-- Content -->
         <div class="flex-1 overflow-y-auto scrollbar-thin p-4" style="background:#111827;">
             <!-- An existing layer: its identity and live actions, then Overview / Edit tabs -->
-            <div id="layer-header" class="hidden mb-3">
-                <div class="flex gap-3 items-center">
-                    <div class="flex-shrink-0" id="lh-thumbnail"></div>
+            <!-- The layer: thumbnail (opens style), title, id; actions for an existing layer -->
+            <div id="layer-header" class="section-box">
+                <div class="flex gap-3 items-start">
+                    <button type="button" id="lh-thumbnail" class="lh-thumb" title="Edit style"></button>
                     <div class="flex-1 min-w-0">
-                        <h2 class="text-base font-bold text-gray-50 mb-1 leading-tight truncate" id="lh-title"></h2>
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                            <button type="button" class="atlas-badge-chip" id="lh-atlas-badge" title="Click to copy atlas config link" style="display: none;"></button>
-                            <button type="button" class="layer-id-badge" id="lh-id-badge" title="Click to copy shareable link"></button>
-                            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-700 rounded text-[10px] font-semibold text-gray-300 uppercase tracking-wide" id="lh-type-badge"></div>
+                        <input type="text" id="layer-title" placeholder="Layer title" class="lh-title-input" aria-label="Title">
+                        <div class="flex items-center gap-1 mt-1">
+                            <span class="lh-hash">#</span>
+                            <input type="text" id="layer-id" placeholder="layer-id" class="lh-id-input" aria-label="Layer ID">
+                            <button type="button" class="lh-icon-btn" id="lh-copy-link" title="Copy shareable link"><sl-icon name="link-45deg"></sl-icon></button>
                         </div>
-                        <div id="lh-url-section" class="mt-2" style="display: none;">
-                            <div class="flex gap-2 items-center">
-                                <input type="text" id="lh-url-input" readonly class="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-xs text-gray-200 font-mono">
-                                <button type="button" id="lh-url-copy" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium whitespace-nowrap">
-                                    <span>Copy URL</span>
-                                </button>
-                            </div>
+                        <div class="flex items-center gap-1.5 flex-wrap mt-1.5">
+                            <button type="button" class="atlas-badge-chip" id="lh-atlas-badge" title="Click to copy atlas config link" style="display: none;"></button>
+                            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-700 rounded text-[10px] font-semibold text-gray-300 uppercase tracking-wide" id="lh-type-badge"></div>
                         </div>
                     </div>
                 </div>
-
+                <div id="layer-actions" class="hidden">
                 <div class="flex items-center gap-2 mt-2.5">
                     <sl-icon name="circle-half" style="color: #9ca3af; font-size: 13px; flex-shrink: 0;"></sl-icon>
                     <input type="range" id="lh-opacity" min="0" max="100" value="100" class="flex-1">
@@ -569,48 +672,14 @@
                         <sl-icon name="trash"></sl-icon><span>Remove</span>
                     </button>
                 </div>
-            </div>
-
-            <div id="page-tabs" class="page-tabs hidden" role="tablist">
-                <button type="button" id="page-tab-overview" class="page-tab" role="tab">Overview</button>
-                <button type="button" id="page-tab-edit" class="page-tab" role="tab">Edit</button>
-            </div>
-
-            <!-- Overview: the layer as it stands -->
-            <div id="overview-tab" class="hidden">
-                <div id="lo-description-section" class="section-box">
-                    <h3 class="text-sm font-bold mb-2">Description</h3>
-                    <div class="text-sm leading-relaxed" style="color:#d1d5db;" id="lo-description-content"></div>
-                </div>
-                <div id="lo-attribution-section" class="section-box" style="display:none;">
-                    <h3 class="text-sm font-bold mb-2">Attribution</h3>
-                    <div class="text-sm leading-relaxed" style="color:#d1d5db;" id="lo-attribution-content"></div>
-                </div>
-                <div id="lo-legend-section" class="section-box" style="display:none;">
-                    <h3 class="text-sm font-bold mb-2">Legend</h3>
-                    <div id="lo-legend-content"></div>
-                </div>
-                <div id="lo-metadata-section" class="section-box" style="display:none;">
-                    <h3 class="text-sm font-bold mb-2">Metadata</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="lo-metadata-content"></div>
-                </div>
-                <div class="section-box">
-                    <div class="flex items-center mb-2">
-                        <h3 class="text-sm font-bold">Raw Configuration</h3>
-                        <button type="button" id="lo-config-copy" class="ml-auto px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">
-                            <span>Copy</span>
-                        </button>
-                    </div>
-                    <pre id="lo-config-content" class="rounded-lg p-3 font-mono text-xs overflow-x-auto leading-relaxed" style="background:#0b1220;color:#e5e7eb;max-height:24rem;"></pre>
                 </div>
             </div>
 
-            <!-- Edit: the form that adds a layer or edits one -->
+            <!-- Notes from the layer: the form follows -->
             <div id="edit-tab">
             <!-- Section 1: Pick a Data Source -->
             <div class="section-box">
                 <h2 class="text-md font-bold mb-1 flex items-center">
-                    <span class="step-pill">1</span>
                     <span id="source-step-title">Choose your data source</span>
                 </h2>
                 <p class="step-hint" id="source-step-hint">Paste a link to your data, or upload a file from your computer.</p>
@@ -907,76 +976,8 @@
                             class="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold transition-colors">
                             Load Data →
                         </button>
-                    </div>
-                </div>
 
-                <!-- Edit mode: shown once the layer's data source has been replaced -->
-                <div id="edit-style-choice" class="hidden mt-3 p-3 rounded-lg"
-                    style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.35);">
-                    <div class="text-sm font-semibold mb-2" style="color:#bfdbfe;">The data source changed. What about the styling?</div>
-                    <label class="flex items-start gap-2 cursor-pointer select-none text-sm mb-1">
-                        <input type="radio" name="edit-style-choice" value="keep" class="w-4 h-4 mt-0.5" checked>
-                        <span><strong>Keep current styling</strong>
-                            <span class="block text-xs text-gray-500">The layer's style, filters and settings stay as they are.</span></span>
-                    </label>
-                    <label class="flex items-start gap-2 cursor-pointer select-none text-sm">
-                        <input type="radio" name="edit-style-choice" value="restyle" class="w-4 h-4 mt-0.5">
-                        <span><strong>Restyle layer</strong>
-                            <span class="block text-xs text-gray-500">A best-guess style from the new data: its geometry, the service's own styling if it has one, and the atlas defaults.</span></span>
-                    </label>
-                </div>
-
-                <!-- Data Preview (GeoJSON only) -->
-                <details class="mt-4" id="data-preview-details" style="display: none;">
-                    <summary class="cursor-pointer text-sm font-medium py-2" style="color:#d1d5db;">
-                        <span id="preview-summary">Data Preview</span>
-                    </summary>
-                    <div class="mt-2">
-                        <textarea id="geojson-editor" rows="10"
-                            placeholder='{"type": "FeatureCollection", "features": []}'
-                            class="w-full px-3 py-2 rounded font-mono text-xs mb-2"></textarea>
-                        <div class="flex gap-2">
-                            <button type="button" id="preview-geojson-io-btn"
-                                class="flex-1 px-4 py-2 rounded flex items-center justify-center gap-2 text-sm transition-colors"
-                                style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;">
-                                <span>↗</span> Preview in GeoJSON.io
-                            </button>
-                            <button type="button" id="download-geojson-btn"
-                                class="flex-1 px-4 py-2 rounded flex items-center justify-center gap-2 text-sm transition-colors"
-                                style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;">
-                                <span>⬇</span> Download GeoJSON
-                            </button>
-                        </div>
-                    </div>
-                </details>
-            </div>
-
-            <!-- Section 2: Layer Settings -->
-            <div class="section-box is-disabled" id="settings-section">
-                <h2 class="text-md font-bold mb-1 flex items-center">
-                    <span class="step-pill">2</span>
-                    Customize your layer
-                </h2>
-                <p class="step-hint" id="settings-step-hint">Load data above to fill in the details.</p>
-
-                <!-- Layer Info Section -->
-                <div>
-                    <h3 class="text-sm font-semibold mb-3">Layer Info</h3>
-
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium mb-2">Title *</label>
-                        <input type="text" id="layer-title" placeholder="My Custom Layer"
-                            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium mb-2">ID *</label>
-                        <input type="text" id="layer-id" placeholder="my-custom-layer-01"
-                            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm">
-                        <div class="text-xs text-gray-500 mt-1">Unique identifier for this layer (auto-generated from
-                            title)</div>
-                    </div>
-
+                    <div id="data-settings" class="mt-4 pt-4 border-t border-gray-700">
                     <div class="mb-4">
                         <label class="block text-sm font-medium mb-2">Type *</label>
                         <select id="layer-type"
@@ -1041,18 +1042,6 @@
                             Title, description, and attribution below are for this preview only — dynamic layers
                             re-generate them from OpenStreetMap on every load.
                         </div>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium mb-2">Description</label>
-                        <textarea id="layer-description" rows="2" placeholder="Optional description"
-                            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium mb-2">Attribution</label>
-                        <textarea id="layer-attribution" rows="2" placeholder="Optional attribution (HTML allowed)"
-                            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
                     </div>
 
                     <div class="mb-4" id="source-layer-field-container" style="display: none;">
@@ -1132,10 +1121,8 @@
                             </div>
                         </div>
                     </div>
-                </div>
-
                 <!-- Save Notes (Google Sheets only) -->
-                <div id="save-notes-section" class="mt-4 pt-4 border-t border-gray-200" style="display: none;">
+                <div id="save-notes-section" class="mt-2" style="display: none;">
                     <label class="flex items-center gap-2 cursor-pointer select-none">
                         <input type="checkbox" id="enable-save-notes" class="w-4 h-4 align-middle">
                         <span class="text-sm font-semibold">Enable saving notes back to this sheet</span>
@@ -1190,9 +1177,76 @@
                     </div>
                 </div>
 
+                    </div>
+                    </div>
+                </div>
+
+                <!-- Edit mode: shown once the layer's data source has been replaced -->
+                <div id="edit-style-choice" class="hidden mt-3 p-3 rounded-lg"
+                    style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.35);">
+                    <div class="text-sm font-semibold mb-2" style="color:#bfdbfe;">The data source changed. What about the styling?</div>
+                    <label class="flex items-start gap-2 cursor-pointer select-none text-sm mb-1">
+                        <input type="radio" name="edit-style-choice" value="keep" class="w-4 h-4 mt-0.5" checked>
+                        <span><strong>Keep current styling</strong>
+                            <span class="block text-xs text-gray-500">The layer's style, filters and settings stay as they are.</span></span>
+                    </label>
+                    <label class="flex items-start gap-2 cursor-pointer select-none text-sm">
+                        <input type="radio" name="edit-style-choice" value="restyle" class="w-4 h-4 mt-0.5">
+                        <span><strong>Restyle layer</strong>
+                            <span class="block text-xs text-gray-500">A best-guess style from the new data: its geometry, the service's own styling if it has one, and the atlas defaults.</span></span>
+                    </label>
+                </div>
+
+                <!-- Data Preview (GeoJSON only) -->
+                <details class="mt-4" id="data-preview-details" style="display: none;">
+                    <summary class="cursor-pointer text-sm font-medium py-2" style="color:#d1d5db;">
+                        <span id="preview-summary">Data Preview</span>
+                    </summary>
+                    <div class="mt-2">
+                        <textarea id="geojson-editor" rows="10"
+                            placeholder='{"type": "FeatureCollection", "features": []}'
+                            class="w-full px-3 py-2 rounded font-mono text-xs mb-2"></textarea>
+                        <div class="flex gap-2">
+                            <button type="button" id="preview-geojson-io-btn"
+                                class="flex-1 px-4 py-2 rounded flex items-center justify-center gap-2 text-sm transition-colors"
+                                style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;">
+                                <span>↗</span> Preview in GeoJSON.io
+                            </button>
+                            <button type="button" id="download-geojson-btn"
+                                class="flex-1 px-4 py-2 rounded flex items-center justify-center gap-2 text-sm transition-colors"
+                                style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;">
+                                <span>⬇</span> Download GeoJSON
+                            </button>
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- Layer settings: description, style, configuration -->
+            <div id="settings-section">
+                <div id="description-card" class="section-box desc-card">
+                    <button type="button" id="desc-summary" class="desc-summary" title="Edit description and attribution">
+                        <div id="desc-summary-text" class="desc-clamp-2"></div>
+                        <div id="desc-summary-attribution" class="desc-clamp-1"></div>
+                    </button>
+                    <div id="desc-editor" class="hidden">
+                        <label class="block text-sm font-medium mb-2">Description</label>
+                        <textarea id="layer-description" rows="6" placeholder="Optional description"
+                            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"></textarea>
+                        <label class="block text-sm font-medium mb-2">Attribution</label>
+                        <textarea id="layer-attribution" rows="3" placeholder="Optional attribution (HTML allowed)"
+                            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        <button type="button" id="desc-done" class="section-done-btn mt-2"><sl-icon name="check2"></sl-icon> Done</button>
+                    </div>
+                </div>
+
+                <div id="style-section" class="section-box hidden">
+                    <div class="flex items-center mb-3">
+                        <h3 class="text-sm font-semibold">Style</h3>
+                        <button type="button" id="style-done" class="section-done-btn ml-auto"><sl-icon name="check2"></sl-icon> Done</button>
+                    </div>
                 <!-- Style Section -->
                 <div id="style-controls" class="mt-4 pt-4 border-t border-gray-200">
-                    <h3 class="text-sm font-semibold mb-3">Style</h3>
                     <div id="geometry-type-info" class="mb-3 text-xs text-gray-600"></div>
 
                     <!-- Style type picker -->
@@ -1365,9 +1419,19 @@
                         <div id="advanced-style-editor"></div>
                     </details>
                 </div>
+                </div>
 
-                <!-- Configuration JSON Section -->
-                <div class="mt-4 pt-4 border-t border-gray-200">
+                <div id="lo-legend-section" class="section-box" style="display:none;">
+                    <h3 class="text-sm font-bold mb-2">Legend</h3>
+                    <div id="lo-legend-content"></div>
+                </div>
+                <div id="lo-metadata-section" class="section-box" style="display:none;">
+                    <h3 class="text-sm font-bold mb-2">Metadata</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="lo-metadata-content"></div>
+                </div>
+
+                <div class="section-box">
+
                     <div class="mb-4">
                         <div class="flex items-center justify-between mb-2">
                             <label class="block text-sm font-medium">Configuration JSON</label>
