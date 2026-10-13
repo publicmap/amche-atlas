@@ -11,15 +11,16 @@ export class MapControlBar {
         this._observer = null;
         this._layers = null;
         this._summaryEl = null;
-        this._summaryTextEl = null;
-        this._summaryKey = null;
         this._onAtlasChanged = () => this.update(this._layers);
     }
 
-    mount(hostEl, { triggerButton = null, onSummaryClick = null, onSummaryEnter = null, onSummaryLeave = null } = {}) {
+    mount(hostEl, { triggerButton = null, onSummaryClick = null, onSummaryEnter = null, onSummaryLeave = null, onToggleHidden = null, searchEl = null } = {}) {
         this._trigger = triggerButton;
         this._el = document.createElement('div');
         this._el.className = 'map-control-bar';
+
+        this._el.addEventListener('pointerenter', () => onSummaryEnter?.());
+        this._el.addEventListener('pointerleave', () => onSummaryLeave?.());
 
         this._main = document.createElement('button');
         this._main.type = 'button';
@@ -47,14 +48,18 @@ export class MapControlBar {
         this._nameEl.className = 'map-control-bar-name';
         this._countEl = document.createElement('span');
         this._countEl.className = 'map-control-bar-count';
-        this._mountSummary({ onSummaryClick, onSummaryEnter, onSummaryLeave });
+        this._mountSummary({ onSummaryClick, onSummaryEnter, onSummaryLeave, onToggleHidden });
         text.append(this._nameEl);
         const chevron = document.createElement('sl-icon');
         chevron.className = 'map-control-bar-chevron';
         chevron.name = 'chevron-down';
         this._main.append(iconWrap, text, chevron);
 
-        this._el.append(this._main, this._countEl);
+        const head = document.createElement('div');
+        head.className = 'map-control-bar-head';
+        head.append(this._main);
+        if (searchEl) head.append(searchEl);
+        this._el.append(head, this._countEl);
         hostEl.appendChild(this._el);
         hostEl.classList.add('has-map-control-bar');
 
@@ -75,6 +80,7 @@ export class MapControlBar {
     update(layers) {
         if (!this._el) return;
         this._layers = layers;
+        this._syncClearMode();
         const registry = window.layerRegistry;
         const resolved = registry?._currentAtlasSet;
         const atlasId = resolved ? registry.getCurrentAtlas() : null;
@@ -84,12 +90,13 @@ export class MapControlBar {
         this._nameEl.textContent = name || 'Loading Atlas';
         this._nameEl.classList.toggle('placeholder', !name);
         this._main.title = name ? `${name} - browse all maps` : 'Browse all maps';
-        this._setSummary(layers);
+        const count = (layers || []).length;
+        this._summaryTitleEl.textContent = `${count} ${count === 1 ? 'Map' : 'Maps'}`;
         this._setIcon(metadata?.icon || null);
         this._setBackground(metadata?.headerImage || null);
     }
 
-    _mountSummary({ onSummaryClick, onSummaryEnter, onSummaryLeave }) {
+    _mountSummary({ onSummaryClick, onSummaryEnter, onSummaryLeave, onToggleHidden }) {
         const summary = document.createElement('span');
         summary.className = 'map-control-bar-summary';
         summary.setAttribute('role', 'button');
@@ -97,8 +104,9 @@ export class MapControlBar {
         summary.title = 'Edit layers';
         const icon = document.createElement('sl-icon');
         icon.name = 'stack';
-        this._summaryTextEl = document.createElement('span');
-        summary.append(icon, this._summaryTextEl);
+        const title = document.createElement('span');
+        title.textContent = '0 Maps';
+        summary.append(icon, title);
         const activate = (e) => {
             e.stopPropagation();
             onSummaryClick?.();
@@ -115,7 +123,114 @@ export class MapControlBar {
         summary.addEventListener('focus', () => onSummaryEnter?.());
         summary.addEventListener('blur', () => onSummaryLeave?.());
         this._summaryEl = summary;
-        this._countEl.appendChild(summary);
+        this._summaryTitleEl = title;
+        this._mountHiddenToggle(onToggleHidden);
+        this._clearBtn = this._createAction('', 'trash', '', () => this._onClearClick());
+        this._clearIcon = this._clearBtn.querySelector('sl-icon');
+        this._undoStack = [];
+        this._undoTimer = null;
+        this._undoActive = false;
+        this._undoExpired = false;
+        this._setClearMode('remove');
+        const group = document.createElement('span');
+        group.className = 'map-control-bar-summary-group';
+        group.append(summary, this._hiddenEl);
+        this._countEl.append(
+            group,
+            this._createAction('Add Map', 'plus-lg', 'Create or import a map', () => window.browserControl?.openCreator()),
+            this._clearBtn
+        );
+    }
+
+    _setClearMode(mode) {
+        this._clearMode = mode;
+        const undo = mode === 'undo';
+        this._clearIcon.name = undo ? 'arrow-counterclockwise' : 'trash';
+        const title = undo ? 'Restore removed maps' : 'Remove all maps (basemaps go once nothing else is left)';
+        this._clearBtn.title = title;
+        this._clearBtn.setAttribute('aria-label', title);
+    }
+
+    _armUndoTimer() {
+        this._undoActive = true;
+        clearTimeout(this._undoTimer);
+        this._undoTimer = setTimeout(() => {
+            this._undoStack = [];
+            this._undoActive = false;
+            this._undoExpired = true;
+            this._syncClearMode();
+        }, 5000);
+    }
+
+    _syncClearMode() {
+        const empty = Array.isArray(this._layers) && this._layers.every(l => l.id === 'selection');
+        if (!empty) this._undoExpired = false;
+        this._setClearMode(this._undoActive || (empty && !this._undoExpired) ? 'undo' : 'remove');
+    }
+
+    _onClearClick() {
+        const control = window.browserControl;
+        if (!control) return;
+        if (this._clearMode === 'undo') {
+            const batch = this._undoStack.pop();
+            if (batch) batch.forEach(layerId => control._handleLayerToggle(layerId, true));
+            else control.restoreDefaultLayers();
+            if (this._undoStack.length) this._armUndoTimer();
+            else {
+                clearTimeout(this._undoTimer);
+                this._undoActive = false;
+                this._undoExpired = false;
+            }
+            this._syncClearMode();
+            return;
+        }
+        const { removed, exhausted } = control.hideAllLayers({ basemapsWhenEmpty: true });
+        if (removed.length) this._undoStack.push(removed);
+        if (exhausted && this._undoStack.length) this._armUndoTimer();
+        this._setClearMode(exhausted ? 'undo' : 'remove');
+    }
+
+    _mountHiddenToggle(onToggleHidden) {
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'map-control-bar-hidden-toggle';
+        toggle.hidden = true;
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onToggleHidden?.(!this._hiddenShown);
+        });
+        this._hiddenEl = toggle;
+        this._hiddenShown = false;
+    }
+
+    setHidden(count, shown) {
+        if (!this._hiddenEl) return;
+        this._hiddenShown = !!shown;
+        this._hiddenEl.hidden = !count;
+        this._hiddenEl.textContent = `${count} hidden`;
+        this._hiddenEl.classList.toggle('active', !!shown);
+        this._hiddenEl.title = shown ? 'Hide maps with no features in view' : 'Show maps with no features in view';
+    }
+
+    _createAction(text, iconName, title, onClick) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'map-control-bar-action';
+        button.title = title;
+        button.setAttribute('aria-label', title);
+        const icon = document.createElement('sl-icon');
+        icon.name = iconName;
+        button.appendChild(icon);
+        if (text) button.append(text);
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onClick();
+        });
+        return button;
+    }
+
+    get el() {
+        return this._el;
     }
 
     get summaryEl() {
@@ -125,13 +240,6 @@ export class MapControlBar {
     setSummaryActive(active, sticky = false) {
         this._summaryEl?.classList.toggle('active', !!active);
         this._countEl?.classList.toggle('sticky', !!active && sticky);
-    }
-
-    _setSummary(layers) {
-        const count = (layers || []).length;
-        if (this._summaryKey === count) return;
-        this._summaryKey = count;
-        this._summaryTextEl.textContent = `${count} ${count === 1 ? 'Map' : 'Maps'} Loaded`;
     }
 
     setMinWidth(px) {
@@ -166,6 +274,7 @@ export class MapControlBar {
     destroy() {
         window.removeEventListener('atlasChanged', this._onAtlasChanged);
         this._observer?.disconnect();
+        clearTimeout(this._undoTimer);
         this._el?.parentNode?.classList.remove('has-map-control-bar');
         this._el?.remove();
         this._el = null;

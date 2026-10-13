@@ -283,12 +283,6 @@ export class ShortcutMenuBase {
                 children: () => this._buildBasemapToggleItems()
             },
             {
-                id: 'clear-all-maps',
-                icon: 'trash',
-                label: 'Clear All Maps',
-                action: () => window.browserControl?.hideAllLayers()
-            },
-            {
                 id: 'clear-all-markers',
                 icon: 'x-circle',
                 label: 'Clear All Markers',

@@ -167,7 +167,10 @@ export class SearchSuggestionsPanel {
             return `<div role="group" aria-label="${label}">${headerHtml}${itemsHtml}</div>`
         }).join('')
 
-        const rect = this.searchBoxEl.getBoundingClientRect()
+        // Inside the map control bar the dropdown hangs off the bar itself, so it
+        // lines up with the bar's edges instead of the narrower search box.
+        const bar = this.searchBoxEl.closest('.map-control-bar')
+        const rect = (bar || this.searchBoxEl).getBoundingClientRect()
         const top = this._getAnchorBottom(rect)
         const $panel = $(`<div id="${PANEL_ID}" role="listbox" aria-label="Search suggestions"></div>`)
         $panel.css({
@@ -184,7 +187,8 @@ export class SearchSuggestionsPanel {
             overscrollBehavior: 'contain',
             // The control corner it now lives in does not take pointer events
             pointerEvents: 'auto',
-            zIndex: 9999
+            // Above the control bar (10000, see .search-box-row > .map-browser-control)
+            zIndex: 10001
         })
         $panel.html(sectionsHtml)
         // Into the map's top-left control corner rather than <body>: that corner

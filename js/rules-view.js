@@ -408,31 +408,31 @@ function injectStyles() {
     document.head.appendChild(el('style', null, { id: STYLESHEET_ID, textContent: `
         .rv-summary { font-size: 11px; color: #9ca3af; margin: 2px 0 8px; }
         .rv-heading-first { margin-top: 0; }
-        .rv-filters { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #374151; }
-        .rv-filter { background: #111827; border: 1px solid #374151; border-radius: 8px; margin: 4px 0; }
+        .rv-filters { margin-bottom: 18px; }
+        .rv-filter { background: #1f2937; border-radius: 4px; margin: 4px 0; }
         .rv-filter-head { display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 8px; }
         .rv-scope { font: 600 10px sans-serif; text-transform: uppercase; letter-spacing: .05em; color: #9ca3af; background: #1f2937;
-            border: 1px solid #374151; border-radius: 5px; padding: 1px 6px; white-space: nowrap; }
+            border: 0; border-radius: 3px; padding: 1px 6px; white-space: nowrap; }
         .rv-filter-text { flex: 1; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
         .rv-icon-btn { font-size: 11px; color: #9ca3af; background: transparent; border: 1px solid #374151; border-radius: 4px; padding: 1px 6px; cursor: pointer; }
         .rv-icon-btn:hover { color: #fff; border-color: #6b7280; }
         .rv-remove:hover { background: #dc2626; border-color: #dc2626; }
-        .rv-filter-body { padding: 2px 8px 8px; border-top: 1px solid #374151; }
-        .rv-json { width: 100%; box-sizing: border-box; margin-top: 6px; background: #0b1220; border: 1px solid #374151; color: #f3f4f6;
-            border-radius: 6px; padding: 4px 6px; font: 11px 'Courier New', monospace; resize: vertical; }
+        .rv-filter-body { padding: 2px 8px 8px; }
+        .rv-json { width: 100%; box-sizing: border-box; margin-top: 6px; background: #0b1220; border: 1px solid transparent; color: #f3f4f6;
+            border-radius: 4px; padding: 4px 6px; font: 11px 'Courier New', monospace; resize: vertical; }
         .rv-json:focus { outline: none; border-color: #3b82f6; }
         .rv-invalid { border-color: #ef4444; }
         .rv-error { font-size: 10px; color: #f87171; min-height: 0; }
         .rv-add { font-size: 11px; color: #9ca3af; background: transparent; border: 1px dashed #4b5563; border-radius: 6px; padding: 3px 10px; cursor: pointer; margin-top: 4px; }
         .rv-add:hover { color: #fff; border-color: #6b7280; }
-        .rv-row { background: #111827; border: 1px solid #374151; border-radius: 8px; margin-bottom: 4px; }
-        .rv-open { border-color: #4b5563; }
+        .rv-row { border-radius: 4px; margin-bottom: 2px; }
+        .rv-open { background: #1a2332; }
         .rv-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 8px 4px 4px; background: none; border: 0;
             color: #e5e7eb; cursor: pointer; text-align: left; }
-        .rv-head:hover { background: #1f2937; border-radius: 8px; }
+        .rv-head:hover { background: #1f2937; border-radius: 4px; }
         .rv-symbol { position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
-            box-sizing: border-box; overflow: hidden; border-radius: 5px; border: 1px solid #374151;
-            background: repeating-conic-gradient(#d1d5db 0% 25%, #f3f4f6 0% 50%) 50% / 10px 10px; }
+            box-sizing: border-box; overflow: hidden; border-radius: 3px; border: 0;
+            background: #1f2937; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); }
         .rv-area { position: absolute; inset: 0; }
         .rv-hatch { position: absolute; inset: 0; margin: auto; }
         .rv-stroke { width: 80%; border-radius: 2px; }
@@ -444,9 +444,9 @@ function injectStyles() {
         .rv-sep { color: #6b7280; }
         .rv-cond { color: #f3f4f6; }
         .rv-complex { font-family: 'Courier New', monospace; font-size: 11px; color: #fbbf24; background: #0b1220; padding: 1px 4px; border-radius: 4px; word-break: break-all; }
-        .rv-count { font-size: 10px; color: #9ca3af; background: #1f2937; border: 1px solid #374151; border-radius: 9px; padding: 0 6px; min-width: 18px; text-align: center; }
+        .rv-count { font-size: 10px; color: #9ca3af; background: #1f2937; border: 0; border-radius: 9px; padding: 0 6px; min-width: 18px; text-align: center; }
         .rv-caret { color: #6b7280; font-size: 11px; width: 10px; }
-        .rv-detail { padding: 4px 10px 10px; border-top: 1px solid #374151; }
+        .rv-detail { padding: 4px 10px 10px; }
         .rv-heading { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #9ca3af; margin: 8px 0 4px; }
         .rv-note { font-size: 11px; color: #9ca3af; font-style: italic; }
         .rv-condline { font-size: 12px; margin: 2px 0; display: flex; gap: 6px; align-items: baseline; }

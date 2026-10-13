@@ -532,10 +532,12 @@ export class CadastralSearchUI {
     }
 
     _positionDropdown() {
-        const rect = this.searchBoxEl.getBoundingClientRect()
+        const bar = this.searchBoxEl.closest('.map-control-bar')
+        const rect = (bar || this.searchBoxEl).getBoundingClientRect()
+        this.dropdown.classList.toggle('cadastral-dropdown--docked', Boolean(bar))
         this.dropdown.style.position = 'fixed'
         this.dropdown.style.left = rect.left + 'px'
-        this.dropdown.style.top = rect.bottom + 4 + 'px'
+        this.dropdown.style.top = (bar ? rect.bottom : rect.bottom + 4) + 'px'
         this.dropdown.style.width = rect.width + 'px'
     }
 

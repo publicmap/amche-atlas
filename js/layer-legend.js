@@ -18,12 +18,14 @@ export class LayerLegend {
     /**
      * Generate legend HTML for a layer
      * @param {Object} layer - Layer configuration
-     * @param {{onSelect?: (ruleId: string|null) => void}} [options] - `onSelect` makes a vector legend
-     *        clickable: it gets the id of the rule clicked (see js/rule-legend.js), or null for the legend itself
+     * @param {{onSelect?: (ruleId: string|null) => void, onPreview?: (ruleId: string|null) => void}} [options]
+     *        `onSelect` makes a vector legend clickable: it gets the id of the rule clicked (see js/rule-legend.js),
+     *        or null for the legend itself. `onPreview` gets a rule's id while its item is pointed at or focused,
+     *        and null when that stops.
      * @returns {HTMLElement|null} Legend element or null if no legend available
      */
     static generate(layer, options = {}) {
-        const legend = this._generate(layer);
+        const legend = this._generate(layer, options);
         if (legend && options.onSelect && legend.classList.contains('legend-vector')) {
             legend.style.cursor = 'pointer';
             legend.title = 'Edit style';
@@ -35,7 +37,7 @@ export class LayerLegend {
         return legend;
     }
 
-    static _generate(layer) {
+    static _generate(layer, options = {}) {
         if (Array.isArray(layer.legendMap) && layer.legendMap.length) {
             return this._generateCategoricalLegend(layer);
         }
@@ -45,7 +47,7 @@ export class LayerLegend {
         }
 
         if (layer.style) {
-            return generateRuleLegend(layer) || this._generateVectorLegend(layer);
+            return generateRuleLegend(layer, options) || this._generateVectorLegend(layer);
         }
 
         return null;
@@ -61,11 +63,7 @@ export class LayerLegend {
         const container = document.createElement('div');
         container.className = 'legend-categorical';
         container.style.cssText = `
-            background: white;
-            border: 1px solid #d1d5db;
-            border-radius: 4px;
-            padding: 6px 10px;
-            max-height: 220px;
+            max-height: 240px;
             overflow-y: auto;
         `;
 
@@ -74,25 +72,25 @@ export class LayerLegend {
             row.style.cssText = `
                 display: flex;
                 align-items: center;
-                gap: 6px;
-                padding: 3px 0;
+                gap: 12px;
+                padding: 5px 4px;
             `;
 
             const swatch = document.createElement('span');
             swatch.style.cssText = `
                 display: inline-block;
-                width: 14px;
-                height: 14px;
+                width: 20px;
+                height: 20px;
                 flex-shrink: 0;
-                border-radius: 2px;
-                border: 1px solid rgba(0,0,0,0.15);
+                border-radius: 3px;
+                box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
                 background: ${entry.color};
             `;
 
             const label = document.createElement('span');
             label.style.cssText = `
-                font-size: 12px;
-                color: #111827;
+                font-size: 13px;
+                color: #e5e7eb;
                 line-height: 1.3;
             `;
             label.textContent = entry.label || String(entry.value);
@@ -113,9 +111,8 @@ export class LayerLegend {
         container.className = 'legend-raster';
         container.style.cssText = `
             background: white;
-            border: 1px solid #d1d5db;
             border-radius: 4px;
-            padding: 8px 10px;
+            padding: 8px;
         `;
 
         const images = Array.isArray(layer.legendImage) ? layer.legendImage : [layer.legendImage];
@@ -147,30 +144,24 @@ export class LayerLegend {
 
         const container = document.createElement('div');
         container.className = 'legend-vector';
-        container.style.cssText = `
-            background: white;
-            border: 1px solid #d1d5db;
-            border-radius: 4px;
-            padding: 6px 10px;
-        `;
 
         items.forEach(item => {
             const legendItem = document.createElement('div');
             legendItem.style.cssText = `
                 display: flex;
                 align-items: center;
-                gap: 6px;
-                padding: 3px 0;
+                gap: 12px;
+                padding: 5px 4px;
             `;
 
             const symbol = this._createSymbol(item);
             symbol.style.flexShrink = '0';
 
-            const labelSize = item.labelSize ? Math.max(10, Math.min(16, item.labelSize)) : 12;
+            const labelSize = item.labelSize ? Math.max(11, Math.min(16, item.labelSize)) : 13;
             const label = document.createElement('span');
             label.style.cssText = `
                 font-size: ${labelSize}px;
-                color: #111827;
+                color: #e5e7eb;
                 line-height: 1.3;
             `;
             label.textContent = item.label;
@@ -315,8 +306,9 @@ export class LayerLegend {
      */
     static _createSymbol(item) {
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('width', '40');
-        svg.setAttribute('height', '40');
+        svg.setAttribute('width', '32');
+        svg.setAttribute('height', '32');
+        svg.setAttribute('viewBox', '0 0 40 40');
         svg.style.display = 'block';
 
         const passes = item.passes || [];

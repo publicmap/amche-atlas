@@ -66,6 +66,7 @@ const CATEGORY_BY_SOURCE_TYPE = {
     [SOURCE_TYPES.MAPWARPER]: 'service',
     [SOURCE_TYPES.STAC_VIEWER]: 'service',
     [SOURCE_TYPES.PLANETARY_COMPUTER]: 'service',
+    [SOURCE_TYPES.HOTOSM_OAM]: 'service',
     [SOURCE_TYPES.COG]: 'raster',
     [SOURCE_TYPES.JSON_FILE]: 'json',
     [SOURCE_TYPES.GEOJSON_FILE]: 'json',

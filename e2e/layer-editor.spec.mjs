@@ -402,6 +402,38 @@ test('Remove Other Maps leaves the layer being previewed in place', async ({ pag
     expect(active).not.toContain('edit-other');
 });
 
+test('pointing at a legend item shows only its rule on the map until the pointer leaves', async ({ page }) => {
+    await boot(page);
+    const layer = {
+        ...EDIT_LAYER,
+        id: 'preview-test',
+        inspect: { ...EDIT_LAYER.inspect, label: 'kind' },
+        style: { 'fill-color': ['match', ['to-string', ['get', 'kind']], 'park', '#00aa00', 'road', '#888888', '#cccccc'], 'fill-opacity': 0.6 }
+    };
+    await page.evaluate((l) => window.layerControl._addLayerDirectly(l), layer);
+    await page.evaluate((l) => window.browserControl._openLayerInfo(l), layer);
+    const frame = await creatorFrame(page);
+    const items = frame.locator('#lo-legend-content [data-rule]');
+    await expect(items).toHaveCount(3, { timeout: 30000 });
+
+    const filters = () => page.evaluate(() => window.map.getStyle().layers
+        .filter(l => l.metadata?.groupId === 'preview-test')
+        .map(l => JSON.stringify(window.map.getFilter(l.id) ?? null)));
+    const before = await filters();
+    expect(before.some(f => f.includes('road'))).toBe(false);
+
+    await items.nth(1).hover();
+    await expect.poll(async () => (await filters()).some(f => f.includes('road')), { timeout: 10000 }).toBe(true);
+
+    await frame.locator('#layer-title').hover({ force: true });
+    await expect.poll(filters, { timeout: 10000 }).toEqual(before);
+
+    await items.nth(0).hover();
+    await expect.poll(async () => (await filters()).some(f => f.includes('park')), { timeout: 10000 }).toBe(true);
+    await page.mouse.move(900, 400);
+    await expect.poll(filters, { timeout: 10000 }).toEqual(before);
+});
+
 test('the header\'s live actions work from the editor: layer order and opacity', async ({ page }) => {
     await boot(page);
     const frame = await openOverview(page);

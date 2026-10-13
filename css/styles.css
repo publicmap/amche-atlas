@@ -588,58 +588,46 @@
     align-items: stretch;
     gap: 6px;
     padding: 8px;
-    background-color: #111827;
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    background-color: transparent;
+    border: 1px solid transparent;
     border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     color: #fff;
     text-align: left;
     pointer-events: auto;
-    overflow: hidden;
-    transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.map-control-bar::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    background-image: linear-gradient(100deg, rgba(8, 12, 20, 0.88) 0%, rgba(8, 12, 20, 0.62) 55%, rgba(8, 12, 20, 0.35) 100%), var(--bar-image, none);
-    background-size: cover;
-    background-position: center;
-    transition: filter 0.2s, transform 0.2s;
-    pointer-events: none;
-}
-
-.map-control-bar > * {
-    position: relative;
-    z-index: 1;
-}
-
-.map-control-bar:hover::before {
-    filter: blur(6px);
-    transform: scale(1.1);
-}
-
-.map-browser-control .map-control-bar button:not(.map-control-bar-search-btn):not(.map-control-bar-main):hover:not(:disabled) {
-    background: #ffffff1a !important;
-    border: none !important;
-    color: #fff !important;
-    transform: none;
+    transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
 .map-control-bar:hover,
-.map-control-bar.active {
+.map-control-bar.active,
+.map-control-bar:has(.map-search-control.searching),
+.layer-stack-strip.revealed ~ .map-control-bar {
+    background-color: #111827;
     border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .map-control-bar.active {
     border-color: var(--primary-color);
 }
 
+.map-control-bar .map-control-bar-count {
+    display: none;
+}
+
+.map-control-bar:hover .map-control-bar-count,
+.map-control-bar.active .map-control-bar-count,
+.layer-stack-strip.revealed ~ .map-control-bar .map-control-bar-count {
+    display: flex;
+}
+
 .map-browser-control .map-control-bar button:not(.map-control-bar-main) {
     background: transparent !important;
     border: none !important;
+}
+
+.map-browser-control .map-control-bar button:not(.map-control-bar-main):hover:not(:disabled) {
+    background: #ffffff1a !important;
+    transform: none;
 }
 
 .map-browser-control .map-control-bar button {
@@ -649,13 +637,17 @@
 }
 
 .map-browser-control .map-control-bar button.map-control-bar-main {
-    background: rgba(255, 255, 255, 0.05) !important;
+    background-color: #111827 !important;
+    background-image: linear-gradient(100deg, rgba(8, 12, 20, 0.88) 0%, rgba(8, 12, 20, 0.62) 55%, rgba(8, 12, 20, 0.35) 100%), var(--bar-image, none) !important;
+    background-size: cover !important;
+    background-position: center !important;
     border: 1px solid rgba(255, 255, 255, 0.28) !important;
-    transition: background 0.15s, border-color 0.15s;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+    transition: filter 0.15s, border-color 0.15s;
 }
 
 .map-browser-control .map-control-bar button.map-control-bar-main:hover {
-    background: rgba(255, 255, 255, 0.12) !important;
+    filter: brightness(1.2);
     border-color: rgba(255, 255, 255, 0.5) !important;
 }
 
@@ -685,19 +677,45 @@
     transform: rotate(180deg);
 }
 
+.map-control-bar-head {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    min-width: 0;
+}
+
+.map-control-bar-head > .map-control-bar-main {
+    flex: 1;
+}
+
+.map-control-bar:has(.map-search-control.searching) {
+    width: min(320px, calc(100vw - 80px));
+}
+
+.map-control-bar:has(.map-search-control.searching) {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.map-control-bar:has(.map-search-control.searching) .map-control-bar-count,
+.layer-stack-strip:has(~ .map-control-bar .map-search-control.searching) {
+    display: none;
+}
+
+.map-control-bar-head:has(.map-search-control.searching) > .map-control-bar-main {
+    display: none;
+}
+
 .map-search-control {
     position: relative;
-    align-self: flex-start;
+    flex-shrink: 0;
     box-sizing: border-box;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px;
-    min-height: 60px;
+    gap: 6px;
     background: #111827;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 6px;
     color: #fff;
     pointer-events: auto;
     transition: border-color 0.15s;
@@ -705,18 +723,15 @@
 
 .map-search-control:hover,
 .map-search-control.searching {
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
 }
 
 .map-search-control.searching {
-    width: min(320px, calc(100vw - 80px));
+    flex: 1;
+    padding: 0 4px;
 }
 
-.search-box-row:has(.map-search-control.searching) > .map-browser-control {
-    display: none;
-}
-
-.search-box-row .map-search-control button.map-search-btn {
+.map-control-bar .map-search-control button.map-search-btn {
     flex-shrink: 0;
     width: 44px;
     height: 44px;
@@ -733,7 +748,7 @@
     cursor: pointer;
 }
 
-.search-box-row .map-search-control button.map-search-btn:hover {
+.map-control-bar .map-search-control button.map-search-btn:hover {
     background: #ffffff1a !important;
 }
 
@@ -907,6 +922,46 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    flex: none;
+    font-weight: 600;
+}
+
+.map-control-bar-summary-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.map-control-bar-hidden-toggle {
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    white-space: nowrap;
+    font-weight: 400;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+}
+
+.map-control-bar-hidden-toggle:hover,
+.map-control-bar-hidden-toggle.active {
+    opacity: 1;
+}
+
+.map-control-bar-hidden-toggle[hidden] {
+    display: none;
+}
+
+.map-control-bar-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    line-height: 1.2;
+    white-space: nowrap;
 }
 
 .map-control-bar-count:empty {
@@ -921,16 +976,12 @@
     cursor: pointer;
 }
 
-.map-control-bar-count.sticky {
+.map-control-bar-count.sticky .map-control-bar-summary.active {
     background: rgba(255, 255, 255, 0.92);
     color: #111827;
     border-radius: 6px;
     padding: 0 6px;
     text-shadow: none;
-}
-
-.map-control-bar-count.sticky .map-control-bar-summary.active {
-    color: #111827;
 }
 
 .layer-stack-strip:not(.revealed) {
@@ -1099,36 +1150,8 @@
     border-radius: 5px !important;
 }
 
-/* The "Show Hidden Maps" row closes the layer block above it and is its own
-   rounded cell, like the controls below */
-[data-layer-item]:has(+ .layer-stack-show-hidden) .layer-stack-cell {
-    border-bottom-width: 1px !important;
-    border-radius: 0 0 5px 5px !important;
-}
-
-[data-layer-item]:first-child:has(+ .layer-stack-show-hidden) .layer-stack-cell,
-.layer-stack-browser+[data-layer-item]:has(+ .layer-stack-show-hidden) .layer-stack-cell,
-.layer-stack-basemap-start:has(+ .layer-stack-show-hidden) .layer-stack-cell {
-    border-bottom-width: 1px !important;
-    border-radius: 5px !important;
-}
-
-.layer-stack-show-hidden .layer-stack-cell {
-    position: relative;
-    overflow: hidden;
-    background: #1f2937;
-    border-bottom-width: 1px !important;
-    border-radius: 5px !important;
-    cursor: pointer;
-}
-
-.layer-stack-show-hidden {
-    cursor: pointer;
-}
-
 /* A plain action button, not a layer: no hover panel and no accent outline,
    so its text stays put and its cell keeps its resting border */
-.layer-stack-item.layer-stack-show-hidden:hover .layer-stack-row-text,
 .layer-stack-item.layer-stack-control:hover .layer-stack-row-text {
     visibility: visible;
 }
@@ -1148,11 +1171,6 @@
 .layer-stack-control.active button.layer-stack-cell {
     background: #ffffff1a !important;
     color: #fff !important;
-}
-
-.layer-stack-item.layer-stack-show-hidden:hover .layer-stack-cell,
-.layer-stack-item.layer-stack-show-hidden:hover > .layer-stack-cell {
-    border-color: #000 !important;
 }
 
 /* Compared layer: the compare cell holds the row's slot in the column and the
@@ -1275,8 +1293,7 @@
    shifts when import/export appear. */
 .layer-stack-options,
 .layer-stack-import,
-.layer-stack-export,
-.layer-stack-show-hidden {
+.layer-stack-export {
     margin-top: 5px;
 }
 
@@ -1852,7 +1869,8 @@ mapbox-search-box {
 
 .cadastral-search-panel {
     display: flex;
-    gap: 0.5rem;
+    flex-direction: column;
+    gap: 0.375rem;
     padding-bottom: 0.25rem;
 }
 
@@ -1860,14 +1878,18 @@ mapbox-search-box {
     display: none;
 }
 
-.cadastral-village-select {
-    flex: 1.4 1 0;
+.cadastral-village-select,
+.cadastral-survey-input {
+    flex: none;
+    width: 100%;
     min-width: 0;
+    --sl-font-size-medium: 0.875rem;
+    --sl-font-size-small: 0.875rem;
 }
 
-.cadastral-survey-input {
-    flex: 1 1 0;
-    min-width: 0;
+.cadastral-village-select sl-option::part(label) {
+    white-space: normal;
+    line-height: 1.25;
 }
 
 .cadastral-search-panel sl-select::part(combobox),
@@ -1904,7 +1926,7 @@ mapbox-search-box {
 }
 
 .cadastral-dropdown {
-    z-index: 9999;
+    z-index: 10001;
     /* It lives in the map's top-left control corner, which takes no pointer
        events of its own (see js/cadastral-search-ui.js) */
     pointer-events: auto;
@@ -1917,6 +1939,12 @@ mapbox-search-box {
 
 .cadastral-dropdown.hidden {
     display: none;
+}
+
+.cadastral-dropdown--docked {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    box-sizing: border-box;
 }
 
 .cadastral-results {

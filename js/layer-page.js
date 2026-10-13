@@ -22,6 +22,7 @@ import { DescriptionCard } from './description-card.js';
 import { EditHistory } from './edit-history.js';
 import { renderOverview } from './layer-overview.js';
 import { collectFilters, describeExpression, LAYER_FILTER_KEY } from './style-rules.js';
+import { ruleFilter } from './rule-legend.js';
 
 const RECORD_DELAY = 400;
 const RESTORE_SETTLE = 900;
@@ -156,6 +157,22 @@ export class LayerPage {
         }, 800);
     }
 
+    // -- legend preview ------------------------------------------------------------
+
+    /** Show only the features of one legend rule on the map, or (null) put the map back as it was. */
+    _previewRule(ruleId) {
+        if (ruleId === null) {
+            if (this._previewing) window.parent.postMessage({ type: 'legend-filter-clear' }, '*');
+            this._previewing = false;
+            return;
+        }
+        const layerId = String($('#layer-id').val() || '').trim() || (this.layer && this.layer.id);
+        const filter = layerId && ruleFilter(this.currentConfig(), ruleId);
+        if (!filter) return;
+        this._previewing = true;
+        window.parent.postMessage({ type: 'legend-filter-preview', layerId, filter }, '*');
+    }
+
     // -- data filters ------------------------------------------------------------
 
     _renderFilters(config) {
@@ -268,8 +285,13 @@ export class LayerPage {
         const key = JSON.stringify(config);
         if (key === this._renderedKey) return;
         this._renderedKey = key;
+        // The legend is about to be redrawn, so a pointer on it will not get to leave.
+        this._previewRule(null);
         $('#lh-thumbnail').empty().append(LayerThumbnail.generate(config, 54, { interactive: false, actionGlyph: '🎨' }));
         this._renderFilters(config);
-        renderOverview(config, { onLegendSelect: (ruleId) => this.openStyleAt(ruleId) });
+        renderOverview(config, {
+            onLegendSelect: (ruleId) => this.openStyleAt(ruleId),
+            onLegendPreview: (ruleId) => this._previewRule(ruleId)
+        });
     }
 }

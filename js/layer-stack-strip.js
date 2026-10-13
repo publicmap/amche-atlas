@@ -59,7 +59,9 @@ export class LayerStackStrip {
             if (this._updateFeatureVisibility()) this.render();
         };
         this._onSearchStart = () => this._collapse();
-        this._onMapClick = () => this._setReordering(false);
+        this._onMapClick = () => {
+            if (!this._isPinned()) this._setReordering(false);
+        };
         // Only a user-driven move collapses the strip: a programmatic one (the
         // strip's own Zoom action, say) has no originalEvent.
         this._onMapMoveStart = (e) => {
@@ -111,6 +113,7 @@ export class LayerStackStrip {
         this._controlBar = new MapControlBar();
         this._controlBar.mount(hostEl, {
             triggerButton: browserButton,
+            searchEl: window.searchBoxControl?._searchEl || null,
             onSummaryClick: () => {
                 clearTimeout(this._expandTimer);
                 // A click right after the hover expanded the strip confirms it
@@ -132,6 +135,10 @@ export class LayerStackStrip {
             },
             onSummaryLeave: () => {
                 this._scheduleHide();
+            },
+            onToggleHidden: (show) => {
+                this._showHidden = show;
+                this.render({ force: true });
             }
         });
         map?.on?.('dataloading', this._onDataLoading);
@@ -240,16 +247,17 @@ export class LayerStackStrip {
         this._controlBar?.update(allLayers);
         const layers = this._showHidden ? allLayers : allLayers.filter(l => !this._noFeatureIds.has(l.id));
         const hiddenCount = allLayers.length - layers.length;
+        this._controlBar?.setHidden(allLayers.filter(l => this._noFeatureIds.has(l.id)).length, this._showHidden);
         const comparedId = this._getComparedLayerId();
         const maskedId = this._getMaskedLayerId();
         const loadingIds = window.layerControl?._loadingLayerIds;
-        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${comparedId}|mask:${maskedId}|reorder:${this._reordering}|zoom:${this._zoomState?.layerId}|hidden:${hiddenCount}|empty:${[...this._noFeatureIds].join(',')}`;
+        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${comparedId}|mask:${maskedId}|reorder:${this._reordering}|zoom:${this._zoomState?.layerId}|hidden:${hiddenCount}:${this._showHidden}|empty:${[...this._noFeatureIds].join(',')}`;
         if (!force && signature === this._signature) return;
         this._signature = signature;
 
         // Layer items sit alongside the fixed toggle, so replace only the ones
         // this method owns.
-        this._el.querySelectorAll('[data-layer-item], .layer-stack-show-hidden').forEach(el => el.remove());
+        this._el.querySelectorAll('[data-layer-item]').forEach(el => el.remove());
 
         // Reordering happens within a section, so each row needs its position in
         // its own list to know whether it can still move up or down.
@@ -266,8 +274,6 @@ export class LayerStackStrip {
                 this._el.appendChild(item);
             });
         });
-
-        if (hiddenCount) this._el.appendChild(this._createShowHiddenItem(hiddenCount));
 
         // The options, import and export controls belong at the foot of the
         // column, and the layer rows were just appended after them.
@@ -321,21 +327,28 @@ export class LayerStackStrip {
         clearTimeout(this._hideTimer);
         this._hideTimer = setTimeout(() => {
             if (!this._el || this._draggedItem) return;
-            if (this._el.matches(':hover') || this._controlBar?.summaryEl?.matches(':hover, :focus-visible')) return;
+            if (this._el.matches(':hover') || this._controlBar?.summaryEl?.matches(':hover, :focus-visible') || this._controlBar?.el?.matches(':hover')) return;
             if (this._el.classList.contains('options-open')) return;
             if (this._expandedByHover) {
                 this._setReordering(false);
+                clearTimeout(this._hideTimer);
+            } else if (this._reordering) {
                 return;
             }
-            if (this._reordering) return;
             this._el.classList.remove('revealed');
             this._controlBar?.setMinWidth(0);
             this._resetShowHidden();
         }, 200);
     }
 
+    // Opened by clicking "Maps" rather than by hovering: it stays open, through
+    // map moves, map clicks and searches, until "Maps" is clicked again.
+    _isPinned() {
+        return this._reordering && !this._expandedByHover;
+    }
+
     _collapse() {
-        if (!this._el) return;
+        if (!this._el || this._isPinned()) return;
         clearTimeout(this._expandTimer);
         clearTimeout(this._hideTimer);
         this._setReordering(false);
@@ -643,49 +656,6 @@ export class LayerStackStrip {
 
         this._setupItemDrag(item);
 
-        return item;
-    }
-
-    /**
-     * Last row of the list while maps with no data in view are filtered out:
-     * a red-diagonal cell that brings every active layer back, as listed
-     * without the filter. It lasts until the strip closes.
-     */
-    _createShowHiddenItem(count) {
-        const item = document.createElement('div');
-        item.className = 'layer-stack-item layer-stack-show-hidden layer-stack-empty';
-
-        const cell = document.createElement('div');
-        cell.className = 'layer-stack-cell layer-stack-show-hidden-cell';
-        cell.setAttribute('role', 'button');
-        cell.setAttribute('tabindex', '0');
-        cell.setAttribute('aria-label', `Show ${count} hidden ${count === 1 ? 'map' : 'maps'}`);
-        cell.appendChild(LayerThumbnail._generateNoFeaturesLine(THUMB_SIZE));
-        item.appendChild(cell);
-
-        const text = document.createElement('div');
-        text.className = 'layer-stack-row-text';
-        const name = document.createElement('div');
-        name.className = 'layer-stack-row-name';
-        name.textContent = `Show ${count} hidden ${count === 1 ? 'map' : 'maps'}`;
-        const meta = document.createElement('div');
-        meta.className = 'layer-stack-row-meta';
-        meta.textContent = 'with no features in current view';
-        text.append(name, meta);
-        item.appendChild(text);
-
-        const show = (e) => {
-            e.stopPropagation();
-            this._showHidden = true;
-            this.render({ force: true });
-        };
-        item.addEventListener('click', show);
-        cell.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                show(e);
-            }
-        });
         return item;
     }
 

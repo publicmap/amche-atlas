@@ -25,6 +25,7 @@ import { RouteApi } from './route-url-api.js';
 import { KMLConverter } from './kml-converter.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
 import { PlanetaryComputerAPI } from './planetary-computer-api.js';
+import { HotosmOamAPI } from './hotosm-oam-api.js';
 import { ArcgisAPI } from './arcgis-url-api.js';
 import { WfsAPI } from './wfs-url-api.js';
 
@@ -54,7 +55,8 @@ export const SOURCE_TYPES = {
     MAPBOX_TILESET: 'mapbox-tileset',
     VECTOR_TILE: 'vector-tile',
     RASTER_TILE: 'raster-tile',
-    PLANETARY_COMPUTER: 'planetary-computer'
+    PLANETARY_COMPUTER: 'planetary-computer',
+    HOTOSM_OAM: 'hotosm-oam'
 };
 
 export const SOURCE_TYPE_LABELS = {
@@ -81,7 +83,8 @@ export const SOURCE_TYPE_LABELS = {
     [SOURCE_TYPES.MAPBOX_TILESET]: 'Vector Tiles',
     [SOURCE_TYPES.VECTOR_TILE]: 'Vector Tiles',
     [SOURCE_TYPES.RASTER_TILE]: 'Raster Tiles',
-    [SOURCE_TYPES.PLANETARY_COMPUTER]: 'Planetary Computer'
+    [SOURCE_TYPES.PLANETARY_COMPUTER]: 'Planetary Computer',
+    [SOURCE_TYPES.HOTOSM_OAM]: 'OpenAerialMap'
 };
 
 // ---------------------------------------------------------------------------
@@ -387,6 +390,7 @@ export function detectLayerSourceType(url) {
     // just with a generic "Raster Layer" title/no attribution instead of one
     // built from the STAC item it points at.
     if (PlanetaryComputerAPI.isTileUrl(url)) return SOURCE_TYPES.PLANETARY_COMPUTER;
+    if (HotosmOamAPI.isTileUrl(url) || HotosmOamAPI.isBrowseUrl(url)) return SOURCE_TYPES.HOTOSM_OAM;
     if (urlLower.includes('{z}') && (urlLower.includes('.pbf') || urlLower.includes('.mvt'))) return SOURCE_TYPES.VECTOR_TILE;
     if (urlLower.includes('{z}') && (urlLower.includes('.png') || urlLower.includes('.jpg'))) return SOURCE_TYPES.RASTER_TILE;
     if (urlLower.includes('{x}') && urlLower.includes('{y}') && urlLower.includes('{z}')) return SOURCE_TYPES.RASTER_TILE;
@@ -1334,6 +1338,10 @@ export async function resolveLayerSource(url, urlOptions = {}) {
         }
         case SOURCE_TYPES.PLANETARY_COMPUTER: {
             const config = await PlanetaryComputerAPI.createConfigFromTileUrl(resolvedUrl);
+            return { status: 'ok', layerType: 'tms', config, resolvedUrl };
+        }
+        case SOURCE_TYPES.HOTOSM_OAM: {
+            const config = await HotosmOamAPI.createConfigFromTileUrl(resolvedUrl);
             return { status: 'ok', layerType: 'tms', config, resolvedUrl };
         }
         case SOURCE_TYPES.VECTOR_TILE:

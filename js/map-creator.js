@@ -11,6 +11,7 @@ import { CreatorStyleEditor } from './creator-style-editor.js';
 import { CreatorEditMode } from './creator-edit-mode.js';
 import { DataCard } from './data-card.js';
 import { LayerPage } from './layer-page.js';
+import { CreatorHome, FORMAT_KEYS } from './creator-home.js';
 
 // Re-exported for the Style controls' own callers (and their tests), which have
 // always imported these from here; they now live in js/layer-style-utils.js so
@@ -64,6 +65,8 @@ export class MapCreator {
     init() {
         this.layerPage.init();
         this.dataCard.init();
+        this.home = new CreatorHome(this);
+        this.home.init();
         this.styleEditor.init();
         this.setupEventListeners();
         this.setupColorPickers();
@@ -74,6 +77,7 @@ export class MapCreator {
     setupMessageListener() {
         window.addEventListener('message', async (event) => {
             if (event.data.type === 'edit-layer') {
+                this.home?.hide();
                 this.layerPage.open(event.data.layer, { tab: event.data.tab, feature: event.data.feature });
                 return;
             }
@@ -82,6 +86,7 @@ export class MapCreator {
                 return;
             }
             if (event.data.type === 'load-file-data') {
+                this.home?.hide();
                 // Rebuild File objects from the transferred contents so dropped
                 // files go through exactly the same queue and parsing path as
                 // files picked from the upload dialog.
@@ -190,23 +195,7 @@ export class MapCreator {
             $('.format-chip').removeClass('active-format');
 
             if (validFormat) {
-                const formatMap = {
-                    'CSV': 'csv',
-                    'GeoJSON': 'geojson',
-                    'KML': 'kml',
-                    'Vector Tiles': 'vector-tiles',
-                    'Raster Tiles': 'raster-tiles',
-                    'MapWarper': 'mapwarper',
-                    'Allmaps': 'allmaps',
-                    'OSM': 'osm',
-                    'Amche Atlas JSON': 'atlas-json',
-                    'WMS': 'wms',
-                    'Bharatlas': 'bharatlas',
-                    'Overpass': 'overpass',
-                    'WFS': 'wfs',
-                    'ArcGIS': 'arcgis'
-                };
-                const formatKey = formatMap[validFormat];
+                const formatKey = FORMAT_KEYS[validFormat];
                 if (formatKey) {
                     $(`.format-chip[data-format="${formatKey}"]`).addClass('active-format');
                 }

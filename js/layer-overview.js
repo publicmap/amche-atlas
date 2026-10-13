@@ -11,17 +11,17 @@ function formatBbox(bbox) {
 }
 
 function infoItem(key, value) {
-    const $item = $('<div>', { class: 'bg-gray-900 rounded-lg p-3' });
-    $item.append($('<div>', { class: 'text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1', text: key }));
+    const $item = $('<div>', { class: 'py-1' });
+    $item.append($('<div>', { class: 'text-xs text-gray-500 mb-0.5', text: key }));
     $item.append($('<div>', { class: 'text-sm text-gray-200', text: value }));
     return $item;
 }
 
 /** Fill the legend and metadata from a layer config. */
-export function renderOverview(layer, { onLegendSelect } = {}) {
+export function renderOverview(layer, { onLegendSelect, onLegendPreview } = {}) {
     $('#lo-legend-content, #lo-metadata-content').empty();
 
-    const legend = LayerLegend.generate(layer, { onSelect: onLegendSelect });
+    const legend = LayerLegend.generate(layer, { onSelect: onLegendSelect, onPreview: onLegendPreview });
     $('#lo-legend-section').toggle(!!legend);
     if (legend) $('#lo-legend-content').append(legend);
 

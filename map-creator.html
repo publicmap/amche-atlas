@@ -64,13 +64,13 @@
             cursor: pointer;
         }
 
+        /* Sections are told apart by space and type, not by boxes. Borders are for buttons and fields in use. */
         .section-box {
-            background: #1f2937;
-            border: 1px solid #374151;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 16px;
-            color: #f3f4f6;
+            padding: 0;
+            margin-bottom: 28px;
+            color: #e5e7eb;
+            font-size: 13px;
+            line-height: 1.5;
         }
 
         #settings-section.is-disabled,
@@ -82,9 +82,17 @@
 
         .section-box h2,
         .section-box h3,
-        .section-box h4,
+        .section-box h4 {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: #9ca3af;
+            margin: 0 0 10px;
+        }
+
         .section-box label {
-            color: #f3f4f6;
+            color: #d1d5db;
         }
 
         .section-box .text-gray-500,
@@ -97,8 +105,9 @@
         .section-box input[type="url"],
         .section-box textarea,
         .section-box select {
-            background: #111827;
-            border: 1px solid #4b5563;
+            background: #1f2937;
+            border: 1px solid transparent;
+            border-radius: 4px;
             color: #f3f4f6;
         }
 
@@ -114,7 +123,6 @@
         .section-box select:focus {
             outline: none;
             border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
         }
 
         .section-box textarea[readonly] {
@@ -123,11 +131,11 @@
 
         .section-box .border-gray-200,
         .section-box .border-gray-300 {
-            border-color: #374151 !important;
+            border-color: transparent !important;
         }
 
         .section-box .bg-gray-50 {
-            background: #111827 !important;
+            background: #1f2937 !important;
             color: #d1d5db !important;
         }
 
@@ -197,10 +205,7 @@
 
         /* Data card: the data source as one card - collapsed to its link and type, expanded to edit */
         .data-card {
-            background: #111827;
-            border: 1px solid #374151;
-            border-radius: 10px;
-            padding: 10px 12px;
+            padding: 0;
         }
 
         .data-card-head {
@@ -213,21 +218,18 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 34px;
-            height: 34px;
+            width: 24px;
+            height: 24px;
             flex-shrink: 0;
-            border-radius: 8px;
-            background: #1f2937;
-            border: 1px solid #374151;
-            color: #d1d5db;
+            color: #9ca3af;
             font-size: 18px;
             cursor: help;
         }
 
         .data-card-title {
             font-size: 13px;
-            font-weight: 600;
-            color: #f3f4f6;
+            font-weight: 500;
+            color: #e5e7eb;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -235,7 +237,7 @@
 
         .data-card-subtitle {
             font-size: 11px;
-            color: #9ca3af;
+            color: #6b7280;
         }
 
         .data-card-toggle {
@@ -258,13 +260,241 @@
         }
 
         .data-card-body {
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid #374151;
+            margin-top: 14px;
         }
 
         .data-card.is-collapsed .data-card-body {
             display: none;
+        }
+
+
+        /* Map Maker home screen: shown while nothing is loaded (see js/creator-home.js) */
+        #creator-home {
+            display: none;
+            position: absolute;
+            inset: 0;
+            z-index: 50;
+            background: #0b1220;
+            overflow: hidden;
+        }
+
+        body.home-active #creator-home {
+            display: block;
+        }
+
+        .ch-bg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .ch-grid-line { stroke: #1f2a3d; stroke-width: 1; }
+
+
+        /* The wordmark: every letter feature is a filled area; hovering or selecting one shows its wireframe (js/creator-home-title.js) */
+        .ch-letter .ch-area { fill-opacity: 0.55; transition: fill-opacity 0.15s; }
+        .ch-letter .ch-way { fill: none; stroke-width: 1.6; stroke-linejoin: round; vector-effect: non-scaling-stroke; opacity: 0; }
+        .ch-letter .ch-node { fill: #0b1220; stroke-width: 1.4; vector-effect: non-scaling-stroke; opacity: 0; transform-box: fill-box; transform-origin: center; transition: transform 0.12s; }
+
+        /* Hover or select a feature: its wireframe (way and nodes) appears; the node under the cursor is picked out */
+        #ch-title { touch-action: none; user-select: none; }
+        .ch-part { cursor: grab; }
+        .ch-part .ch-node { cursor: move; }
+        .ch-bg.ch-grabbing, .ch-bg.ch-grabbing * { cursor: grabbing !important; }
+        .ch-part:hover .ch-area, .ch-part.selected .ch-area, .ch-part.dragging .ch-area { fill-opacity: 0.3; }
+        .ch-part:hover .ch-way, .ch-part.selected .ch-way, .ch-part.dragging .ch-way { stroke: #fff; opacity: 1; }
+        .ch-part:hover .ch-node, .ch-part.selected .ch-node, .ch-part.dragging .ch-node { opacity: 1; }
+        .ch-part.selected { filter: drop-shadow(0 0 7px currentColor); }
+        .ch-part .ch-node:hover { fill: #fff; stroke: currentColor; stroke-width: 2.4; transform: scale(2); }
+
+
+
+        #ch-close {
+            position: absolute;
+            top: 12px;
+            right: 16px;
+            z-index: 2;
+            color: #fff;
+            font-size: 28px;
+            line-height: 1;
+            background: none;
+            border: 0;
+            cursor: pointer;
+            opacity: 0.8;
+        }
+
+        #ch-close:hover { opacity: 1; }
+
+        .ch-content {
+            pointer-events: none;
+            position: relative;
+            z-index: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 0 24px 15vh;
+            gap: 14px;
+        }
+
+        .ch-secondary {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #d1d5db;
+            background: rgba(31, 41, 55, 0.7);
+            border: 1px solid #374151;
+            cursor: pointer;
+        }
+
+        .ch-secondary:hover { background: #2a3547; color: #fff; }
+        .ch-secondary[aria-expanded="true"] .ch-chev { transform: rotate(180deg); }
+        .ch-atlas { position: relative; }
+
+        #ch-atlas-panel {
+            display: none;
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: calc(100% + 6px);
+            max-height: 58vh;
+            overflow-y: auto;
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+            z-index: 5;
+        }
+
+        #ch-atlas-panel.open { display: block; }
+        .ch-atlas-head { position: sticky; top: 0; padding: 10px 12px; background: #111827; border-bottom: 1px solid #1f2937; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #9ca3af; z-index: 1; }
+        #ch-atlas-count { color: #6b7280; margin-left: 6px; text-transform: none; letter-spacing: 0; }
+        .ch-ds-empty { padding: 18px 14px; font-size: 13px; color: #9ca3af; }
+        .ch-ds { border-bottom: 1px solid #1f2937; }
+        .ch-ds.open { background: #162033; }
+        .ch-ds-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 12px; background: none; border: 0; color: #e5e7eb; text-align: left; cursor: pointer; }
+        .ch-ds-head:hover { background: #1b2740; }
+        .ch-ds-thumbs { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+        .ch-ds-more { font-size: 11px; color: #9ca3af; padding: 0 2px; }
+        .ch-ds-text { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+        .ch-ds-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ch-ds-meta { font-size: 11px; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ch-ds-actions { padding: 2px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+        .ch-ds-layers { display: flex; flex-wrap: wrap; gap: 6px; }
+        .ch-ds-layer { padding: 4px 10px; font-size: 12px; border-radius: 999px; background: #1f2937; border: 1px solid #374151; color: #d1d5db; cursor: pointer; }
+        .ch-ds-layer.selected { background: #1e3a5f; border-color: #3b82f6; color: #fff; }
+        .ch-ds-buttons { display: flex; gap: 8px; }
+        .ch-ds-btn { display: flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 13px; font-weight: 600; border-radius: 5px; background: #374151; border: 1px solid #4b5563; color: #fff; cursor: pointer; }
+        .ch-ds-btn:hover:not(:disabled) { background: #4b5563; }
+        .ch-ds-btn:disabled { opacity: 0.55; cursor: default; }
+        .ch-ds-btn.primary { background: #2563eb; border-color: #2563eb; }
+        .ch-ds-btn.primary:hover { background: #1d4ed8; }
+
+        .ch-content > * { pointer-events: auto; }
+
+        .ch-or {
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .ch-import { position: relative; display: flex; gap: 0; box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.45), 0 8px 28px rgba(37, 99, 235, 0.18); border-radius: 6px; }
+
+        .ch-import input {
+            flex: 1;
+            min-width: 0;
+            padding: 15px 14px;
+            background: rgba(17, 24, 39, 0.96);
+            border: 1px solid #374151;
+            border-left: 0;
+            border-right: 0;
+            color: #f3f4f6;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .ch-import input:focus { box-shadow: inset 0 -2px 0 #3b82f6; }
+
+        #ch-format-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 10px 0 12px;
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 6px 0 0 6px;
+            color: #d1d5db;
+            font-size: 13px;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        #ch-format-btn:hover { background: #2a3547; }
+        #ch-format-btn.is-detected { color: #93c5fd; border-color: #2563eb; }
+        #ch-format-btn.is-unsupported { color: #fca5a5; }
+
+        #ch-import-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 16px;
+            white-space: nowrap;
+            background: #374151;
+            border: 1px solid #4b5563;
+            border-radius: 0 6px 6px 0;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        #ch-import-btn:hover { background: #4b5563; }
+
+        #ch-format-panel {
+            display: none;
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: calc(100% + 6px);
+            max-height: 52vh;
+            overflow-y: auto;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            padding: 8px;
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+            z-index: 5;
+        }
+
+        #ch-format-panel.open { display: grid; }
+        #ch-format-panel .format-card { cursor: pointer; }
+        #ch-format-panel .format-card:hover { background: #2a3547; }
+        #ch-format-panel .format-card.active-format { background: #1e3a5f; }
+
+        #ch-privacy {
+            font-size: 12px;
+            color: #9ca3af;
+            text-align: center;
+        }
+
+        #ch-privacy a { color: #9ca3af; text-decoration: underline; }
+        #ch-privacy a:hover { color: #e5e7eb; }
+        #ch-error { min-height: 0; font-size: 12px; color: #fca5a5; text-align: center; }
+        #ch-error:empty { display: none; }
+
+        @media (max-width: 520px) {
+            #ch-format-panel { grid-template-columns: 1fr; }
         }
 
         /* Supported formats: neutral cards told apart by icon, not colour */
@@ -284,9 +514,9 @@
             gap: 8px;
             text-align: left;
             padding: 8px 10px;
-            border-radius: 8px;
+            border-radius: 4px;
             background: #1f2937;
-            border: 1px solid #374151;
+            border: 0;
             color: #e5e7eb;
             min-width: 0;
         }
@@ -296,13 +526,11 @@
         }
 
         button.format-card:hover {
-            border-color: #6b7280;
-            background: #243041;
+            background: #2a3547;
         }
 
         .format-card.active-format {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 1px #3b82f6;
+            background: #1e3a5f;
         }
 
         .fc-icon {
@@ -423,7 +651,7 @@
             font-size: 0.65rem;
             font-weight: 600;
             color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 0;
             cursor: pointer;
         }
 
@@ -498,6 +726,11 @@
             pointer-events: none;
         }
 
+        .legend-vector[title] [data-rule]:hover,
+        .legend-vector[title]:hover > div:not([data-rule]) {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
         .filter-chip {
             display: inline-flex;
             align-items: center;
@@ -506,9 +739,9 @@
             font-size: 11px;
             color: #fde68a;
             background: rgba(234, 179, 8, 0.1);
-            border: 1px solid rgba(234, 179, 8, 0.4);
-            border-radius: 999px;
-            padding: 2px 4px 2px 10px;
+            border: 0;
+            border-radius: 4px;
+            padding: 2px 4px 2px 8px;
         }
 
         .filter-chip-text {
@@ -540,28 +773,31 @@
             width: 56px;
             height: 56px;
             padding: 0;
-            border: 1px solid #4b5563;
-            border-radius: 8px;
+            border: 0;
+            border-radius: 4px;
             background: transparent;
             cursor: pointer;
             flex-shrink: 0;
             overflow: hidden;
         }
 
-        .lh-thumb:hover,
+        .lh-thumb:hover {
+            opacity: 0.85;
+        }
+
         .lh-thumb.is-open {
-            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px #3b82f6;
         }
 
         .section-box input.lh-title-input {
             width: 100%;
-            font-size: 16px;
-            font-weight: 700;
+            font-size: 20px;
+            font-weight: 600;
             line-height: 1.25;
-            padding: 3px 6px;
+            padding: 2px 6px 2px 0;
             background: transparent;
             border: 1px solid transparent;
-            border-radius: 6px;
+            border-radius: 4px;
         }
 
         input.lh-id-input {
@@ -575,21 +811,24 @@
             padding: 3px 6px 3px 1px;
             background: transparent;
             border: 1px solid transparent;
-            border-radius: 6px;
+            border-radius: 4px;
             color: #9ca3af;
             outline: none;
         }
 
         .section-box input.lh-title-input:hover,
-        input.lh-id-input::placeholder {
-            color: #6b7280;
+        input.lh-id-input:hover {
+            background: #1f2937;
         }
 
-        input.lh-id-input:hover,
         .section-box input.lh-title-input:focus,
         input.lh-id-input:focus {
-            background: #111827;
-            border-color: #4b5563;
+            background: #1f2937;
+            border-color: #3b82f6;
+        }
+
+        input.lh-id-input::placeholder {
+            color: #6b7280;
         }
 
         a.lh-hash {
@@ -638,8 +877,8 @@
             text-align: left;
             background: transparent;
             border: 0;
-            padding: 4px 6px;
-            border-radius: 6px;
+            padding: 4px 6px 4px 0;
+            border-radius: 4px;
             cursor: pointer;
             color: #d1d5db;
             font-size: 13px;
@@ -669,13 +908,16 @@
             font-size: 12px;
         }
 
+        #desc-summary a { color: #93c5fd; text-decoration: underline; }
+        #desc-summary a:hover { color: #bfdbfe; }
+
         .desc-empty {
             color: #6b7280;
             font-style: italic;
         }
 
         #desc-editor {
-            padding: 4px 6px;
+            padding: 4px 0;
         }
 
         .section-done-btn {
@@ -710,9 +952,9 @@
 </head>
 
 <body class="bg-gray-900">
-    <div class="flex flex-col h-screen max-w-[720px] w-full mx-auto">
+    <div class="flex flex-col h-screen max-w-[720px] w-full mx-auto relative">
         <!-- Title bar: the layer's link and id, then the edit actions -->
-        <div id="nav-bar" class="px-4 py-2 flex items-center gap-2" style="background:#111827;border-bottom:1px solid #374151;">
+        <div id="nav-bar" class="px-5 py-3 flex items-center gap-2" style="background:#111827;">
             <div id="lh-id-group" class="flex items-center min-w-0" style="flex:0 1 auto;max-width:42%;">
                 <a id="lh-copy-link" class="lh-hash" href="#" title="Copy a link to this scene with this layer open">#</a>
                 <input type="text" id="layer-id" placeholder="layer-id" class="lh-id-input" aria-label="Layer ID">
@@ -749,7 +991,7 @@
         </div>
 
         <!-- Content -->
-        <div class="flex-1 overflow-y-auto scrollbar-thin p-4" style="background:#111827;">
+        <div class="flex-1 overflow-y-auto scrollbar-thin px-5 pt-2 pb-6" style="background:#111827;">
             <!-- An existing layer: its identity and live actions, then Overview / Edit tabs -->
             <!-- The layer: thumbnail (opens style), title, id; actions for an existing layer -->
             <div id="layer-header" class="section-box">
@@ -1622,6 +1864,47 @@
                     </div>
                 </div>
             </div>
+            </div>
+        </div>
+
+        <!-- Home screen: choose how to start (hidden once a layer is loading or being edited) -->
+        <div id="creator-home">
+            <svg class="ch-bg" viewBox="0 0 720 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Map Maker">
+                <defs>
+                    <linearGradient id="ch-fade" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#0b1220" stop-opacity="0"/>
+                        <stop offset="1" stop-color="#0b1220" stop-opacity="0.85"/>
+                    </linearGradient>
+                </defs>
+                <g>
+                    <path class="ch-grid-line" d="M0 150H720M0 300H720M0 450H720M0 600H720M0 750H720M120 0V900M240 0V900M360 0V900M480 0V900M600 0V900"/>
+                </g>
+                <rect width="720" height="900" fill="url(#ch-fade)" pointer-events="none"/>
+                <g id="ch-title"></g>
+            </svg>
+            <button id="ch-close" type="button" title="Close" aria-label="Close">&times;</button>
+            <div class="ch-content">
+                <div class="ch-import">
+                    <div id="ch-format-panel" role="listbox" aria-label="Supported formats"></div>
+                    <button id="ch-format-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+                        <span class="ch-format-label">Autodetect</span> <sl-icon name="chevron-up"></sl-icon>
+                    </button>
+                    <input id="ch-url" type="text" autocomplete="off" spellcheck="false"
+                        placeholder="Paste a link to a map, data file or service" aria-label="Paste a link">
+                    <button id="ch-import-btn" type="button"><sl-icon name="folder2-open"></sl-icon> Open file</button>
+                </div>
+                <div id="ch-error"></div>
+                <div id="ch-privacy">Your data remains private on your computer and is not uploaded. See <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a></div>
+                <div class="ch-or">or</div>
+                <div class="ch-atlas">
+                    <div id="ch-atlas-panel">
+                        <div class="ch-atlas-head">Data sources in this view <span id="ch-atlas-count"></span></div>
+                        <div id="ch-atlas-list"></div>
+                    </div>
+                    <button id="ch-atlas-btn" type="button" class="ch-secondary" aria-haspopup="true" aria-expanded="false">
+                        <sl-icon name="collection"></sl-icon> Choose from Atlas <sl-icon name="chevron-up" class="ch-chev"></sl-icon>
+                    </button>
+                </div>
             </div>
         </div>
 

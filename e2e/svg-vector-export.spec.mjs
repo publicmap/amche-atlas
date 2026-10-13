@@ -96,7 +96,7 @@ test('SVG export vectorizes atlas overlay layers as real paths/text', async ({ p
     // not as a mounted map control - it's display:none until revealed, and it is
     // revealed by hovering the control bar's summary (the strip itself can't be
     // hovered while hidden).
-    await page.hover('.map-control-bar-summary');
+    await page.hover('.map-control-bar-main');
     await page.click('.layer-stack-export-btn');
 
     const iframeEl = await page.waitForSelector('iframe.map-export-iframe');

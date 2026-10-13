@@ -195,19 +195,19 @@ function injectStyles() {
     if (document.getElementById(STYLESHEET_ID)) return;
     document.head.appendChild(el('style', null, { id: STYLESHEET_ID, textContent: `
         .hatch-preview { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden;
-            background: ${PREVIEW_BACKGROUND}; border: 1px solid #374151; border-radius: 5px; color: #6b7280; font-size: 14px; }
+            background: ${PREVIEW_BACKGROUND}; border: 0; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); border-radius: 3px; color: #6b7280; font-size: 14px; }
         .hatch-preview.hatch-bare { background: transparent; border: 0; border-radius: 0; }
         .hatch-preview-canvas { display: block; }
         button.hatch-trigger { padding: 0; border: 0; background: none; cursor: pointer; border-radius: 5px; }
-        button.hatch-trigger:hover .hatch-preview, button.hatch-trigger:focus-visible .hatch-preview { border-color: #60a5fa; }
-        .hatch-editor { position: fixed; z-index: 10000; width: 240px; box-sizing: border-box; padding: 12px; border-radius: 10px;
-            background: #1f2937; border: 1px solid #4b5563; box-shadow: 0 12px 32px rgba(0, 0, 0, .5); color: #f3f4f6;
+        button.hatch-trigger:hover .hatch-preview, button.hatch-trigger:focus-visible .hatch-preview { box-shadow: 0 0 0 2px #60a5fa; }
+        .hatch-editor { position: fixed; z-index: 10000; width: 240px; box-sizing: border-box; padding: 14px; border-radius: 6px;
+            background: #1f2937; border: 0; box-shadow: 0 12px 32px rgba(0, 0, 0, .5); color: #f3f4f6;
             display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
         .hatch-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #9ca3af; }
         .hatch-editor-preview { align-self: center; }
         .hatch-field { display: flex; flex-direction: column; gap: 2px; }
         .hatch-label { font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #9ca3af; }
-        .hatch-input { background: #0b1220; border: 1px solid #374151; color: #f3f4f6; border-radius: 6px; padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box; }
+        .hatch-input { background: #111827; border: 1px solid transparent; color: #f3f4f6; border-radius: 6px; padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box; }
         .hatch-input:focus { outline: none; border-color: #3b82f6; }
         .hatch-color { width: 100%; height: 28px; padding: 0; border: 1px solid #374151; border-radius: 6px; background: #0b1220; cursor: pointer; }
         .hatch-done { align-self: flex-end; font-size: 12px; color: #fff; background: #2563eb; border: 0; border-radius: 6px; padding: 4px 14px; cursor: pointer; }

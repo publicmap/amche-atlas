@@ -23,7 +23,6 @@ const ITEM_IDS = [
     'zoom-to-selected',
     'clear-selection',
     'clear-all-markers',
-    'clear-all-maps',
     'toggle-basemaps-menu',
     'open-with-menu',
     'toggle-comments'

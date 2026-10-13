@@ -504,7 +504,7 @@ function injectStyles() {
     if (document.getElementById(STYLESHEET_ID)) return;
     document.head.appendChild(el('style', null, { id: STYLESHEET_ID, textContent: `
         .sym-root { margin-top: 6px; }
-        .sym-tabs { display: flex; gap: 2px; background: #0b1220; border: 1px solid #374151; border-radius: 6px; padding: 2px; }
+        .sym-tabs { display: flex; gap: 2px; background: #1f2937; border: 0; border-radius: 4px; padding: 2px; }
         .sym-tab { flex: 1; font-size: 11px; color: #9ca3af; background: transparent; border: 0; border-radius: 4px; padding: 3px 6px; cursor: pointer; }
         .sym-tab:hover { color: #fff; }
         .sym-tab-active { background: #2563eb; color: #fff; }
@@ -512,7 +512,7 @@ function injectStyles() {
         .sym-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; margin: 6px 0; }
         .sym-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
         .sym-label { font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #9ca3af; }
-        .sym-input { background: #0b1220; border: 1px solid #374151; color: #f3f4f6; border-radius: 6px; padding: 3px 6px; font-size: 12px; min-width: 0; }
+        .sym-input { background: #1f2937; border: 1px solid transparent; color: #f3f4f6; border-radius: 4px; padding: 3px 6px; font-size: 12px; min-width: 0; }
         .sym-input:focus { outline: none; border-color: #3b82f6; }
         .sym-input:disabled { color: #9ca3af; }
         .sym-number { width: 72px; }
@@ -526,8 +526,8 @@ function injectStyles() {
         .sym-range { font-size: 11px; color: #9ca3af; white-space: nowrap; }
         .sym-hint { font-size: 11px; color: #9ca3af; font-style: italic; margin: 4px 0; }
         .sym-warn { color: #fbbf24; font-style: normal; }
-        .sym-fallback { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #374151; }
-        .sym-states { margin-top: 10px; padding-top: 8px; border-top: 1px solid #374151; display: flex; flex-direction: column; gap: 4px; }
+        .sym-fallback { margin-top: 12px; }
+        .sym-states { margin-top: 14px; display: flex; flex-direction: column; gap: 4px; }
         .sym-check { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #e5e7eb; min-width: 84px; cursor: pointer; }
     ` }));
 }

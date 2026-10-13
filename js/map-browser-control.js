@@ -345,6 +345,10 @@ export class MapBrowserControl {
                 this._switchToCreator();
             }
 
+            if (event.data.type === 'creator-use-layer') {
+                this._useRegistryLayer(event.data.layerId, !!event.data.customize);
+            }
+
             if (event.data.type === 'open-splash') {
                 this.closeBrowser();
                 if (window.splashManager) {
@@ -384,6 +388,14 @@ export class MapBrowserControl {
             if (event.data.type === 'add-custom-layer') {
                 console.log('[MapBrowserControl] Received add-custom-layer message');
                 this._handleAddCustomLayer(event.data.config, { keepOpen: !!event.data.keepOpen });
+            }
+
+            if (event.data.type === 'legend-filter-preview') {
+                this._previewLegendFilter(event.data.layerId, event.data.filter);
+            }
+
+            if (event.data.type === 'legend-filter-clear') {
+                this._clearLegendFilter();
             }
 
             if (event.data.type === 'remove-other-maps') {
@@ -836,7 +848,7 @@ export class MapBrowserControl {
 
                 if (active) {
                     // Add layer to the map dynamically
-                    mapLayerControl._addLayerDirectly(layerConfig).then(() => {
+                    await mapLayerControl._addLayerDirectly(layerConfig).then(() => {
                         console.log('[MapBrowser] Layer added successfully:', layerId);
                         this._updateIframeActiveLayers();
                         this._notifyLayerLoaded(layerId);
@@ -1007,18 +1019,30 @@ export class MapBrowserControl {
     // that button this isn't scoped to a single atlas — there's no selected-atlas
     // context here (e.g. the shortcut menu) — it just protects the shared base
     // layers and clears everything else.
-    hideAllLayers() {
+    hideAllLayers({ basemapsWhenEmpty = false } = {}) {
         const indexBase = new Set(this._getAtlasLayerReferenceIds('index').map(id => this._baseLayerId(id)));
         const handledOff = new Set();
+        const removed = [];
         // The layer being previewed from the creator is the one the user is
         // working on: it is not one of "the other maps".
         const draftBase = this._creatorDraftLayerId ? this._baseLayerId(this._creatorDraftLayerId) : null;
-        this._getActiveLayers().forEach(layerId => {
+        const sweep = (keepBase) => {
+            this._getActiveLayers().forEach(layerId => {
+                const base = this._baseLayerId(layerId);
+                if ((keepBase && indexBase.has(base)) || handledOff.has(base) || base === draftBase || base === 'selection') return;
+                handledOff.add(base);
+                removed.push(layerId);
+                this._handleLayerToggle(layerId, false);
+            });
+        };
+        sweep(true);
+        // Only the base layers are left, so a further clear takes them too.
+        if (basemapsWhenEmpty && !handledOff.size) sweep(false);
+        const exhausted = this._getActiveLayers().every(layerId => {
             const base = this._baseLayerId(layerId);
-            if (indexBase.has(base) || handledOff.has(base) || base === draftBase) return;
-            handledOff.add(base);
-            this._handleLayerToggle(layerId, false);
+            return handledOff.has(base) || base === draftBase || base === 'selection';
         });
+        return { removed, exhausted };
     }
 
     toggleBrowser() {
@@ -1027,6 +1051,20 @@ export class MapBrowserControl {
         } else {
             this.openBrowser();
         }
+    }
+
+    restoreDefaultLayers() {
+        const atlasId = window.layerRegistry?.getCurrentAtlas?.() || 'index';
+        const ids = new Set([...this._getAtlasInitiallyCheckedIds(atlasId), ...this._getAtlasInitiallyCheckedIds('index')]);
+        const active = new Set(Array.from(this._getActiveLayers()).map(id => this._baseLayerId(id)));
+        ids.forEach(id => {
+            if (!active.has(this._baseLayerId(id))) this._handleLayerToggle(id, true);
+        });
+    }
+
+    openCreator() {
+        if (!this._isOpen) this.openBrowser();
+        this._switchToCreator();
     }
 
     openBrowser() {
@@ -1063,7 +1101,41 @@ export class MapBrowserControl {
         }
     }
 
+    // A legend item in the layer editor being pointed at: only the features of its rule
+    // are drawn, on top of whatever filter each of the layer's map layers already has.
+    // _clearLegendFilter puts every one back.
+    _previewLegendFilter(layerId, filter) {
+        this._clearLegendFilter();
+        const map = this._map;
+        if (!map || !layerId || !filter) return;
+        const saved = new Map();
+        (map.getStyle()?.layers || []).filter(layer => layer.metadata?.groupId === layerId).forEach(layer => {
+            try {
+                const original = map.getFilter(layer.id) ?? null;
+                map.setFilter(layer.id, original ? ['all', original, filter] : filter);
+                saved.set(layer.id, original);
+            } catch (error) {
+                // A layer that can't take this filter is left as it was.
+            }
+        });
+        this._legendFilterSaved = saved;
+    }
+
+    _clearLegendFilter() {
+        const saved = this._legendFilterSaved;
+        this._legendFilterSaved = null;
+        if (!saved || !this._map) return;
+        saved.forEach((original, layerId) => {
+            try {
+                this._map.setFilter(layerId, original);
+            } catch (error) {
+                // The layer was replaced since (a live-preview draft); nothing to put back.
+            }
+        });
+    }
+
     closeBrowser() {
+        this._clearLegendFilter();
         // Closing mid-edit without applying puts the layer back.
         if (this._editSession) this._restoreEditSession();
         window.layerControl?.isolation?.clear();
@@ -1116,6 +1188,17 @@ export class MapBrowserControl {
 
     updateAtlasName(atlasName) {
         // No longer updating atlas name - button always shows "Maps"
+    }
+
+    /**
+     * A layer picked in the creator's "Choose from Atlas" list: turn it on, then
+     * open the layer panel on it - its Overview, or its Edit tab when customizing.
+     */
+    async _useRegistryLayer(layerId, customize) {
+        const layer = window.layerRegistry?._registry.get(layerId);
+        if (!layer) return;
+        await this._handleLayerToggle(layerId, true);
+        this.openLayerEditor({ ...layer, id: layerId }, { tab: customize ? 'edit' : 'view' });
     }
 
     _switchToCreator(query = '') {

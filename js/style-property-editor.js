@@ -910,7 +910,7 @@ function injectStyles() {
         .spe-color-swatch { width: 28px; height: 28px; padding: 0; border: 1px solid #374151; border-radius: 6px;
             background: #0b1220; cursor: pointer; }
         .spe-color-swatch:hover { border-color: #6b7280; }
-        .spe-row { background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 6px 8px; margin-bottom: 6px; }
+        .spe-row { border-radius: 4px; padding: 8px 0; margin-bottom: 2px; }
         .spe-head { display: flex; align-items: center; gap: 6px; }
         .spe-name { font-family: 'Courier New', monospace; font-size: 11px; color: #e5e7eb; }
         .spe-spacer { flex: 1; }
@@ -926,7 +926,7 @@ function injectStyles() {
         .spe-remove:hover { color: #fff; background: #dc2626; border-color: #dc2626; }
         .spe-control { margin-top: 5px; }
         .spe-control-inline { display: flex; align-items: center; gap: 6px; }
-        .spe-input { background: #0b1220; border: 1px solid #374151; color: #f3f4f6; border-radius: 6px;
+        .spe-input { background: #1f2937; border: 1px solid transparent; color: #f3f4f6; border-radius: 4px;
             padding: 4px 6px; font-size: 12px; width: 100%; }
         .spe-input:focus { outline: none; border-color: #3b82f6; }
         .spe-invalid { border-color: #ef4444; }
@@ -938,7 +938,7 @@ function injectStyles() {
         .spe-error { display: none; font-size: 10px; color: #f87171; margin-top: 3px; }
         .spe-empty { font-size: 12px; color: #9ca3af; font-style: italic; }
         .spe-add { margin-top: 8px; }
-        .spe-tabs { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #374151; }
+        .spe-tabs { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 12px; }
         .spe-tab { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #9ca3af; background: transparent;
             border: 1px solid transparent; border-radius: 6px; padding: 3px 8px; cursor: pointer; }
         .spe-tab:hover { color: #fff; background: #1f2937; }
@@ -947,7 +947,7 @@ function injectStyles() {
         .spe-tab-empty:not(.spe-tab-active) { opacity: .45; }
         .spe-tab-count { font-size: 9px; background: rgba(255,255,255,.14); border-radius: 8px; padding: 0 5px; }
         .spe-flash { animation: spe-flash 1.6s ease-out; }
-        @keyframes spe-flash { 0%, 30% { border-color: #60a5fa; box-shadow: 0 0 0 2px rgba(96,165,250,.45); } 100% { border-color: #374151; box-shadow: none; } }
+        @keyframes spe-flash { 0%, 30% { background: rgba(96,165,250,.2); } 100% { background: transparent; } }
     ` });
     document.head.appendChild(style);
 }

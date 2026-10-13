@@ -7,6 +7,9 @@
  * Each item is titled by the value of the layer's `inspect.label` field when
  * the rule is about that field ("G1"), and carries the rule's data expression
  * beneath it ("use_zones = G1").
+ *
+ * Pointing at (or focusing) an item reports its rule to `onPreview`, so the map
+ * can show just the features that rule draws until the pointer or focus leaves.
  */
 
 import { analyzeRules, describeCondition } from './style-rules.js';
@@ -14,6 +17,44 @@ import { resolveStyleReferences } from './style-references.js';
 import { renderRuleSymbol, injectRuleViewStyles } from './rules-view.js';
 
 const MAX_ITEMS = 60;
+
+function conditionFilter(condition) {
+    if (condition.kind === 'match') {
+        return ['==', ['to-string', JSON.parse(condition.inputSig)], condition.label];
+    }
+    if (condition.kind === 'range') {
+        const input = ['to-number', JSON.parse(condition.inputSig)];
+        const bounds = [];
+        if (condition.from !== -Infinity) bounds.push(['>=', input, condition.from]);
+        if (condition.to !== Infinity) bounds.push(['<', input, condition.to]);
+        if (!bounds.length) return null;
+        return bounds.length === 1 ? bounds[0] : ['all', ...bounds];
+    }
+    // A test on feature state can't be used to filter features.
+    if (JSON.stringify(condition.expr).includes('feature-state')) return null;
+    return condition.expr;
+}
+
+function rowFilter(row) {
+    const parts = row.conditions.map(conditionFilter);
+    if (!parts.length || parts.some(part => part === null)) return null;
+    return parts.length === 1 ? parts[0] : ['all', ...parts];
+}
+
+/**
+ * The map filter that keeps only the features a rule draws, or null when the
+ * rule can't be expressed as one. The fallback rule is everything no other rule matches.
+ */
+export function ruleFilter(layer, ruleId) {
+    const { rows } = analyzeRules(resolveStyleReferences(layer.style || {}));
+    const row = rows.find(candidate => candidate.id === ruleId);
+    if (!row) return null;
+    if (!row.isDefault) return rowFilter(row);
+
+    const others = rows.filter(candidate => !candidate.isDefault).map(rowFilter);
+    if (!others.length || others.some(filter => filter === null)) return null;
+    return ['!', ['any', ...others]];
+}
 
 function titleOf(conditions, labelField) {
     const onLabel = conditions.find(c => labelField && c.field === labelField);
@@ -49,29 +90,38 @@ function text(tag, className, content) {
  * @param {Object} layer
  * @returns {HTMLElement|null} null when the style has no rules
  */
-export function generateRuleLegend(layer) {
+export function generateRuleLegend(layer, { onPreview } = {}) {
     const items = ruleLegendItems(layer);
     if (!items.length) return null;
     injectRuleViewStyles();
 
     const container = document.createElement('div');
     container.className = 'legend-vector legend-rules';
-    container.style.cssText = 'background:white;border:1px solid #d1d5db;border-radius:4px;padding:6px 10px;max-height:360px;overflow-y:auto;';
+    container.style.cssText = 'max-height:360px;overflow-y:auto;';
 
     items.slice(0, MAX_ITEMS).forEach(item => {
         const row = document.createElement('div');
         row.dataset.rule = item.id;
-        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:3px 0;';
+        if (onPreview) {
+            row.tabIndex = 0;
+            const show = () => onPreview(item.id);
+            const hide = () => onPreview(null);
+            row.addEventListener('mouseenter', show);
+            row.addEventListener('focus', show);
+            row.addEventListener('mouseleave', hide);
+            row.addEventListener('blur', hide);
+        }
+        row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:5px 4px;border-radius:4px;';
 
-        const symbol = renderRuleSymbol(item.row, 28);
+        const symbol = renderRuleSymbol(item.row, 30);
         const body = document.createElement('div');
         body.style.cssText = 'min-width:0;line-height:1.25;';
         const title = text('div', 'legend-rule-title', item.title);
-        title.style.cssText = 'font-size:12px;font-weight:600;color:#111827;overflow-wrap:anywhere;';
+        title.style.cssText = 'font-size:13px;font-weight:500;color:#e5e7eb;overflow-wrap:anywhere;';
         body.appendChild(title);
         if (item.subtitle) {
             const subtitle = text('div', 'legend-rule-subtitle', item.subtitle);
-            subtitle.style.cssText = 'font-size:10px;color:#6b7280;font-family:ui-monospace,monospace;overflow-wrap:anywhere;';
+            subtitle.style.cssText = 'font-size:11px;color:#6b7280;font-family:ui-monospace,monospace;overflow-wrap:anywhere;';
             body.appendChild(subtitle);
         }
         row.append(symbol, body);
@@ -79,7 +129,7 @@ export function generateRuleLegend(layer) {
     });
 
     if (items.length > MAX_ITEMS) {
-        container.appendChild(text('div', 'legend-rule-more', `… ${items.length - MAX_ITEMS} more rules`)).style.cssText = 'font-size:11px;color:#6b7280;padding-top:4px;';
+        container.appendChild(text('div', 'legend-rule-more', `… ${items.length - MAX_ITEMS} more rules`)).style.cssText = 'font-size:11px;color:#6b7280;padding:6px 4px 0;';
     }
     return container;
 }
