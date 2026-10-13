@@ -703,7 +703,18 @@
 }
 
 .map-control-bar-head:has(.map-search-control.searching) > .map-control-bar-main {
+    flex: none;
+    padding: 6px;
+}
+
+.map-control-bar-head:has(.map-search-control.searching) .map-control-bar-text,
+.map-control-bar-head:has(.map-search-control.searching) .map-control-bar-chevron {
     display: none;
+}
+
+.map-control-bar:has(.map-search-control.searching).has-search-dropdown {
+    border-bottom-color: transparent;
+    padding-bottom: 0;
 }
 
 .map-search-control {
@@ -1093,7 +1104,7 @@
 }
 
 .layer-stack-item:last-child .layer-stack-cell,
-[data-layer-item]:has(+ .layer-stack-options) .layer-stack-cell {
+[data-layer-item]:has(+ .layer-stack-footer) .layer-stack-cell {
     border-bottom-width: 1px !important;
     border-radius: 0 0 5px 5px !important;
 }
@@ -1105,8 +1116,8 @@
 
 .layer-stack-item:only-child .layer-stack-cell,
 .layer-stack-browser+[data-layer-item]:last-child .layer-stack-cell,
-.layer-stack-browser+[data-layer-item]:has(+ .layer-stack-options) .layer-stack-cell,
-[data-layer-item]:first-child:has(+ .layer-stack-options) .layer-stack-cell {
+.layer-stack-browser+[data-layer-item]:has(+ .layer-stack-footer) .layer-stack-cell,
+[data-layer-item]:first-child:has(+ .layer-stack-footer) .layer-stack-cell {
     border-bottom-width: 1px !important;
     border-radius: 5px !important;
 }
@@ -1145,7 +1156,7 @@
 
 /* A single basemap is the whole lower block, so it closes at both ends */
 .layer-stack-basemap-start:last-child .layer-stack-cell,
-.layer-stack-basemap-start:has(+ .layer-stack-options) .layer-stack-cell {
+.layer-stack-basemap-start:has(+ .layer-stack-footer) .layer-stack-cell {
     border-bottom-width: 1px !important;
     border-radius: 5px !important;
 }
@@ -1285,63 +1296,61 @@
     background: var(--primary-hover) !important;
 }
 
-/* Options, import and export controls at the foot of the column
-   (js/layer-stack-options-menu.js, js/map-browser-control.js's creator,
-   js/map-export-control.js). Set off by a gap and fully rounded, like the
-   browser toggle at the head of the column - the welded block above already
-   closes off below its last cell (see the :has rules above), so nothing
-   shifts when import/export appear. */
-.layer-stack-options,
-.layer-stack-import,
-.layer-stack-export {
-    margin-top: 5px;
+/* Footer at the foot of the column (js/layer-stack-footer.js): zoom, the hover
+   tooltip and comment toggles on the left, export and the shortcut menu on the
+   right. */
+.layer-stack-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
 }
 
-/* Options is always visible; import/export only reveal on hover, so the
-   column stays as short as the layers themselves plus the options button
-   at rest. */
-/* The flyouts hide during a drag; so do these, or they would sit under the
-   pointer as a drop target that is not a row. */
-.layer-stack-strip.dragging .layer-stack-import,
-.layer-stack-strip.dragging .layer-stack-export,
-.layer-stack-strip.dragging .layer-stack-options {
+.layer-stack-footer-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.layer-stack-strip.dragging .layer-stack-footer {
     display: none;
 }
 
-.layer-stack-import .layer-stack-cell,
-.layer-stack-export .layer-stack-cell,
-.layer-stack-options .layer-stack-cell {
-    border-bottom-width: 1px !important;
-    border-radius: 5px !important;
-}
-
-/* Same chrome as the browser toggle. The hover/open rules need the full
-   ancestor chain and !important for the same reason the flyout's buttons do -
-   see the note further down. */
-.layer-stack-import-btn,
-.layer-stack-export-btn,
-.layer-stack-options-btn {
-    background: #1f2937;
-    color: #9ca3af;
+.map-browser-control .layer-stack-strip button.layer-stack-footer-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 28px;
+    padding: 3px 7px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    line-height: 1.2;
+    white-space: nowrap;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: rgba(255, 255, 255, 0.72) !important;
     cursor: pointer;
 }
 
-.layer-stack-import-btn sl-icon,
-.layer-stack-export-btn sl-icon,
-.layer-stack-options-btn sl-icon {
-    font-size: 17px;
+.layer-stack-footer-btn sl-icon {
+    font-size: 15px;
 }
 
-.map-browser-control .layer-stack-strip button.layer-stack-import-btn:hover,
-.map-browser-control .layer-stack-strip button.layer-stack-export-btn:hover,
-.map-browser-control .layer-stack-strip button.layer-stack-options-btn:hover {
+.map-browser-control .layer-stack-strip button.layer-stack-footer-btn:hover {
     background: #ffffff1a !important;
     color: #fff !important;
 }
 
-.map-browser-control .layer-stack-strip .layer-stack-options.active button.layer-stack-options-btn {
-    background: var(--primary-color) !important;
-    color: #000 !important;
+.map-browser-control .layer-stack-strip button.layer-stack-footer-btn.on {
+    color: var(--primary-color) !important;
+}
+
+.map-browser-control .layer-stack-strip .layer-stack-footer-group:last-child button.layer-stack-footer-btn.active {
+    background: #ffffff1a !important;
 }
 
 /* Flyout panel revealed on hover: the layer name, then the atlas name and the
@@ -1360,12 +1369,12 @@
     top: 0;
     margin-left: -1px;
     box-sizing: border-box;
-    min-height: 36px;
+    height: 36px;
     display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 3px;
-    padding: 5px 12px 5px 10px;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 0 6px 0 10px;
     background: #1f2937;
     border: 1px solid var(--primary-color);
     border-left: none;
@@ -1417,13 +1426,6 @@
     color: #9ca3af;
 }
 
-.layer-stack-label-nodata {
-    margin-top: 4px;
-    font-size: 10px;
-    line-height: 1.3;
-    color: #9ca3af;
-}
-
 /* The hover panel opens over the row text, so drop the text beneath it */
 .layer-stack-item:hover .layer-stack-row-text {
     visibility: hidden;
@@ -1435,18 +1437,6 @@
     border-color: var(--primary-color) !important;
     border-right-color: #1f2937 !important;
     border-bottom-width: 1px !important;
-}
-
-/* When the panel is taller than the cell, carry the outline's left edge down
-   from the cell's bottom-right corner to the panel's bottom */
-.layer-stack-label::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 35px;
-    bottom: -1px;
-    width: 1px;
-    background: var(--primary-color);
 }
 
 /* Hover only. Focus is not a reveal trigger: the browser toggle is focused
@@ -1461,6 +1451,7 @@
 
 .layer-stack-label-head {
     display: flex;
+    flex: 1;
     align-items: center;
     gap: 8px;
     min-width: 0;
@@ -1531,9 +1522,10 @@
 
 .layer-stack-label-meta {
     display: flex;
-    flex-wrap: wrap;
+    flex-shrink: 0;
+    margin-left: auto;
     align-items: center;
-    gap: 2px 7px;
+    gap: 2px;
 }
 
 .layer-stack-label-atlas {
@@ -1542,28 +1534,7 @@
     line-height: 1.3;
 }
 
-.layer-stack-label-opacity {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 4px;
-    color: #9ca3af;
-}
-
-.layer-stack-label-opacity sl-icon {
-    font-size: 12px;
-}
-
-.layer-stack-label-opacity input[type="range"] {
-    flex: 1;
-    min-width: 90px;
-    height: 14px;
-    margin: 0;
-    accent-color: var(--primary-color, #f59e0b);
-    cursor: pointer;
-}
-
-/* zoom | remove */
+/* zoom, remove: icon-only */
 .layer-stack-label-action {
     display: inline-flex;
     align-items: center;
@@ -1582,7 +1553,7 @@
 }
 
 .layer-stack-label-action sl-icon {
-    font-size: 11px;
+    font-size: 14px;
 }
 
 .map-browser-control .layer-stack-strip .layer-stack-label button.layer-stack-label-action:hover {
@@ -1606,13 +1577,7 @@
 
 /* Icon-only actions (the reorder arrows) don't need the text gap */
 .layer-stack-label-action:not(:has(span)) {
-    padding: 2px 3px;
-}
-
-.layer-stack-label-sep {
-    color: #4b5563;
-    font-size: 10px;
-    user-select: none;
+    padding: 4px;
 }
 
 /* Primary top-left row control (see js/search-box-control.js): the Maps
@@ -1887,6 +1852,10 @@ mapbox-search-box {
     --sl-font-size-small: 0.875rem;
 }
 
+.cadastral-survey-hidden {
+    display: none !important;
+}
+
 .cadastral-village-select sl-option::part(label) {
     white-space: normal;
     line-height: 1.25;
@@ -1942,6 +1911,8 @@ mapbox-search-box {
 }
 
 .cadastral-dropdown--docked {
+    border-color: rgba(255, 255, 255, 0.3);
+    border-top: 0;
     border-top-left-radius: 0;
     border-top-right-radius: 0;
     box-sizing: border-box;
@@ -7989,4 +7960,29 @@ sl-tab:hover::part(base) {
     background: rgba(255, 255, 255, 0.06);
     border-color: #4b5563;
     color: #f3f4f6;
+}
+
+/* The result dropdowns belong to search mode: they stay in the DOM, so they
+   come back with their results when search is toggled on again. */
+body:not(.map-search-active) #amche-search-suggestions,
+body:not(.map-search-active) .cadastral-dropdown {
+    display: none !important;
+}
+
+.map-search-control mapbox-search-box [class$='--ClearBtn'],
+.map-search-control mapbox-search-box [class$='--ClearBtn']:hover,
+.map-search-control mapbox-search-box [class$='--ClearBtn']:focus,
+.map-search-control mapbox-search-box [class$='--ClearBtn']:active {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #4b5563 !important;
+}
+
+.map-search-control mapbox-search-box [class$='--ClearBtn']:hover {
+    color: #111827 !important;
+}
+
+.map-search-control mapbox-search-box [class$='--ClearBtn'] svg {
+    fill: currentColor !important;
 }

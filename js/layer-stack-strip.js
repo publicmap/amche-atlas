@@ -26,7 +26,7 @@
  */
 import { LayerThumbnail } from './layer-thumbnail.js';
 import { LayerOrderManager } from './layer-order-manager.js';
-import { LayerStackOptionsMenu } from './layer-stack-options-menu.js';
+import { LayerStackFooter } from './layer-stack-footer.js';
 import { MapControlBar } from './map-control-bar.js';
 
 const THUMB_SIZE = 36;
@@ -40,10 +40,7 @@ export class LayerStackStrip {
         this._clearIsolationTimer = null;
         this._reorderTimer = null;
         this._draggedItem = null;
-        this._importItem = null;
-        this._exportItem = null;
-        this._optionsItem = null;
-        this._optionsMenu = null;
+        this._footer = null;
         this._reordering = false;
         this._hideTimer = null;
         this._expandTimer = null;
@@ -149,9 +146,7 @@ export class LayerStackStrip {
 
         this._map = map;
         this._mountBrowserProxy(browserButton);
-        this._mountOptionsItem(map);
-        this._mountImportItem();
-        this._mountExportItem();
+        this._mountFooter(map);
 
         // 'layersInitialized' is the signal that MapLayerControl has finished
         // building the groups this strip reads (it fires well after the control
@@ -171,7 +166,7 @@ export class LayerStackStrip {
         // ever fires — drop any isolation it left applied.
         if (!visible) {
             this._clearIsolation({ immediate: true });
-            this._optionsMenu?.close();
+            this._footer?.closeMenu();
         }
         this._el.style.display = visible ? '' : 'none';
         this._controlBar?.setVisible(visible);
@@ -213,11 +208,8 @@ export class LayerStackStrip {
         this._reordering = false;
         clearTimeout(this._hideTimer);
         this._clearIsolation({ immediate: true });
-        this._optionsMenu?.unmount();
-        this._optionsMenu = null;
-        this._optionsItem = null;
-        this._exportItem = null;
-        this._importItem = null;
+        this._footer?.unmount();
+        this._footer = null;
         window.removeEventListener('mapSearchStart', this._onSearchStart);
         this._controlBar?.destroy();
         this._controlBar = null;
@@ -275,11 +267,12 @@ export class LayerStackStrip {
             });
         });
 
-        // The options, import and export controls belong at the foot of the
-        // column, and the layer rows were just appended after them.
-        if (this._optionsItem) this._el.appendChild(this._optionsItem);
-        if (this._importItem) this._el.appendChild(this._importItem);
-        if (this._exportItem) this._el.appendChild(this._exportItem);
+        // The footer belongs at the foot of the column, and the layer rows were
+        // just appended after it.
+        if (this._footer) {
+            this._el.appendChild(this._footer.el);
+            this._footer.sync();
+        }
 
         this._syncBarWidth();
     }
@@ -406,109 +399,14 @@ export class LayerStackStrip {
         this.render({ force: true });
     }
 
-    /**
-     * A full-width action row at the foot of the column: an icon cell and a
-     * label, acting as one button. The whole row is the click (and hover)
-     * target, not just the icon.
-     */
-    _createActionItem({ className, buttonClass, icon, iconHover = null, label, title, onClick }) {
-        const item = document.createElement('div');
-        item.className = `layer-stack-item layer-stack-control ${className}`;
-        item.title = title;
-
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = `layer-stack-cell ${buttonClass}`;
-        button.setAttribute('aria-label', title);
-        button.tabIndex = -1;
-        const iconEl = document.createElement('sl-icon');
-        iconEl.name = icon;
-        button.appendChild(iconEl);
-        item.appendChild(button);
-
-        const text = document.createElement('div');
-        text.className = 'layer-stack-row-text';
-        const name = document.createElement('div');
-        name.className = 'layer-stack-row-name';
-        name.textContent = label;
-        text.appendChild(name);
-        item.appendChild(text);
-
-        if (iconHover) {
-            item.addEventListener('mouseenter', () => iconEl.setAttribute('name', iconHover));
-            item.addEventListener('mouseleave', () => iconEl.setAttribute('name', icon));
-        }
-        item.addEventListener('click', (e) => {
-            e.stopPropagation();
-            onClick();
+    _mountFooter(map) {
+        this._footer = new LayerStackFooter({
+            post: (message) => this._post(message),
+            getLayers: () => this._getVisibleLayers(),
+            onOptionsToggle: (open) => this._el?.classList.toggle('options-open', open)
         });
-        return item;
-    }
-
-    /**
-     * The import row, after the options row and before export. Opens
-     * map-creator.html the same way the long-press shortcut menu's "Import Map"
-     * entry does (see shortcut-menu-base.js): the browser overlay has to be open
-     * for its iframe to be visible at all, so this opens it first if needed
-     * before switching that iframe to the creator.
-     */
-    _mountImportItem() {
-        const item = this._createActionItem({
-            className: 'layer-stack-import',
-            buttonClass: 'layer-stack-import-btn',
-            icon: 'plus-circle',
-            iconHover: 'plus-circle-fill',
-            label: 'Import Map',
-            title: 'Import map',
-            onClick: () => {
-                if (!window.browserControl?._isOpen) window.browserControl?.openBrowser();
-                window.browserControl?._switchToCreator();
-            }
-        });
-        this._el.appendChild(item);
-        this._importItem = item;
-    }
-
-    /**
-     * The export row, mounted last. MapExportControl isn't mounted as a map
-     * control (see map-init.js) - its own message listener already handles
-     * 'toggle-export', so this row just posts that rather than reaching into
-     * the control directly.
-     */
-    _mountExportItem() {
-        const item = this._createActionItem({
-            className: 'layer-stack-export',
-            buttonClass: 'layer-stack-export-btn',
-            icon: 'download',
-            label: 'Export Map',
-            title: 'Export map',
-            onClick: () => this._post({ type: 'toggle-export' })
-        });
-        this._el.appendChild(item);
-        this._exportItem = item;
-    }
-
-    /**
-     * The first fixed row at the foot of the stack, opening the shared shortcut
-     * actions. The menu opens into the space beside the column, anchored to the
-     * whole row.
-     */
-    _mountOptionsItem(map) {
-        const item = this._createActionItem({
-            className: 'layer-stack-options',
-            buttonClass: 'layer-stack-options-btn',
-            icon: 'three-dots',
-            label: 'More Options',
-            title: 'Map and selection options',
-            onClick: () => this._optionsMenu?.toggle()
-        });
-        this._el.appendChild(item);
-        this._optionsItem = item;
-
-        this._optionsMenu = new LayerStackOptionsMenu({
-            onVisibilityChange: (open) => this._el?.classList.toggle('options-open', open)
-        });
-        this._optionsMenu.mount(map || window.map, item);
+        this._el.appendChild(this._footer.el);
+        this._footer.mount(map || window.map);
     }
 
     /**
@@ -622,24 +520,15 @@ export class LayerStackStrip {
         const meta = document.createElement('div');
         meta.className = 'layer-stack-label-meta';
 
-        meta.appendChild(this._createLabelAction('pencil', 'Edit', `Edit ${title}`, () => {
-            this._post({ type: 'open-layer-info', layer: this._serializable(layer), edit: true });
-        }));
-        meta.appendChild(this._createLabelSeparator());
-
         const zoomed = this._zoomState?.layerId === layer.id;
         meta.appendChild(zoomed
-            ? this._createLabelAction('arrow-counterclockwise', 'Reset', `Return to the view before zooming to ${title}`, () => this._toggleLayerZoom(layer))
-            : this._createLabelAction('zoom-in', 'Zoom', `Zoom to ${title}`, () => this._toggleLayerZoom(layer)));
-        meta.appendChild(this._createLabelSeparator());
-        meta.appendChild(this._createLabelAction('trash', 'Remove', `Remove ${title} from the map`, () => {
+            ? this._createLabelAction('arrow-counterclockwise', '', `Return to the view before zooming to ${title}`, () => this._toggleLayerZoom(layer))
+            : this._createLabelAction('zoom-in', '', `Zoom to ${title}`, () => this._toggleLayerZoom(layer)));
+        meta.appendChild(this._createLabelAction('trash', '', `Remove ${title} from the map`, () => {
             this._post({ type: 'remove-layer', layerId: layer.id });
         }, 'layer-stack-label-action-danger'));
 
         label.appendChild(meta);
-        label.appendChild(noFeatures
-            ? this._createNoDataNote()
-            : this._createOpacitySlider(layer, title, item));
         item.appendChild(label);
 
         // Hovering anywhere on the row (thumbnail, text or hover panel) isolates the layer - same effect
@@ -860,41 +749,6 @@ export class LayerStackStrip {
         return wrap;
     }
 
-    _createNoDataNote() {
-        const note = document.createElement('div');
-        note.className = 'layer-stack-label-nodata';
-        note.textContent = 'No map data at this location';
-        return note;
-    }
-
-    _createOpacitySlider(layer, title, item) {
-        const row = document.createElement('label');
-        row.className = 'layer-stack-label-opacity';
-        row.title = `Opacity of ${title}`;
-
-        const icon = document.createElement('sl-icon');
-        icon.name = 'droplet-half';
-        row.appendChild(icon);
-
-        const slider = document.createElement('input');
-        slider.type = 'range';
-        slider.min = '0';
-        slider.max = '1';
-        slider.step = '0.05';
-        slider.value = String(layer.opacity ?? 1);
-        slider.setAttribute('aria-label', `Opacity of ${title}`);
-        slider.addEventListener('input', () => {
-            this._post({ type: 'update-layer-opacity', layerId: layer.id, opacity: parseFloat(slider.value) });
-        });
-        // The row is draggable for reordering, which would otherwise swallow the slider's own drag
-        slider.addEventListener('pointerdown', () => { item.draggable = false; });
-        ['pointerup', 'pointercancel'].forEach(type => {
-            slider.addEventListener(type, () => { item.draggable = true; });
-        });
-        row.appendChild(slider);
-        return row;
-    }
-
     _createLabelAction(icon, text, title, onClick, variant = '', disabled = false) {
         const button = document.createElement('button');
         button.type = 'button';
@@ -912,14 +766,6 @@ export class LayerStackStrip {
             });
         }
         return button;
-    }
-
-    _createLabelSeparator() {
-        const separator = document.createElement('span');
-        separator.className = 'layer-stack-label-sep';
-        separator.setAttribute('aria-hidden', 'true');
-        separator.textContent = '|';
-        return separator;
     }
 
     /**

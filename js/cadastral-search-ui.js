@@ -1,3 +1,4 @@
+import { queryRenderedPlotSurveys } from './cadastral-plot-suggestions.js'
 import {
     detectVillageFromMapCenter,
     filterVillageList,
@@ -58,7 +59,7 @@ export class CadastralSearchUI {
         this.panel.innerHTML = `
             <sl-select id="cadastral-village-select"
                 class="cadastral-village-select cadastral-desktop-only"
-                placeholder="Village" hoist clearable size="small">
+                title="Choose Village" placeholder="Search By Survey No." hoist clearable size="small">
                 <sl-spinner slot="prefix" class="cadastral-spinner" hidden></sl-spinner>
             </sl-select>
             <sl-input id="cadastral-survey-input"
@@ -69,7 +70,7 @@ export class CadastralSearchUI {
             <button type="button" id="cadastral-village-trigger"
                 class="cadastral-village-trigger cadastral-mobile-only cadastral-field-trigger"
                 role="combobox" aria-haspopup="dialog" aria-expanded="false"
-                aria-label="Select village">
+                aria-label="Choose Village">
                 <span class="cadastral-field-trigger__label">Village</span>
                 <sl-spinner class="cadastral-spinner" hidden></sl-spinner>
             </button>
@@ -119,6 +120,16 @@ export class CadastralSearchUI {
         dropdownHost.appendChild(this.dropdown)
         document.body.appendChild(this.pickerDrawer)
 
+        // While the dropdown is open under the control bar the two read as one
+        // panel, so the bar drops its bottom edge (see .has-search-dropdown).
+        const syncDocked = () => {
+            const bar = this.searchBoxEl.closest('.map-control-bar')
+            const open = !this.dropdown.classList.contains('hidden')
+            bar?.classList.toggle('has-search-dropdown', open)
+            if (open && this.visible) this._positionDropdown()
+        }
+        new MutationObserver(syncDocked).observe(this.dropdown, { attributes: true, attributeFilter: ['class'] })
+
         this.villageSelect = this.panel.querySelector('#cadastral-village-select')
         this.surveyInput = this.panel.querySelector('#cadastral-survey-input')
         this.villageTrigger = this.panel.querySelector('#cadastral-village-trigger')
@@ -135,7 +146,7 @@ export class CadastralSearchUI {
         this._villageLoading = loading
         this.villageSpinners?.forEach(el => { el.hidden = !loading })
         if (this.villageSelect) {
-            this.villageSelect.placeholder = loading ? 'Loading villages…' : 'Village'
+            this.villageSelect.placeholder = loading ? 'Loading villages…' : 'Search By Survey No.'
         }
         this._syncTriggerLabels()
     }
@@ -172,6 +183,12 @@ export class CadastralSearchUI {
         }
 
         const fragment = document.createDocumentFragment()
+
+        const header = document.createElement('sl-option')
+        header.value = '__choose-village'
+        header.disabled = true
+        header.textContent = 'Choose Revenue Village'
+        fragment.appendChild(header)
 
         this._villageList
             .slice()
@@ -264,7 +281,7 @@ export class CadastralSearchUI {
             villageLabel.textContent = `${this.selectedVillage.village} — ${this.selectedVillage.taluka}`
             villageLabel.classList.add('cadastral-field-trigger__label--filled')
         } else {
-            villageLabel.textContent = this._villageLoading ? 'Loading villages…' : 'Village'
+            villageLabel.textContent = this._villageLoading ? 'Loading villages…' : 'Search By Survey No.'
             villageLabel.classList.remove('cadastral-field-trigger__label--filled')
         }
 
@@ -278,6 +295,8 @@ export class CadastralSearchUI {
         }
 
         const hasVillage = Boolean(this.selectedVillage?.village)
+        this.surveyInput?.classList.toggle('cadastral-survey-hidden', !hasVillage)
+        this.surveyTrigger.classList.toggle('cadastral-survey-hidden', !hasVillage)
         this.villageTrigger.disabled = this._villageLoading
         this.surveyTrigger.disabled = !hasVillage
         this.surveyTrigger.setAttribute('aria-disabled', hasVillage ? 'false' : 'true')
@@ -294,7 +313,7 @@ export class CadastralSearchUI {
         this._clearResults()
         this.dropdown?.classList.add('cadastral-dropdown--picker-open')
 
-        const title = mode === 'village' ? 'Select village' : 'Select survey number'
+        const title = mode === 'village' ? 'Choose Village' : 'Select survey number'
         this.pickerDrawer.label = title
 
         const placeholder = mode === 'village' ? 'Search villages' : 'Type to search survey numbers'
@@ -478,12 +497,16 @@ export class CadastralSearchUI {
             this.selectedVillage = null
             this.userPickedVillage = true
             sessionStorage.removeItem('cadastral-village')
+            this.surveyInput.value = ''
             this._syncTriggerLabels()
             this._clearResults()
         })
 
+        this.surveyInput?.addEventListener('sl-focus', () => this._showPlotSuggestions())
+
         this.surveyInput?.addEventListener('sl-input', () => {
             this._syncTriggerLabels()
+            if (!this._getSurveyRaw()) this._showPlotSuggestions()
             clearTimeout(this._debounceTimer)
             this._debounceTimer = setTimeout(() => this._runSearch(), 250)
         })
@@ -508,10 +531,7 @@ export class CadastralSearchUI {
             this._openPicker('survey')
         })
 
-        this.map.on('moveend', () => {
-            if (this.userPickedVillage) return
-            this._syncVillageFromMap()
-        })
+        this.map.on('moveend', () => this._scheduleVillageSync())
     }
 
     _stackHasFocus() {
@@ -614,7 +634,7 @@ export class CadastralSearchUI {
             this.villageSelect.value = saved
             this.selectedVillage = parseVillageEntryKey(saved)
         } else {
-            this._syncVillageFromMap()
+            this._scheduleVillageSync()
         }
         this._syncTriggerLabels()
     }
@@ -625,6 +645,16 @@ export class CadastralSearchUI {
         this.panel.classList.add('hidden')
         this._clearResults()
         this.dropdown.classList.add('hidden')
+    }
+
+    // The plot tiles usually are not rendered yet when the map stops moving or
+    // the search opens, so look again once the map has gone idle.
+    _scheduleVillageSync() {
+        if (this.userPickedVillage) return
+        this._syncVillageFromMap()
+        this.map.once('idle', () => {
+            if (!this.userPickedVillage) this._syncVillageFromMap()
+        })
     }
 
     _syncVillageFromMap() {
@@ -663,6 +693,11 @@ export class CadastralSearchUI {
             .then(features => {
                 if (this._pendingSurvey !== surveyRaw) return
                 this._renderResults(features)
+                if (this._autoPickSurvey === surveyRaw) {
+                    this._autoPickSurvey = null
+                    this._selectFirstResult()
+                    return
+                }
                 this.searchControl.localSuggestions = features
                 this.searchControl.clearSuggestionMarkers()
                 if (features.length) {
@@ -709,6 +744,37 @@ export class CadastralSearchUI {
                     detail: { features: [feature] },
                 }))
                 this.searchControl.suppressSuggestions()
+            })
+        })
+    }
+
+    // Survey numbers of the plots drawn on the map for the chosen village, offered
+    // as soon as the field is focused, before anything has been typed.
+    _showPlotSuggestions() {
+        if (this._isMobileLayout() || !this.selectedVillage?.village) return
+
+        const query = this._getSurveyRaw()
+        const surveys = queryRenderedPlotSurveys(this.map, this.selectedVillage.village, query)
+        if (!surveys.length) return
+
+        this.resultsEl.innerHTML = surveys.map((survey, index) => `
+            <button type="button" class="cadastral-result" role="option"
+                data-index="${index}" tabindex="-1">
+                <span class="cadastral-result__icon" aria-hidden="true">📍</span>
+                <span class="cadastral-result__text">${this.searchControl._escapeHtml(survey)}</span>
+            </button>
+        `).join('')
+        this.resultsEl.classList.remove('hidden')
+
+        this.resultsEl.querySelectorAll('.cadastral-result').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation()
+                const survey = surveys[Number(btn.dataset.index)]
+                this.surveyInput.value = survey
+                this._syncTriggerLabels()
+                this._autoPickSurvey = survey
+                this._clearResults()
+                this._runSearch()
             })
         })
     }

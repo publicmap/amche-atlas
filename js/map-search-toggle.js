@@ -83,6 +83,7 @@ export class MapSearchToggle {
             window.dispatchEvent(new CustomEvent('mapSearchStart'));
         }
         this._el.classList.toggle('searching', on);
+        document.body.classList.toggle('map-search-active', on);
         this._btn.setAttribute('aria-pressed', String(on));
     }
 

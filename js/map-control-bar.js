@@ -28,6 +28,10 @@ export class MapControlBar {
         this._main.title = 'Browse all maps';
         this._main.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (searchEl?.classList.contains('searching')) {
+                searchEl.querySelector('.map-search-btn')?.click();
+                return;
+            }
             this._trigger?.click();
         });
         this._main.addEventListener('pointerenter', () => {
@@ -137,8 +141,8 @@ export class MapControlBar {
         group.append(summary, this._hiddenEl);
         this._countEl.append(
             group,
-            this._createAction('Add Map', 'plus-lg', 'Create or import a map', () => window.browserControl?.openCreator()),
-            this._clearBtn
+            this._clearBtn,
+            this._createAction('Add Map', 'plus-lg', 'Create or import a map', () => window.browserControl?.openCreator())
         );
     }
 

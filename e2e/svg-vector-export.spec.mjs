@@ -97,7 +97,7 @@ test('SVG export vectorizes atlas overlay layers as real paths/text', async ({ p
     // revealed by hovering the control bar's summary (the strip itself can't be
     // hovered while hidden).
     await page.hover('.map-control-bar-main');
-    await page.click('.layer-stack-export-btn');
+    await page.click('.layer-stack-footer-btn[title="Export map"]');
 
     const iframeEl = await page.waitForSelector('iframe.map-export-iframe');
     const exportFrame = await iframeEl.contentFrame();

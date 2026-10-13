@@ -1,6 +1,6 @@
 /**
  * LayerStackOptionsMenu - the flyout behind the "..." button at the foot of the
- * layer stack (see js/layer-stack-strip.js): "Zoom To Selected" / "Clear All
+ * layer stack footer (see js/layer-stack-footer.js): "Zoom To Selected" / "Clear All
  * Locations", "Clear All Markers", "Clear All Maps", "Toggle Basemaps",
  * "Hover Tooltips", "Open With", and "Comments" - the map/layer shortcuts
  * that live only here now, not on the long-press menu (shortcut-menu.js).
