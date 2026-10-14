@@ -10,7 +10,6 @@ export class MapControlBar {
         this._trigger = null;
         this._observer = null;
         this._layers = null;
-        this._summaryEl = null;
         this._onAtlasChanged = () => this.update(this._layers);
     }
 
@@ -94,40 +93,11 @@ export class MapControlBar {
         this._nameEl.textContent = name || 'Loading Atlas';
         this._nameEl.classList.toggle('placeholder', !name);
         this._main.title = name ? `${name} - browse all maps` : 'Browse all maps';
-        const count = (layers || []).length;
-        this._summaryTitleEl.textContent = `${count} ${count === 1 ? 'Map' : 'Maps'}`;
         this._setIcon(metadata?.icon || null);
         this._setBackground(metadata?.headerImage || null);
     }
 
-    _mountSummary({ onSummaryClick, onSummaryEnter, onSummaryLeave, onToggleHidden }) {
-        const summary = document.createElement('span');
-        summary.className = 'map-control-bar-summary';
-        summary.setAttribute('role', 'button');
-        summary.tabIndex = 0;
-        summary.title = 'Edit layers';
-        const icon = document.createElement('sl-icon');
-        icon.name = 'stack';
-        const title = document.createElement('span');
-        title.textContent = '0 Maps';
-        summary.append(icon, title);
-        const activate = (e) => {
-            e.stopPropagation();
-            onSummaryClick?.();
-        };
-        summary.addEventListener('click', activate);
-        summary.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                activate(e);
-            }
-        });
-        summary.addEventListener('pointerenter', () => onSummaryEnter?.());
-        summary.addEventListener('pointerleave', () => onSummaryLeave?.());
-        summary.addEventListener('focus', () => onSummaryEnter?.());
-        summary.addEventListener('blur', () => onSummaryLeave?.());
-        this._summaryEl = summary;
-        this._summaryTitleEl = title;
+    _mountSummary({ onToggleHidden }) {
         this._mountHiddenToggle(onToggleHidden);
         this._clearBtn = this._createAction('', 'trash', '', () => this._onClearClick());
         this._clearIcon = this._clearBtn.querySelector('sl-icon');
@@ -136,13 +106,10 @@ export class MapControlBar {
         this._undoActive = false;
         this._undoExpired = false;
         this._setClearMode('remove');
-        const group = document.createElement('span');
-        group.className = 'map-control-bar-summary-group';
-        group.append(summary, this._hiddenEl);
         this._countEl.append(
-            group,
-            this._clearBtn,
-            this._createAction('Add Map', 'plus-lg', 'Create or import a map', () => window.browserControl?.openCreator())
+            this._createAction('Add Map', 'plus-lg', 'Create or import a map', () => window.browserControl?.openCreator()),
+            this._hiddenEl,
+            this._clearBtn
         );
     }
 
@@ -237,12 +204,7 @@ export class MapControlBar {
         return this._el;
     }
 
-    get summaryEl() {
-        return this._summaryEl;
-    }
-
     setSummaryActive(active, sticky = false) {
-        this._summaryEl?.classList.toggle('active', !!active);
         this._countEl?.classList.toggle('sticky', !!active && sticky);
     }
 

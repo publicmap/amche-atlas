@@ -231,8 +231,15 @@ export class MapBrowserControl {
         loadingText.style.cssText = 'color: #9ca3af; font-size: 14px;';
         loadingText.textContent = 'Loading map collection...';
 
+        const cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.textContent = 'Cancel';
+        cancelButton.style.cssText = 'color: #d1d5db; background: #374151; border: none; border-radius: 4px; padding: 6px 14px; font-size: 13px; cursor: pointer;';
+        cancelButton.addEventListener('click', () => this.closeBrowser());
+
         this._loadingOverlay.appendChild(spinner);
         this._loadingOverlay.appendChild(loadingText);
+        this._loadingOverlay.appendChild(cancelButton);
         this._browserContainer.appendChild(this._loadingOverlay);
 
         // Add spin animation
@@ -262,6 +269,18 @@ export class MapBrowserControl {
         // Icon only: the button is a 36px cell in the layer stack, and the hover
         // label carries the name.
         this._button.innerHTML = '<sl-icon name="stack"></sl-icon>';
+    }
+
+    _showLoadingOverlay() {
+        if (!this._loadingOverlay) return;
+        this._loadingOverlay.style.display = 'flex';
+        clearTimeout(this._loadingTimeout);
+        this._loadingTimeout = setTimeout(() => this._hideLoadingOverlay(), 8000);
+    }
+
+    _hideLoadingOverlay() {
+        clearTimeout(this._loadingTimeout);
+        if (this._loadingOverlay) this._loadingOverlay.style.display = 'none';
     }
 
     _ensureIframe() {
@@ -324,9 +343,7 @@ export class MapBrowserControl {
 
             if (event.data.type === 'browser-ready') {
                 // Hide loading overlay when iframe has finished rendering
-                if (this._loadingOverlay) {
-                    this._loadingOverlay.style.display = 'none';
-                }
+                this._hideLoadingOverlay();
             }
 
             if (event.data.type === 'inspector-ready') {
@@ -1068,12 +1085,12 @@ export class MapBrowserControl {
     }
 
     openBrowser() {
-        // Show loading overlay immediately
-        if (this._loadingOverlay) {
-            this._loadingOverlay.style.display = 'flex';
-        }
+        this._showLoadingOverlay();
 
         this._ensureIframe();
+        if (!/map-browser\.html/.test(this._iframe.getAttribute('src') || '')) {
+            this._iframe.src = 'map-browser.html';
+        }
         this._overlay.style.display = 'block';
         this._isOpen = true;
         this._updateButtonState(true);
@@ -1140,6 +1157,7 @@ export class MapBrowserControl {
         if (this._editSession) this._restoreEditSession();
         window.layerControl?.isolation?.clear();
 
+        this._hideLoadingOverlay();
         this._overlay.style.display = 'none';
         this._isOpen = false;
         this._updateButtonState(false);
@@ -1204,9 +1222,7 @@ export class MapBrowserControl {
     _switchToCreator(query = '') {
         this._ensureIframe();
         this._iframe.src = `map-creator.html${query}`;
-        if (this._loadingOverlay) {
-            this._loadingOverlay.style.display = 'none';
-        }
+        this._hideLoadingOverlay();
     }
 
     _switchToBrowser() {

@@ -929,23 +929,8 @@
     gap: 3px;
 }
 
-.map-control-bar-summary {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    flex: none;
-    font-weight: 600;
-}
-
-.map-control-bar-summary-group {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex: 1;
-    min-width: 0;
-}
-
 .map-control-bar-hidden-toggle {
+    margin-right: auto;
     padding: 2px 6px;
     border-radius: 6px;
     font-size: 11.5px;
@@ -977,22 +962,6 @@
 
 .map-control-bar-count:empty {
     display: none;
-}
-
-.map-control-bar-summary.active {
-    color: var(--primary-color);
-}
-
-.map-control-bar-summary {
-    cursor: pointer;
-}
-
-.map-control-bar-count.sticky .map-control-bar-summary.active {
-    background: rgba(255, 255, 255, 0.92);
-    color: #111827;
-    border-radius: 6px;
-    padding: 0 6px;
-    text-shadow: none;
 }
 
 .layer-stack-strip:not(.revealed) {
