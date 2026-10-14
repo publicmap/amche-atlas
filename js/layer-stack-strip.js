@@ -28,6 +28,7 @@ import { LayerThumbnail } from './layer-thumbnail.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { LayerStackFooter } from './layer-stack-footer.js';
 import { MapControlBar } from './map-control-bar.js';
+import { attachSwipeDelete } from './layer-swipe-delete.js';
 
 const THUMB_SIZE = 36;
 
@@ -71,9 +72,13 @@ export class LayerStackStrip {
         // Debounced: window.urlManager's active-layers state updates on its own
         // 300ms debounce (see CLAUDE.md), so reading it synchronously on
         // 'layer-toggled' would render from stale state.
-        this._onChange = () => {
+        this._onToggled = (e) => {
+            if (e.detail?.visible === false) this._animateOut(e.detail.layerId);
+        };
+        this._onChange = (e) => {
             clearTimeout(this._refreshTimer);
-            this._refreshTimer = setTimeout(() => this.render(), 400);
+            const shown = e?.type === 'layer-toggled' && e.detail?.visible === true;
+            this._refreshTimer = setTimeout(() => this.render(), shown ? 0 : 400);
         };
     }
 
@@ -152,6 +157,7 @@ export class LayerStackStrip {
         // building the groups this strip reads (it fires well after the control
         // is added to the map); the other two keep it in sync afterwards.
         window.addEventListener('layersInitialized', this._onChange);
+        window.addEventListener('layer-toggled', this._onToggled);
         window.addEventListener('layer-toggled', this._onChange);
         window.addEventListener('urlUpdated', this._onChange);
         window.addEventListener('mask-changed', this._onChange);
@@ -195,6 +201,7 @@ export class LayerStackStrip {
 
     destroy() {
         window.removeEventListener('layersInitialized', this._onChange);
+        window.removeEventListener('layer-toggled', this._onToggled);
         window.removeEventListener('layer-toggled', this._onChange);
         window.removeEventListener('urlUpdated', this._onChange);
         window.removeEventListener('mask-changed', this._onChange);
@@ -380,6 +387,16 @@ export class LayerStackStrip {
         this._scheduleReorderRepaint();
     }
 
+    _animateOut(layerId) {
+        if (!this._el || !layerId) return;
+        this._el.querySelectorAll('[data-layer-item]').forEach(item => {
+            if (item.dataset.layerId !== layerId || item.classList.contains('layer-stack-leaving')) return;
+            item.style.setProperty('--leave-height', `${item.offsetHeight}px`);
+            item.classList.add('layer-stack-leaving');
+            item.addEventListener('animationend', () => item.remove(), { once: true });
+        });
+    }
+
     _resetShowHidden() {
         if (!this._showHidden) return;
         this._showHidden = false;
@@ -544,6 +561,7 @@ export class LayerStackStrip {
         titleBtn.addEventListener('blur', clearIsolation);
 
         this._setupItemDrag(item);
+        attachSwipeDelete(item, () => this._post({ type: 'remove-layer', layerId: layer.id }));
 
         return item;
     }

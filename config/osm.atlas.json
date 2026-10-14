@@ -1146,7 +1146,8 @@
         false
       ],
       "style": {
-        "line-color": [
+        "fill-opacity": 0.5,
+        "fill-color": [
           "match",
           [
             "get",
@@ -1162,8 +1163,7 @@
           ],
           "cyan",
           "black"
-        ],
-        "line-width": 2
+        ]
       },
       "inspect": {
         "id": "kind",

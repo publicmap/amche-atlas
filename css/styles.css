@@ -930,7 +930,6 @@
 }
 
 .map-control-bar-hidden-toggle {
-    margin-right: auto;
     padding: 2px 6px;
     border-radius: 6px;
     font-size: 11.5px;
@@ -958,6 +957,10 @@
     font-size: 11.5px;
     line-height: 1.2;
     white-space: nowrap;
+}
+
+.map-control-bar-count > .map-control-bar-action:last-child {
+    margin-left: auto;
 }
 
 .map-control-bar-count:empty {
@@ -1005,6 +1008,33 @@
 
 .layer-stack-item[data-layer-item] {
     transition: opacity 0.15s ease;
+}
+
+.layer-stack-item[data-layer-item] {
+    touch-action: pan-y;
+}
+
+.layer-stack-item.swiping {
+    user-select: none;
+    cursor: grabbing;
+}
+
+.layer-stack-item.layer-stack-leaving {
+    pointer-events: none;
+    overflow: hidden;
+    animation: layer-stack-leave 0.35s ease-in forwards;
+}
+
+.layer-stack-spacer {
+    flex: none;
+    overflow: hidden;
+    transition: height 0.25s ease;
+}
+
+@keyframes layer-stack-leave {
+    0% { transform: translateX(var(--leave-x, 0)); opacity: 1; height: var(--leave-height); }
+    60% { transform: translateX(-110%); opacity: 0; height: var(--leave-height); }
+    100% { transform: translateX(-110%); opacity: 0; height: 0; }
 }
 
 .layer-stack-strip:has(.layer-stack-item[data-layer-item]:hover) .layer-stack-item[data-layer-item]:not(:hover) {
