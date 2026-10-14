@@ -320,6 +320,7 @@
     },
     {
       "id": "mpd47-landuse",
+      "opacity": 0.95,
       "title": "Master Plan for Delhi 2047",
       "description": "Master Plan for Delhi 2047. See <a href='https://dda.gov.in/sites/default/files/planning%20files/mpd-2047_gazette_english.pdf'>MPD 2047 Notification dt. 20th August 2026</a> for more information",
       "attribution": "<a href='https://gis.dda.org.in/server/rest/services/Hosted/MASTER_PLAN_OF_DELHI_2047/FeatureServer/8'>MPD47, DDA GIS</a>",
@@ -331,23 +332,20 @@
       ],
       "inspect": {
         "id": "fid",
-        "title": "Name",
-        "label": "use_zones",
+        "title": "Proposed Landuse",
+        "label": "luse2041",
         "fields": [
           "use_zones",
           "issues",
           "usepremise",
-          "code_premi",
           "luse2041",
           "remarks",
           "zone"
         ],
         "fieldTitles": [
-          "Use Zones",
+          "Landuse Code",
           "Issues",
           "Usepremise",
-          "Code Premi",
-          "Luse2041",
           "Remarks",
           "Zone"
         ]

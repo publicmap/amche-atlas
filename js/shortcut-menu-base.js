@@ -290,8 +290,8 @@ export class ShortcutMenuBase {
             },
             {
                 id: 'toggle-hover-tooltips',
-                icon: 'cursor',
-                iconChecked: 'cursor-fill',
+                icon: 'hand-index-thumb',
+                iconChecked: 'hand-index-thumb-fill',
                 label: 'Hover Tooltips',
                 // Off leaves the map inert under the pointer: no hover feature
                 // state, no hover popup (see MapFeatureControl.setHoverEnabled).

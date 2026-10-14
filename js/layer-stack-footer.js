@@ -39,7 +39,7 @@ export class LayerStackFooter {
     sync() {
         const hover = window.featureControl?.isHoverEnabled?.() ?? false;
         this._hoverBtn.classList.toggle('on', hover);
-        this._hoverBtn.querySelector('sl-icon').name = hover ? 'cursor-fill' : 'cursor';
+        this._hoverBtn.querySelector('sl-icon').name = hover ? 'hand-index-thumb-fill' : 'hand-index-thumb';
         const comments = !!this._menu?._isLayerVisible(COMMENTS_LAYER_ID);
         this._commentsBtn.classList.toggle('on', comments);
     }
@@ -50,7 +50,7 @@ export class LayerStackFooter {
 
         const left = document.createElement('div');
         left.className = 'layer-stack-footer-group';
-        this._hoverBtn = this._button('cursor', '', 'Hover tooltips', () => this._toggleHover());
+        this._hoverBtn = this._button('hand-index-thumb', '', 'Hover tooltips', () => this._toggleHover());
         this._commentsBtn = this._button('chat-left-text', '', 'Comments', () => this._toggleComments());
         left.append(this._hoverBtn, this._commentsBtn, this._button('arrows-fullscreen', '', 'Zoom to maps', () => this._zoomToMaps()));
 
