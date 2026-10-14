@@ -153,17 +153,17 @@ export class GeolocationWatch {
         else state = WATCH.OFF;
 
         if (state === this._state) return;
-        const previous = this._state;
         this._state = state;
         if (state === WATCH.OFF) this._started = false;
         // ?geolocate=true means "centre the map on the user", so it only
         // belongs in the URL while the camera is actually locked to them.
         // UNLOCKED keeps the dot but hands the camera back to the user, and a
         // reload from there has to land where they panned to, not snap back.
-        const wants = (value) => value !== WATCH.OFF && value !== WATCH.UNLOCKED;
-        if (wants(state) !== wants(previous)) {
-            $(document).trigger('update_url', { geolocate: wants(state) });
-        }
+        // Reconciled on every state change rather than only when the lock flips,
+        // since a stale param (written by the splash, or a transition the
+        // observer coalesced) would otherwise survive an OFF -> UNLOCKED move.
+        const locked = state === WATCH.LOCATING || state === WATCH.ACTIVE;
+        $(document).trigger('update_url', { geolocate: locked });
         this._onStateChange(state);
     }
 

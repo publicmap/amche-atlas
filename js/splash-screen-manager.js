@@ -441,7 +441,7 @@ export class SplashScreenManager {
         // The watch can already have handed the camera back to the user by the
         // time this lands (js/geolocation-watch.js drops the param when it
         // does), so don't resurrect it here.
-        const geolocateParam = window.geolocationControl?.mode === 'unlocked' ? '' : '&geolocate=true';
+        const geolocateParam = ['unlocked', 'error'].includes(window.geolocationControl?.mode) ? '' : '&geolocate=true';
         const newUrl = `${window.location.pathname}?atlas=${bestAtlasId}${layersParam}${geolocateParam}${hash}`;
 
         // Debug: this rebuilds the URL from the detected atlas, which discards or
