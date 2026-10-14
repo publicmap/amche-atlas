@@ -12,6 +12,7 @@
 import { MapMarkerManager } from './map-marker-manager.js';
 import { ZoomToParam } from './zoom-to-param.js';
 import ConfigManager from './config-manager.js';
+import { installHatchPatterns } from './hatch-patterns.js';
 
 /**
  * Layer config fields that can be written onto a layer that is already on the
@@ -997,6 +998,7 @@ export class MapFeatureControl {
             interactive: true,
             attributionControl: false
         });
+        installHatchPatterns(afterMap);
 
         // Mirror the before map's 3D/terrain view state (terrain, fog, projection,
         // field-of-view, wireframe) onto the after map once it has loaded. These
