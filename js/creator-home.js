@@ -151,6 +151,7 @@ export class CreatorHome {
         }
         this.$input.val($card.data('sample')).trigger('input').trigger('focus');
         this.closePanel();
+        this.submit({ onlyIfValid: true });
     }
 
     detect(url) {

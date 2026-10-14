@@ -491,6 +491,7 @@ test('"supported formats" opens help cards with an icon, description and example
     await boot(page);
     await page.evaluate(() => { window.browserControl.openBrowser(); window.browserControl._switchToCreator(); });
     const frame = await creatorFrame(page);
+    await frame.locator('body').evaluate(el => el.classList.remove('home-active'));
 
     // A new layer: the card starts expanded, with the hint and no colour-coded chips.
     await expect(frame.locator('#data-card')).not.toHaveClass(/is-collapsed/);

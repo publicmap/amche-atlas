@@ -1055,7 +1055,7 @@ export class MapBrowserControl {
         sweep(true);
         // Only the base layers are left, so a further clear takes them too.
         if (basemapsWhenEmpty && !handledOff.size) sweep(false);
-        const exhausted = this._getActiveLayers().every(layerId => {
+        const exhausted = Array.from(this._getActiveLayers()).every(layerId => {
             const base = this._baseLayerId(layerId);
             return handledOff.has(base) || base === draftBase || base === 'selection';
         });
