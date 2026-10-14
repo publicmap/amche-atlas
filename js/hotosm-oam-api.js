@@ -3,6 +3,7 @@ const OAM_STAC_BASE = `https://${OAM_HOST}/stac`;
 const OAM_BROWSE_BASE = 'https://imagery.hotosm.org/browse';
 const OAM_BROWSE_HOST = 'imagery.hotosm.org';
 const DEFAULT_COLLECTION = 'openaerialmap';
+const STAC_BROWSER_PATH = /^\/browser\/(?:external\/[^/]+\/)?(?:stac\/)?collections\/([^/]+)\/items\/([^/?#]+)\/?$/;
 const TILE_PATH = /^\/raster\/collections\/([^/]+)\/items\/([^/]+)\/tiles\//;
 
 const PLATFORM_LABELS = { uav: 'UAV / drone', satellite: 'Satellite', aircraft: 'Aircraft' };
@@ -26,19 +27,31 @@ export class HotosmOamAPI {
         }
     }
 
-    static isBrowseUrl(url) {
-        if (!url || typeof url !== 'string') return false;
+    static parseBrowseUrl(url) {
         try {
             const parsed = new URL(url);
-            return parsed.hostname === OAM_BROWSE_HOST && /^\/browse\/?$/.test(parsed.pathname) && !!parsed.searchParams.get('selected_id');
+            if (parsed.hostname === OAM_BROWSE_HOST && /^\/browse\/?$/.test(parsed.pathname)) {
+                const item = parsed.searchParams.get('selected_id');
+                return item ? { collection: DEFAULT_COLLECTION, item } : null;
+            }
+            if (parsed.hostname === OAM_HOST) {
+                const match = parsed.pathname.match(STAC_BROWSER_PATH);
+                return match ? { collection: match[1], item: match[2] } : null;
+            }
         } catch (error) {
-            return false;
+            return null;
         }
+        return null;
+    }
+
+    static isBrowseUrl(url) {
+        if (!url || typeof url !== 'string') return false;
+        return !!this.parseBrowseUrl(url);
     }
 
     static browseUrlToTileUrl(url) {
-        const itemId = new URL(url).searchParams.get('selected_id');
-        return `https://${OAM_HOST}/raster/collections/${DEFAULT_COLLECTION}/items/${itemId}/tiles/WebMercatorQuad/{z}/{x}/{y}?assets=visual&nodata=0`;
+        const { collection, item } = this.parseBrowseUrl(url);
+        return `https://${OAM_HOST}/raster/collections/${collection}/items/${item}/tiles/WebMercatorQuad/{z}/{x}/{y}?assets=visual&nodata=0`;
     }
 
     static parseTileUrl(url) {
