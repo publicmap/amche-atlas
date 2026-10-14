@@ -1051,6 +1051,8 @@ export class MapFeatureControl {
             liftNode(child);
         });
 
+        window.dispatchEvent(new CustomEvent('compare-changed'));
+
         // Persist to URL and reflect the active state in the inspector UI.
         if (window.urlManager) {
             window.urlManager.updateCompareParam(layerId);
@@ -1161,6 +1163,7 @@ export class MapFeatureControl {
         }
 
         this._compareLayerId = null;
+        window.dispatchEvent(new CustomEvent('compare-changed'));
     }
 
     _notifyCompareDisabled() {

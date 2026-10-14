@@ -28,6 +28,7 @@ import { LayerThumbnail } from './layer-thumbnail.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { LayerStackFooter } from './layer-stack-footer.js';
 import { MapControlBar } from './map-control-bar.js';
+import { LayerCompareBadge } from './layer-compare-badge.js';
 import { attachSwipeDelete } from './layer-swipe-delete.js';
 
 const THUMB_SIZE = 36;
@@ -52,6 +53,13 @@ export class LayerStackStrip {
         this._controlBar = null;
         this._onDataLoading = () => this._controlBar?.setLoading(true);
         this._noFeatureIds = new Set();
+        this._compareBadge = new LayerCompareBadge({
+            getLayer: (id) => this._getVisibleLayers().find(l => l.id === id),
+            onStop: (id) => {
+                this._post({ type: 'toggle-compare', layerId: id, enabled: false });
+                this._scheduleReorderRepaint();
+            }
+        });
         this._onMapIdle = () => {
             this._controlBar?.setLoading(!!window.layerControl?._loadingLayerIds?.size);
             if (this._updateFeatureVisibility()) this.render();
@@ -161,6 +169,7 @@ export class LayerStackStrip {
         window.addEventListener('layer-toggled', this._onChange);
         window.addEventListener('urlUpdated', this._onChange);
         window.addEventListener('mask-changed', this._onChange);
+        window.addEventListener('compare-changed', this._onChange);
 
         // The event may already have fired by the time this mounts.
         if (window.layersInitialized) this._onChange();
@@ -242,15 +251,17 @@ export class LayerStackStrip {
         }
         this._pendingRender = false;
 
+        const compareId = this._getComparedLayerId();
+        this._compareBadge.sync(compareId);
+
         const allLayers = this._getVisibleLayers();
         this._controlBar?.update(allLayers);
-        const layers = this._showHidden ? allLayers : allLayers.filter(l => !this._noFeatureIds.has(l.id));
-        const hiddenCount = allLayers.length - layers.length;
+        const layers = allLayers.filter(l => l.id !== compareId && (this._showHidden || !this._noFeatureIds.has(l.id)));
+        const hiddenCount = allLayers.filter(l => l.id !== compareId).length - layers.length;
         this._controlBar?.setHidden(allLayers.filter(l => this._noFeatureIds.has(l.id)).length, this._showHidden);
-        const comparedId = this._getComparedLayerId();
         const maskedId = this._getMaskedLayerId();
         const loadingIds = window.layerControl?._loadingLayerIds;
-        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${comparedId}|mask:${maskedId}|reorder:${this._reordering}|zoom:${this._zoomState?.layerId}|hidden:${hiddenCount}:${this._showHidden}|empty:${[...this._noFeatureIds].join(',')}`;
+        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${compareId}|mask:${maskedId}|reorder:${this._reordering}|zoom:${this._zoomState?.layerId}|hidden:${hiddenCount}:${this._showHidden}|empty:${[...this._noFeatureIds].join(',')}`;
         if (!force && signature === this._signature) return;
         this._signature = signature;
 
@@ -265,7 +276,7 @@ export class LayerStackStrip {
         [overlays, basemaps].forEach((list, section) => {
             if (section === 0 && !this._reordering) return;
             list.forEach((layer, index) => {
-                const item = this._createItem(layer, { index, total: list.length, comparedId, maskedId });
+                const item = this._createItem(layer, { index, total: list.length, maskedId });
                 // The two groups meet at the first basemap, which carries the rule
                 if (section === 1 && index === 0 && overlays.length) {
                     item.classList.add('layer-stack-basemap-start');
@@ -454,9 +465,10 @@ export class LayerStackStrip {
         const stateManager = window.stateManager;
         if (!stateManager?.hasRenderedFeatures || !window.layersInitialized) return false;
         if (!this._reordering && !this._el?.classList.contains('revealed')) return false;
+        const comparedId = this._getComparedLayerId();
         const next = new Set(
             this._getVisibleLayers()
-                .filter(layer => !stateManager.hasRenderedFeatures(layer))
+                .filter(layer => layer.id !== comparedId && !stateManager.hasRenderedFeatures(layer))
                 .map(layer => layer.id)
         );
         const changed = next.size !== this._noFeatureIds.size || [...next].some(id => !this._noFeatureIds.has(id));
@@ -464,7 +476,7 @@ export class LayerStackStrip {
         return changed;
     }
 
-    _createItem(layer, position = { index: 0, total: 1, comparedId: null, maskedId: null }) {
+    _createItem(layer, position = { index: 0, total: 1, maskedId: null }) {
         const item = document.createElement('div');
         item.className = 'layer-stack-item';
         item.dataset.layerItem = 'true';
@@ -484,16 +496,9 @@ export class LayerStackStrip {
         thumbnail.setAttribute('role', 'button');
         thumbnail.setAttribute('tabindex', '0');
         thumbnail.setAttribute('aria-label', atlasName ? `${title} (${atlasName})` : title);
-        // The compared layer steps out of the column: a compare cell takes its slot
-        // and the thumbnail is displaced to the right (see the CSS), so the layer
-        // being swiped is obvious at a glance and can be switched off from here.
-        if (position.comparedId && position.comparedId === layer.id) {
-            item.classList.add('layer-stack-comparing');
-            item.appendChild(this._createCompareCell(layer, title));
-        } else if (position.maskedId && position.maskedId === layer.id) {
-            // The masked layer is displaced the same way (they share the CSS),
-            // with a mask cell in its slot instead. A layer can't be both, and
-            // compare wins if something has managed to set both.
+        // The masked layer steps out of the column: a mask cell takes its slot
+        // and the thumbnail is displaced to the right (see the CSS).
+        if (position.maskedId && position.maskedId === layer.id) {
             item.classList.add('layer-stack-comparing', 'layer-stack-masking');
             item.appendChild(this._createMaskCell(layer, title));
         }
@@ -602,28 +607,6 @@ export class LayerStackStrip {
      */
     _getComparedLayerId() {
         return window.featureControl?._compareLayerId || null;
-    }
-
-    /**
-     * Stand-in cell shown in the compared layer's slot: clicking it turns the
-     * comparison off, using the same `toggle-compare` message the layer editor (map-creator.html)
-     * sends.
-     */
-    _createCompareCell(layer, title) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'layer-stack-compare-cell layer-stack-cell';
-        button.title = `Stop comparing ${title}`;
-        button.setAttribute('aria-label', `Stop comparing ${title}`);
-        button.innerHTML = '<sl-icon name="caret-left"></sl-icon><sl-icon name="caret-right-fill"></sl-icon>';
-        button.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._post({ type: 'toggle-compare', layerId: layer.id, enabled: false });
-            // Disabling rewrites the ?compare= param, but repaint on our own
-            // schedule rather than waiting on that debounce.
-            this._scheduleReorderRepaint();
-        });
-        return button;
     }
 
     /**
