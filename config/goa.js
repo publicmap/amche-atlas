@@ -19,6 +19,8 @@
  * from `url` into a GeoJSON FeatureCollection.
  * ============================================================================
  */
+import { externalDataCard, externalDataLoading } from '../js/external-data-card.js';
+
 export const dataFunctions = {
 
     /**
@@ -135,32 +137,23 @@ export const handlers = {
         console.log('[Bhunaksha] Delay:', delay);
 
         // Return loading placeholder with inline script that will execute in iframe context
+        const loadingText = delay > 0
+            ? 'Please wait... requesting details from <a href="https://bhunaksha.goa.gov.in/" target="_blank">Goa Bhunaksha</a>.'
+            : 'Loading...';
+
         return `
-            <div style="border: 1px solid #374151; border-radius: 4px; margin: 8px 0; overflow: hidden; background: #111827;">
-                <div style="padding: 4px 8px; font-size: 10px; font-weight: 600; color: #9ca3af; letter-spacing: 0.06em; border-bottom: 1px solid #374151; display: flex; align-items: center; gap: 5px;">
-                    <sl-icon name="person-vcard" style="font-size: 12px;"></sl-icon>
-                    <a href="https://bhunaksha.goa.gov.in/" target="_blank" style="color: #9ca3af; text-decoration: none;" onmouseover="this.style.color='#e5e7eb'" onmouseout="this.style.color='#9ca3af'">Goa Land Record</a>
-                    <span style="color: #4b5563;">|</span>
-                    <a href="https://dslr.goa.gov.in/f114new.aspx" target="_blank" style="color: #9ca3af; text-decoration: none;" onmouseover="this.style.color='#e5e7eb'" onmouseout="this.style.color='#9ca3af'">Form I &amp; XIV</a>
-                    <span style="color: #4b5563;">|</span>
-                    <a href="https://goaonline.gov.in/Appln/Uil/propertyregister?_Key=&amp;_Mode=&amp;_cscKey=&amp;__cscKey=" target="_blank" style="color: #9ca3af; text-decoration: none;" onmouseover="this.style.color='#e5e7eb'" onmouseout="this.style.color='#9ca3af'">Property Register</a>
-                </div>
-                <div id="${requestId}" data-executed="false">
-                    <div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; color: #9ca3af; font-size: 10px;">
-                        <svg style="width: 12px; height: 12px; animation: spin 1s linear infinite; flex-shrink: 0;" fill="none" viewBox="0 0 24 24">
-                            <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span>${delay > 0 ? 'Please wait... requesting details from <a href="https://bhunaksha.goa.gov.in/" target="_blank" style="color: #60a5fa;">Goa Bhunaksha</a>.' : 'Loading...'}</span>
-                    </div>
-                </div>
-            </div>
-            <style>
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-            </style>
+            ${externalDataCard({
+                id: requestId,
+                title: 'Land Record',
+                icon: 'person-vcard',
+                links: [
+                    { label: 'Goa Land Record', href: 'https://bhunaksha.goa.gov.in/' },
+                    { label: 'Form I & XIV', href: 'https://dslr.goa.gov.in/f114new.aspx' },
+                    { label: 'Property Register', href: 'https://goaonline.gov.in/Appln/UIL/LandRecords?__Key=&__cscKey=' }
+                ],
+                source: { label: 'Bhunaksha/Dharani', href: apiUrl, note: 'Retrieved live. For information purposes only' },
+                loadingHTML: externalDataLoading(loadingText)
+            })}
             <script>
                 (function() {
                     // Initialize global cache if not exists
@@ -230,7 +223,7 @@ export const handlers = {
                                     .replace(/<font[^>]*>/gi, '<span>')
                                     .replace(/<\\/font>/gi, '</span>')
                                     .trim();
-                                contentHTML = \`<div style="padding:4px 8px;font-size:10px;color:#d1d5db;line-height:1.5;">\${cleaned}</div>\`;
+                                contentHTML = \`<div class="ext-data-value" style="padding:3px 0;white-space:normal;">\${cleaned}</div>\`;
                             } else {
                                 const lines = plotData.info.split('\\n').slice(3).filter(l => !/-{10,}/.test(l));
                                 const rows = [];
@@ -252,16 +245,11 @@ export const handlers = {
                                 }
                                 if (currentKey !== null) rows.push([currentKey, currentValues.join('\\n')]);
 
-                                contentHTML = rows.map(([key, value]) =>
-                                    \`<div style="display:flex;font-size:10px;padding:2px 8px;border-bottom:1px solid #374151;">
-                                        <div style="color:#9ca3af;min-width:100px;font-weight:500;flex-shrink:0;">\${key}</div>
-                                        <div style="color:#e5e7eb;flex:1;word-break:break-word;white-space:pre-line;">\${value}</div>
-                                    </div>\`
-                                ).join('');
-                                if (!contentHTML) contentHTML = '<div style="padding:4px 8px;color:#9ca3af;font-size:10px;">No occupant data available</div>';
+                                contentHTML = window.externalData.rows(rows);
+                                if (!contentHTML) contentHTML = window.externalData.message('No occupant data available');
                             }
                         } else {
-                            contentHTML = '<div style="padding:4px 8px;color:#9ca3af;font-size:10px;">No occupant data available</div>';
+                            contentHTML = window.externalData.message('No occupant data available');
                         }
 
                         if (!document.body.contains(container)) {
@@ -269,12 +257,7 @@ export const handlers = {
                             return;
                         }
 
-                        const finalHTML = \`
-                            \${contentHTML}
-                            <div style="padding:4px 8px;font-style:italic;font-size:10px;color:#6b7280;border-top:1px solid #374151;">
-                                Retrieved live from <a href="\${apiUrl}" target="_blank" style="color:#60a5fa;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Bhunaksha/Dharani</a>. For information purposes only.
-                            </div>
-                        \`;
+                        const finalHTML = contentHTML;
                         container.innerHTML = finalHTML;
                         // Cache the final result
                         window.__bhunakshaCache.set(requestId, finalHTML);
@@ -282,12 +265,7 @@ export const handlers = {
                         container.setAttribute('data-executed', 'true');
                     } catch (error) {
                         console.error('[Bhunaksha] Error:', error);
-                        const errorHTML = \`
-                            <div style="display:flex;align-items:center;gap:8px;color:#f87171;padding:6px 8px;font-size:10px;">
-                                <sl-icon name="exclamation-octagon" style="font-size:14px;flex-shrink:0;"></sl-icon>
-                                <span>Error fetching land record. Check <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color:#60a5fa;">Bhunaksha Goa</a></span>
-                            </div>
-                        \`;
+                        const errorHTML = window.externalData.message('<sl-icon name="exclamation-octagon" style="font-size:14px;flex-shrink:0;"></sl-icon><span>Error fetching land record. Check <a href="https://bhunaksha.goa.gov.in" target="_blank">Bhunaksha Goa</a></span>', 'error');
                         if (container && document.body.contains(container)) {
                             container.innerHTML = errorHTML;
                             // Cache the error result too
