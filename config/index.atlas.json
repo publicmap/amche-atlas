@@ -6,6 +6,7 @@
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/index.atlas.json",
   "color": "#2563eb",
+  "icon": "assets/img/icon-192x192.png",
   "map": {
     "style": "mapbox://styles/planemad/cm3gyibd3004x01qz08rohcsg",
     "center": [

@@ -3,6 +3,7 @@
   "areaOfInterest": "India",
   "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Peacock_Plumage.jpg/330px-Peacock_Plumage.jpg",
   "version": "0.1.0",
+  "icon": "https://upload.wikimedia.org/wikipedia/commons/4/41/Flag_of_India.svg",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/india.atlas.json",
   "color": "#f97316",
   "map": {

@@ -275,7 +275,7 @@ describe('marker popup layout', () => {
             expect(chip.querySelector('.marker-summary-chip__field').textContent).toBe('Address');
         });
 
-        it('renders each feature as a menu row with a submenu chevron', () => {
+        it('renders each feature as a menu row without a chevron', () => {
             const manager = makeManager({ layers: [{ id: 'plots' }, { id: 'wards' }] });
             const features = [feature('plots', { id: '17/1' }), feature('wards', { id: 'Ward 4' })];
 
@@ -286,7 +286,7 @@ describe('marker popup layout', () => {
             expect(row.style.flexDirection).toBe('column');
             // Same vocabulary as the long-press shortcut menu.
             items.forEach(i => expect(i.classList.contains('shortcut-menu-item')).toBe(true));
-            expect(items[0].querySelector('.shortcut-menu-chevron').getAttribute('name')).toBe('chevron-right');
+            expect(items[0].querySelector('.shortcut-menu-chevron')).toBeNull();
             // A hairline on every row instead of one thick divider above the list.
             expect(host.querySelector('.shortcut-menu-divider')).toBeNull();
             host.querySelectorAll('.marker-summary-item').forEach(item => {
@@ -431,7 +431,7 @@ describe('marker popup layout', () => {
             expect(open[0].querySelector('.feature-badge-details').textContent).toBe('Ward 4');
         });
 
-        it("collapses the chip's icon into the full layer-info row above the label once expanded", () => {
+        it("shows the layer-info band below the feature name once expanded", () => {
             const manager = makeManager({ layers: [{ id: 'plots', title: 'Plots' }] });
             const features = [feature('plots', { id: '17/1' })];
             const el = mount(manager, features);
@@ -441,21 +441,16 @@ describe('marker popup layout', () => {
             const value = chip.querySelector('.marker-summary-chip__value');
 
             // Collapsed: just the small icon beside the value, no layer row.
-            expect(icon.style.visibility).not.toBe('hidden');
             expect(layerRow.style.display).toBe('none');
 
             chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-            // `visibility`, not `display: none` - the icon keeps its place in
-            // the row so the value beside it doesn't shift left to fill the gap.
-            expect(icon.style.visibility).toBe('hidden');
             expect(layerRow.style.display).toBe('flex');
-            // Above the value, not below it.
-            expect(layerRow.compareDocumentPosition(value)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+            // Below the value, not above it.
+            expect(value.compareDocumentPosition(layerRow)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 
             chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-            expect(icon.style.visibility).toBe('visible');
             expect(layerRow.style.display).toBe('none');
         });
 
@@ -483,7 +478,7 @@ describe('marker popup layout', () => {
             expect(message.feature.properties.id).toBe('17/1');
         });
 
-        it('marks the active row and rotates its chevron open while expanded', () => {
+        it('marks the active row and shows its close button while expanded', () => {
             const manager = makeManager({ layers: [{ id: 'plots' }] });
             const el = mount(manager, [feature('plots', { id: '17/1' })]);
             const chip = el.querySelector('.marker-summary-chip');
@@ -492,7 +487,7 @@ describe('marker popup layout', () => {
 
             expect(chip.style.borderLeft).toBe('1px solid rgb(59, 130, 246)');
             expect(chip.getAttribute('aria-expanded')).toBe('true');
-            expect(chip.querySelector('.marker-summary-chevron').getAttribute('name')).toBe('chevron-down');
+            expect(chip.querySelector('.marker-summary-close').style.display).not.toBe('none');
         });
 
         it("carries the chip's own active fill down into its property list, so the two read as one block", () => {
@@ -520,7 +515,7 @@ describe('marker popup layout', () => {
             expect(details.style.display).toBe('none');
             expect(chip.style.borderLeft).toBe('1px solid transparent');
             expect(chip.getAttribute('aria-expanded')).toBe('false');
-            expect(chip.querySelector('.marker-summary-chevron').getAttribute('name')).toBe('chevron-right');
+            expect(chip.querySelector('.marker-summary-close').style.display).toBe('none');
         });
 
         it('collapses every open row when the marker itself closes', () => {

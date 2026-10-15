@@ -28,6 +28,7 @@
  * of drawing over the mask - see _ensureClipLayer.
  */
 
+import { tileFragmentKey } from './tile-fragment-assembler.js';
 import { toPolygonFeature, bboxKey, signatureOf, buildMaskFeature } from './map-mask-geometry.js';
 
 const MASK_LAYER_ID = 'mask';
@@ -334,13 +335,52 @@ export class MapMaskManager {
         try {
             stateManager.getLayerFeatures(this._sourceLayerId).forEach(state => {
                 if (!state.isSelected) return;
-                const polygon = toPolygonFeature(state.feature);
-                if (polygon) polygons.push(polygon);
+                const fragments = this._tileFragmentsOf(state.feature);
+                (fragments.length ? fragments : [state.feature]).forEach(fragment => {
+                    const polygon = toPolygonFeature(fragment);
+                    if (polygon) polygons.push(polygon);
+                });
             });
         } catch (e) {
             console.warn('[MapMaskManager] Could not read selected features:', e);
         }
         return polygons;
+    }
+
+    /**
+     * A selected feature is held as the piece of it that was in the clicked
+     * tile, so a feature spanning tiles would mask only that piece. Every
+     * loaded fragment sharing its id is returned instead; they union back into
+     * the whole feature when the mask is built.
+     */
+    _tileFragmentsOf(feature) {
+        const key = tileFragmentKey(feature);
+        if (!key) return [];
+
+        const styleLayers = this._map.getStyle()?.layers || [];
+        const queried = new Set();
+        const seen = new Set();
+        const fragments = [];
+
+        for (const sub of styleLayers.filter(l => l.metadata?.groupId === this._sourceLayerId)) {
+            if (!sub.source) continue;
+            const sourceLayer = sub['source-layer'];
+            const queryKey = `${sub.source}|${sourceLayer || ''}`;
+            if (queried.has(queryKey)) continue;
+            queried.add(queryKey);
+
+            for (const candidate of this._querySource(sub.source, sourceLayer, null)) {
+                const plain = typeof candidate.toJSON === 'function' ? candidate.toJSON() : candidate;
+                if (tileFragmentKey(plain) !== key) continue;
+                const polygon = toPolygonFeature(plain);
+                if (!polygon) continue;
+                const dedupeKey = bboxKey(polygon);
+                if (seen.has(dedupeKey)) continue;
+                seen.add(dedupeKey);
+                fragments.push(plain);
+            }
+        }
+        return fragments;
     }
 
     /**

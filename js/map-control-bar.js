@@ -107,7 +107,6 @@ export class MapControlBar {
         this._undoExpired = false;
         this._setClearMode('remove');
         this._countEl.append(
-            this._createAction('Add Map', 'plus-lg', 'Create or import a map', () => window.browserControl?.openCreator()),
             this._hiddenEl,
             this._clearBtn
         );

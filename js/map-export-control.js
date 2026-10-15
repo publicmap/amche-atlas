@@ -1076,7 +1076,7 @@ export class MapExportControl {
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(0, 0, actualPixelWidth, actualPixelHeight);
                     ctx.drawImage(tempImg, 0, 0);
-                    dataUrl = jpegCanvas.toDataURL('image/jpeg', 0.92);
+                    dataUrl = jpegCanvas.toDataURL('image/jpeg', config.jpegQuality ?? 0.92);
 
                     const blob = await fetch(dataUrl).then(r => r.blob());
 

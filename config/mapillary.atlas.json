@@ -1,6 +1,7 @@
 {
   "name": "Mapillary Street-level Imagery",
   "description": "Crowdsourced street-level imagery from <a href='https://www.mapillary.com/'>Mapillary</a>. Click a coverage line or photo location to open the 360° street-level viewer. See <a href='https://www.mapillary.com/developer/api-documentation/'>Mapillary API documentation</a>.",
+  "icon": "https://upload.wikimedia.org/wikipedia/commons/a/a3/Mapillary_logo.svg",
   "areaOfInterest": "Global",
   "tags": [
     "opendata"

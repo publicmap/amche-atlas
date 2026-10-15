@@ -304,7 +304,7 @@
             width: 100%;
             min-width: 0;
             background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.28);
+            border: 1px solid transparent;
             padding: 6px 10px;
             margin: 0;
             cursor: pointer;
@@ -313,9 +313,104 @@
             transition: background 0.15s, border-color 0.15s;
         }
 
+        .atlas-hero-title-btn.selected,
+        .atlas-hero-home-btn.selected {
+            border-color: rgba(255, 255, 255, 0.28);
+        }
+
         .atlas-hero-title-btn:hover {
             background: rgba(255, 255, 255, 0.12);
+        }
+
+        .atlas-hero-title-btn.selected:hover,
+        .atlas-hero-home-btn.selected:hover {
             border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .atlas-hero-home-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+            align-self: stretch;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid transparent;
+            padding: 6px 8px 6px 10px;
+            margin: 0;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #f9fafb;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            line-height: 1.15;
+            white-space: nowrap;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .atlas-hero-home-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .atlas-hero-home-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+            background: none;
+            border: none;
+            padding: 0;
+            margin: 0;
+            color: inherit;
+            font: inherit;
+            letter-spacing: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .atlas-hero-switch-row {
+            display: flex;
+            margin-top: 8px;
+        }
+
+        .atlas-hero-add-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+            background: transparent;
+            border: 1px solid #fff;
+            color: #fff;
+            padding: 3px 9px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 400;
+            letter-spacing: normal;
+            white-space: nowrap;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+        }
+
+        .atlas-hero-add-btn .add-plus {
+            font-size: 16px;
+            font-weight: 400;
+            line-height: 1;
+        }
+
+        .atlas-hero-add-btn:hover,
+        .atlas-hero-add-btn:active,
+        .atlas-hero-add-btn:focus-visible {
+            background: #16a34a;
+            border-color: #16a34a;
+            opacity: 1;
+        }
+
+        .atlas-hero-add-btn:hover {
+            background: #15803d;
+            border-color: #15803d;
         }
 
         .atlas-hero-title-chevron {
@@ -1350,11 +1445,6 @@
                 style="color: #9ca3af; font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                 Loading maps...
             </div>
-            <button id="add-new-map-link"
-                style="background: #16a34a; color: #fff; border: none; padding: 8px 14px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-                <sl-icon name="plus-circle" style="font-size: 14px;"></sl-icon>
-                <span>New Map</span>
-            </button>
         </div>
     </div>
 
@@ -1413,6 +1503,7 @@
         let expandedTreeNodes = new Map(); // Track expanded tree nodes per atlas
         let showMoreNodes = new Map(); // Track which nodes should show hidden non-matching layers
         let visibilityFilter = 'all'; // Filter layers by visibility: 'all' | 'visible' | 'hidden'
+        let moreMapsExpanded = false; // Collapsed "More Maps" section holding every non-selected atlas
         let otherAtlasesExpanded = false; // Collapsed "Other Atlases" (out-of-view) section state
         let canGoBackView = false; // Whether a previous map view exists to step back to
         let dismissedAtlasSuggestionId = null; // Suggested atlas the user dismissed; re-shown only if the suggestion changes
@@ -1809,17 +1900,6 @@
                 recenterMapToAtlasIfNeeded(newAtlasId);
             });
 
-            $('#add-new-map-link').on('click', function () {
-                window.parent.postMessage({ type: 'open-creator' }, '*');
-            });
-
-            // Add new map button hover effects
-            $('#add-new-map-link').on('mouseenter', function () {
-                $(this).css('background', '#15803d');
-            }).on('mouseleave', function () {
-                $(this).css('background', '#16a34a');
-            });
-
             $('#close-map-modal').on('click', function () {
                 hidePreviewMapModal();
             });
@@ -2031,6 +2111,33 @@
             // with the dropdown.
             const $titleRow = $('<div>', { class: 'atlas-hero-title-row' });
 
+            const $addBtn = $('<button>', {
+                class: 'atlas-hero-add-btn',
+                type: 'button',
+                title: 'Create or import a map',
+                html: '<span class="add-plus">+</span><span class="add-label">Add Map</span>'
+            });
+            $addBtn.on('click', function (e) {
+                e.stopPropagation();
+                window.parent.postMessage({ type: 'open-creator' }, '*');
+            });
+            const isIndex = effectiveId === 'index';
+            const indexMeta = atlasMetadata.get('index');
+            const $homeBtn = $('<div>', {
+                class: 'atlas-hero-home-btn' + (isIndex ? ' selected' : ''),
+                title: 'Go to ' + (indexMeta?.name || 'Amche Atlas')
+            });
+            const $homeLink = $('<button>', { class: 'atlas-hero-home-link', type: 'button' });
+            if (indexMeta?.icon) {
+                $('<img>', { class: 'atlas-hero-icon', src: indexMeta.icon, alt: '' }).appendTo($homeLink);
+            }
+            $('<span>').text(`${indexMeta?.name || 'Amche Atlas'} (${getAtlasLayerCount('index')})`).appendTo($homeLink);
+            $homeBtn.append($homeLink, $addBtn);
+            $homeBtn.on('click', function () {
+                changeAtlasSelection('index');
+            });
+            $titleRow.append($homeBtn);
+
             const $dropdown = $('<sl-dropdown>', {
                 class: 'atlas-title-dropdown',
                 placement: 'bottom-start',
@@ -2040,14 +2147,14 @@
 
             const $trigger = $('<button>', {
                 slot: 'trigger',
-                class: 'atlas-hero-title-btn',
+                class: 'atlas-hero-title-btn' + (isIndex ? '' : ' selected'),
                 type: 'button',
                 title: 'Switch atlas'
             });
-            if (atlasData.icon) {
+            if (atlasData.icon && !isIndex) {
                 $('<img>', { class: 'atlas-hero-icon', src: atlasData.icon, alt: '' }).appendTo($trigger);
             }
-            $('<h1>', { class: 'atlas-hero-title', text: atlasData.name || effectiveId }).appendTo($trigger);
+            $('<h1>', { class: 'atlas-hero-title', text: isIndex ? `More Maps (${Math.max(atlasMetadata.size - 1, 0)})` : `${atlasData.name || effectiveId} (${getAtlasLayerCount(effectiveId)})` }).appendTo($trigger);
             $('<sl-icon>', { class: 'atlas-hero-title-chevron', name: 'chevron-down' }).appendTo($trigger);
             $dropdown.append($trigger);
 
@@ -2060,6 +2167,7 @@
             const buildAtlasMenu = () => {
                 $menu.empty();
                 const sortedAtlases = Array.from(atlasMetadata.entries())
+                    .filter(([id]) => id !== 'index')
                     .sort((a, b) => (a[1].name || a[0]).localeCompare(b[1].name || b[0]));
                 const inViewAtlases = sortedAtlases.filter(([id]) => isAtlasInView(id));
                 const otherAtlases = sortedAtlases.filter(([id]) => !isAtlasInView(id));
@@ -2070,7 +2178,7 @@
                     if (meta.icon) {
                         $('<img>', { slot: 'prefix', class: 'atlas-menu-icon', src: meta.icon, alt: '' }).appendTo($item);
                     }
-                    $item.append(document.createTextNode(meta.name || id));
+                    $item.append(document.createTextNode(`${meta.name || id} (${getAtlasLayerCount(id)})`));
                     $menu.append($item);
                 };
 
@@ -2092,7 +2200,6 @@
             });
             $dropdown.append($menu);
 
-            $titleRow.append($dropdown);
 
             // Close button — lives in the title row so it sits vertically centered
             // against the atlas dropdown trigger.
@@ -2108,7 +2215,7 @@
             });
             $titleRow.append($closeBtn);
 
-            $inner.append($titleRow);
+            $inner.append($titleRow, $('<div>', { class: 'atlas-hero-switch-row' }).append($dropdown));
 
             // Description (rendered as HTML so embedded links work). When the atlas
             // carries an attribution, append a clickable (i) that toggles the
@@ -2985,20 +3092,28 @@
                     byAtlas[atlasId], $grid, searchTerm, atlasIdsWithResults);
             });
 
-            // 2. Nearby Maps
+            // 2. Everything else sits under one collapsed "More Maps" button, auto-open
+            // while searching or filtering by visibility so matches aren't hidden.
+            const moreCount = nearbyIds.length + worldIds.length + otherIds.length;
+            if (moreCount === 0) return;
+            const moreExpanded = moreMapsExpanded || !!searchTerm || visibilityFilter !== 'all';
+            $grid.append(createCollapsibleSectionHeader('More Maps', moreCount, moreExpanded, function () {
+                moreMapsExpanded = !moreMapsExpanded;
+                renderLayers();
+            }));
+            if (!moreExpanded) return;
+
             if (nearbyIds.length > 0) {
                 $grid.append(createSectionHeader('Nearby Maps'));
                 renderGroup(nearbyIds);
             }
 
-            // 3. World Maps
             if (worldIds.length > 0) {
                 $grid.append(createSectionHeader('World Maps'));
                 renderGroup(worldIds);
             }
 
-            // 4. Other Atlases (out of view) — collapsed by default, auto-open while
-            // searching or filtering by visibility so matches aren't hidden.
+            // Other Atlases (out of view) stay collapsed within the expanded section.
             if (otherIds.length > 0) {
                 const expanded = otherAtlasesExpanded || !!searchTerm || visibilityFilter !== 'all';
                 $grid.append(createCollapsibleSectionHeader('Other Atlases', otherIds.length, expanded, function () {

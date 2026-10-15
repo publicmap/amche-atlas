@@ -210,6 +210,54 @@ function toProjectLayer(layerConfig) {
     return null;
 }
 
+// Wraps already-translated project layers (first = top of the map stack) in a
+// full `.geolibre.json` project positioned on `map`'s current view.
+function buildProject(map, layers, styles) {
+    const center = map.getCenter();
+    const bounds = map.getBounds();
+
+    // `_state.groups` is stored first-on-top (see CLAUDE.md's layer
+    // ordering section); GeoLibre's project layers array is the other
+    // way — verified against the live app: the LAST layer in the array
+    // is the one drawn on top and listed at the top of its panel.
+    const orderedLayers = [...layers].reverse();
+
+    return {
+        version: '0.1.0',
+        name: 'amche-atlas Export',
+        mapView: {
+            center: [center.lng, center.lat],
+            zoom: map.getZoom(),
+            bearing: map.getBearing(),
+            pitch: map.getPitch(),
+            bbox: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()]
+        },
+        basemapStyleUrl: FALLBACK_BASEMAP_STYLE_URL,
+        basemapVisible: true,
+        basemapOpacity: 1,
+        layers: orderedLayers,
+        styles,
+        preferences: {
+            map: {
+                restrictBounds: false,
+                bounds: [-180, -85, 180, 85],
+                minZoom: 0,
+                maxZoom: 24,
+                maxPitch: 85,
+                renderWorldCopies: true
+            },
+            environmentVariables: []
+        },
+        plugins: {
+            manifestUrls: [],
+            activePluginIds: ['maplibre-layer-control'],
+            mapControlPositions: {},
+            settings: {}
+        },
+        metadata: {}
+    };
+}
+
 export class GeoLibreAPI {
     static get PROJECT_RAW_URL() {
         return TextbSync.rawUrl(TEXTB_PAD_ID);
@@ -270,51 +318,28 @@ export class GeoLibreAPI {
             }
         });
 
-        const center = map.getCenter();
-        const bounds = map.getBounds();
-
-        // `_state.groups` is stored first-on-top (see CLAUDE.md's layer
-        // ordering section); GeoLibre's project layers array is the other
-        // way — verified against the live app: the LAST layer in the array
-        // is the one drawn on top and listed at the top of its panel.
-        const orderedLayers = [...layers].reverse();
-
-        const project = {
-            version: '0.1.0',
-            name: 'amche-atlas Export',
-            mapView: {
-                center: [center.lng, center.lat],
-                zoom: map.getZoom(),
-                bearing: map.getBearing(),
-                pitch: map.getPitch(),
-                bbox: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()]
-            },
-            basemapStyleUrl: FALLBACK_BASEMAP_STYLE_URL,
-            basemapVisible: true,
-            basemapOpacity: 1,
-            layers: orderedLayers,
-            styles,
-            preferences: {
-                map: {
-                    restrictBounds: false,
-                    bounds: [-180, -85, 180, 85],
-                    minZoom: 0,
-                    maxZoom: 24,
-                    maxPitch: 85,
-                    renderWorldCopies: true
-                },
-                environmentVariables: []
-            },
-            plugins: {
-                manifestUrls: [],
-                activePluginIds: ['maplibre-layer-control'],
-                mapControlPositions: {},
-                settings: {}
-            },
-            metadata: {}
-        };
+        const project = buildProject(map, layers, styles);
 
         return { project, skipped };
+    }
+
+    /**
+     * Whether `layerConfig` has a GeoLibre translation (see toProjectLayer) -
+     * a wider set than isSupported/buildViewerUrl, which only cover layers
+     * `?data=` can load from a single file.
+     */
+    static canOpenLayer(layerConfig) {
+        return toProjectLayer(layerConfig) !== null;
+    }
+
+    /**
+     * A project holding just `layerConfig`, on `map`'s current view; null when
+     * the layer has no GeoLibre translation.
+     */
+    static buildProjectForLayer(map, layerConfig) {
+        const projectLayer = toProjectLayer(layerConfig);
+        if (!projectLayer) return null;
+        return buildProject(map, [projectLayer], { [projectLayer.id]: projectLayer.style });
     }
 
     /**

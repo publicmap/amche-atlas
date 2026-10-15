@@ -3,6 +3,9 @@
  * Creates markers at selection locations with badges showing selected features
  */
 import { LayerThumbnail } from './layer-thumbnail.js';
+import { FeatureThumbnail } from './feature-thumbnail.js';
+import { rasterTileWindow } from './raster-tile-window.js';
+import { exportRasterLayerView } from './raster-layer-export.js';
 import { getPrimaryColor } from './layer-style-utils.js';
 import { reverseGeocodeAddress, fetchNominatimAddressParts } from './nominatim-search.js';
 import { FeatureDisplayRenderer } from './feature-display-renderer.js';
@@ -23,6 +26,32 @@ import { localeManager } from './locale-manager.js';
 // vector properties — the only types a legendMap (see docs/API.md) can
 // label via pixel-color matching.
 const RASTER_INSPECTABLE_TYPES = new Set(['tms', 'wmts', 'wms', 'cog']);
+
+const FEATURE_THUMBNAIL_SIZE = 28;
+const FEATURE_HERO_THUMBNAIL_SIZE = 72;
+
+// Vector formats map-export.html offers that can write a single selected
+// feature (see MapExportControl._handleExport's customSelectedFeatures).
+const GEOLIBRE_EXPORT_FORMAT = {
+    value: 'geolibre',
+    label: 'GeoLibre',
+    icon: 'box-arrow-up-right',
+    description: 'Web GIS for data analysis and processing'
+};
+
+const FEATURE_EXPORT_FORMATS = [
+    { value: 'geojson', label: 'GeoJSON', icon: 'filetype-json', description: 'For web development and GIS software' },
+    { value: 'kml', label: 'KML', icon: 'filetype-xml', description: 'For Google Earth and mapping apps' },
+    { value: 'csv', label: 'GeoCSV', icon: 'filetype-csv', description: 'For Excel and spreadsheets, with the feature\'s attributes and coordinates' },
+    { value: 'dxf', label: 'DXF', icon: 'file-earmark-ruled', description: 'For AutoCAD and CAD software' }
+];
+
+// A raster pixel has no feature geometry to write; what can be exported is
+// the raster layer itself, over the whole current view (see raster-layer-export.js).
+const RASTER_EXPORT_FORMATS = [
+    { value: 'geotiff', label: 'GeoTIFF', icon: 'filetype-tiff', description: 'Georeferenced raster of the current view, this layer only' },
+    { value: 'jpeg', label: 'JPEG', icon: 'filetype-jpg', description: 'Image of the current view at 100% quality, this layer only' }
+];
 
 // How long to ignore map clicks after a touch marker/balloon drag ends. Covers
 // the browser's phantom click (fired from touch-to-mouse-event emulation,
@@ -567,8 +596,7 @@ export class MapMarkerManager {
         // what's actually reported here, so raster inspection can't rely on
         // this being an empty click (see _handleEmptyMapClick) to ever run.
         // Append it alongside whatever vector feature(s) were found instead.
-        const rasterFeature = this._inspectRasterPixel(lngLat);
-        this.addMarker(lngLat, rasterFeature ? [...features, rasterFeature] : features);
+        this.addMarker(lngLat, [...features, ...this._inspectRasterPixels(lngLat)]);
     }
 
     _handleEmptyMapClick(data) {
@@ -588,8 +616,7 @@ export class MapMarkerManager {
         // layer info only, but the topmost active raster layer can still
         // label this pixel (a legendMap class, or the raw color as a
         // fallback — see _inspectRasterPixel).
-        const rasterFeature = this._inspectRasterPixel(lngLat);
-        this.addMarker(lngLat, rasterFeature ? [rasterFeature] : []);
+        this.addMarker(lngLat, this._inspectRasterPixels(lngLat));
     }
 
     /**
@@ -601,6 +628,37 @@ export class MapMarkerManager {
      * `featureId` when there's no `feature.properties` field to read), or
      * null if there's no active raster layer or nothing rendered there.
      */
+    /**
+     * One raster feature per stacked raster layer, so each gets its own row
+     * and thumbnail: the single reading above (a legendMap match, or the raw
+     * color for the topmost layer), plus every other active non-basemap
+     * raster layer - classified by its own legendMap when it matches the
+     * sampled color, else showing that same color.
+     */
+    _inspectRasterPixels(lngLat) {
+        const primary = this._inspectRasterPixel(lngLat);
+        if (!primary) return [];
+
+        const pixel = RasterPixelInspector.sample(this._map, this._map.project(lngLat));
+        const extras = this._getAllActiveLayersInInspectorOrder()
+            .filter(l => RASTER_INSPECTABLE_TYPES.has(l.type)
+                && l.id !== primary.layerId
+                && !this._isLayerBasemap(l.id))
+            .map(layer => {
+                const match = Array.isArray(layer.legendMap) && pixel
+                    ? RasterPixelInspector.matchClass(layer.legendMap, pixel)
+                    : null;
+                return {
+                    ...primary,
+                    layerId: layer.id,
+                    featureId: match ? (match.label || String(match.value)) : primary.pixelHex
+                };
+            });
+
+        const order = new Map(this._getAllActiveLayersInInspectorOrder().map((l, i) => [l.id, i]));
+        return [primary, ...extras].sort((a, b) => order.get(a.layerId) - order.get(b.layerId));
+    }
+
     _inspectRasterPixel(lngLat) {
         if (!this._map) return null;
 
@@ -620,6 +678,8 @@ export class MapMarkerManager {
         // would make every legendMap layer beneath it permanently
         // uninspectable, so every active layer's legendMap gets a try
         // against the same sampled color, topmost first.
+        const pixelHex = RasterPixelInspector.toHex(pixel);
+
         for (const layer of rasterLayers) {
             if (!Array.isArray(layer.legendMap) || !layer.legendMap.length) continue;
             const match = RasterPixelInspector.matchClass(layer.legendMap, pixel);
@@ -629,7 +689,8 @@ export class MapMarkerManager {
                     featureId: match.label || String(match.value),
                     feature: { properties: {} },
                     lngLat,
-                    isRasterInspection: true
+                    isRasterInspection: true,
+                    pixelHex
                 };
             }
         }
@@ -647,10 +708,11 @@ export class MapMarkerManager {
         // sampling each layer in isolation, which this doesn't do.
         return {
             layerId: rasterLayers[0].id,
-            featureId: RasterPixelInspector.toHex(pixel),
+            featureId: pixelHex,
             feature: { properties: {} },
             lngLat,
-            isRasterInspection: true
+            isRasterInspection: true,
+            pixelHex
         };
     }
 
@@ -868,13 +930,12 @@ export class MapMarkerManager {
         const fields = inspectConfig.fields || [];
         const fieldTitles = inspectConfig.fieldTitles || [];
 
-        // Value first, field name as a subheader below it - the same
-        // hierarchy the summary chip's own label uses (marker-summary-chip__value
-        // / __field), just smaller and unbold here since a feature can have
-        // many of these stacked rows in a row, not one leading label.
+        // Two columns, field name then value, both the same size and weight -
+        // a conventional attribute table, dimmed so the feature's own name
+        // above it leads.
         // Interactive rows also carry a Replace/Add Filter action pair,
         // hidden until the row is clicked (see _attachFeatureRowActionHandlers).
-        const buildRow = (label, value, key) => {
+        const buildRow = (label, value, key, original = key) => {
             const valueHTML = formatAttributeValue(value, { truncateMax: 40 });
             const actionsHTML = interactive ? `
                 <div class="feature-row-actions" style="display:none; gap:6px; padding-top:3px;">
@@ -888,18 +949,29 @@ export class MapMarkerManager {
                         <sl-icon name="dash-circle" style="font-size:9px;"></sl-icon>Remove From Filter</button>
                 </div>` : '';
             return `<div class="feature-row" data-field-key="${this._escapeAttr(key ?? '')}"
-                    style="display:flex; flex-direction:column; align-items:stretch; padding:3px 0; border-bottom:1px solid #374151; ${interactive ? 'cursor:pointer;' : ''}">` +
-                `<div style="color:#f3f4f6;font-size:10px;line-height:1.3;word-break:break-word;white-space:pre-line;">${valueHTML}</div>` +
-                `<div style="color:#9ca3af;font-size:8px;line-height:1.3;font-weight:400;word-break:break-word;">${this._escapeAttr(label)}</div>` +
+                    style="display:flex; flex-direction:column; align-items:stretch; padding:4px 0; border-bottom:1px solid #374151; ${interactive ? 'cursor:pointer;' : ''}">` +
+                `<div style="display:flex; align-items:flex-start; gap:10px; color:#fff; font-size:10px; line-height:1.35; font-weight:300;">` +
+                `<div class="feature-row-key"${original && original !== label ? ` title="${this._escapeAttr(original)}"` : ''} style="opacity:0.5; flex:0 0 38%; max-width:38%; min-width:0; word-break:break-word;">${this._escapeAttr(label)}</div>` +
+                `<div class="feature-row-value" style="flex:1; min-width:0; word-break:break-word; white-space:pre-line;">${valueHTML}</div>` +
+                `</div>` +
                 actionsHTML +
                 `</div>`;
         };
 
-        const validEntries = Object.entries(properties).filter(([, v]) => v !== null && v !== undefined && v !== '');
+        // The label field leads, as the feature's own name does above - so it is
+        // left out of the rows that follow rather than listed twice.
+        const labelKey = inspectConfig.label || inspectConfig.id || 'id';
+        const { fieldName: labelTitle, value: labelValue } = this._getBadgeLabelInfo(f);
+        const hasLabel = labelValue !== null && labelValue !== undefined && labelValue !== '';
+        const labelRow = hasLabel ? buildRow(labelTitle, labelValue, labelKey in properties ? labelKey : '', labelKey) : '';
+
+        const validEntries = Object.entries(properties)
+            .filter(([k, v]) => v !== null && v !== undefined && v !== '' && !(hasLabel && k === labelKey));
 
         let rows = [];
         if (fields.length > 0) {
             rows = fields.map((fieldName, i) => {
+                if (hasLabel && fieldName === labelKey) return '';
                 const value = this._localizedValue(properties, fieldName);
                 if (value !== null && value !== undefined && value !== '') {
                     return buildRow(fieldTitles[i] || fieldName, value, fieldName);
@@ -910,15 +982,17 @@ export class MapMarkerManager {
             rows = validEntries.map(([k, v]) => buildRow(k, v, k));
         }
 
-        if (rows.length === 0) {
+        if (rows.length === 0 && !labelRow) {
             rows = [`<div style="font-size:9px;color:#9ca3af;padding:2px 0;">No attributes</div>`];
         }
+        const shownCount = rows.length;
+        if (labelRow) rows.unshift(labelRow);
 
         // Configured `fields` only shows a curated subset — offer a toggle to reveal
         // every non-empty property.
         let allPropertiesHTML = '';
         let showAllButton = '';
-        if (fields.length > 0 && validEntries.length > rows.length) {
+        if (fields.length > 0 && validEntries.length > shownCount) {
             const allRows = validEntries.map(([k, v]) => buildRow(k, v, k));
             allPropertiesHTML = `<div class="badge-all-properties" style="display:none;">${allRows.join('')}</div>`;
             const btnStyle = `margin-top:2px;padding:2px 0;background:transparent;color:#9ca3af;border:none;border-top:1px dashed #374151;font-size:9px;font-weight:600;cursor:pointer;width:100%;text-align:left;`;
@@ -973,8 +1047,8 @@ export class MapMarkerManager {
     /**
      * The expanded form of a chip's own layer icon (see _buildMarkerSummaryHTML's
      * `row`): a thumbnail beside the layer's title, one line, styled like
-     * layer-stack-strip.js's own item row. Sits inside the chip, above the
-     * value/field-title column, hidden until this row is the one expanded
+     * layer-stack-strip.js's own item row. Sits inside the chip as a band
+     * below the feature's thumbnail and name, hidden until this row is the one expanded
      * (_openSummaryDetails shows it and hides the plain icon in its place;
      * _closeAllSummaryDetails swaps them back).
      *
@@ -984,7 +1058,13 @@ export class MapMarkerManager {
      * feature, export selected) alongside the whole-layer ones - which used
      * to crowd a three-dot menu into this row instead of living there.
      */
-    _buildChipLayerRowHTML(layerId) {
+    _exportFormatsFor(layerId, exportKind) {
+        const formats = exportKind === 'raster' ? RASTER_EXPORT_FORMATS : FEATURE_EXPORT_FORMATS;
+        const layerConfig = this._stateManager.getLayerConfig(layerId);
+        return GeoLibreAPI.canOpenLayer(layerConfig) ? [GEOLIBRE_EXPORT_FORMAT, ...formats] : formats;
+    }
+
+    _buildChipLayerRowHTML(layerId, exportKind = null) {
         const layerConfig = this._stateManager.getLayerConfig(layerId);
         if (!layerConfig) return '';
 
@@ -998,16 +1078,81 @@ export class MapMarkerManager {
 
         const layerName = this._escapeAttr(layerConfig.title || layerId);
 
+        const exportHTML = exportKind
+            ? this._buildFeatureExportMenuHTML(this._exportFormatsFor(layerId, exportKind))
+            : '';
+
         return `
+            ${exportHTML}
             <div class="marker-layer-info-row" data-layer-id="${this._escapeAttr(layerId)}"
                 title="Open details for ${layerName}"
-                style="display:none; flex:none; align-items:center; gap:6px; width:100%; cursor:pointer;
-                       padding-bottom:6px; margin-bottom:3px; border-bottom:1px solid ${MARKER_ROW_BORDER};">
+                style="display:none; flex:none; align-items:center; gap:6px; width:100%; cursor:pointer; box-sizing:border-box;
+                       padding:5px 7px; margin-top:4px; border-radius:6px; background:rgba(255,255,255,0.08);">
                 ${thumbnailHTML}
                 <span style="flex:1; min-width:0; overflow-wrap:break-word; white-space:normal; line-height:1.15; font-size:10px; color:#9ca3af; font-weight:700; text-transform:uppercase; letter-spacing:0.02em;">${layerName}</span>
                 <sl-icon name="info-circle" style="font-size:10px;color:#6b7280;flex:none;"></sl-icon>
             </div>
         `;
+    }
+
+    /**
+     * The row of feature actions under the feature's title, in the same
+     * column as it - just export for now, with room for more beside it. Hidden
+     * until the row is expanded (_openSummaryDetails).
+     */
+    _buildChipActionsHTML(exportKind) {
+        if (!exportKind) return '';
+        return `<div class="marker-feature-export-bar" style="display:none; align-items:center; gap:4px; margin-top:4px;">
+            <span class="marker-feature-export-btn" role="button" tabindex="0" title="Export this feature" aria-label="Export this feature"><sl-icon name="download"></sl-icon></span>
+        </div>`;
+    }
+
+    /**
+     * The export menu opened by the actions row's download button: one card per GIS
+     * format with its own help text, like map-export.html's format picker.
+     * Hidden until opened (see _attachChipLayerRowHandler).
+     */
+    _buildFeatureExportMenuHTML(formats = FEATURE_EXPORT_FORMATS) {
+        // Radio names are per menu so several open markers never share a group.
+        const group = `marker-csv-geom-${(this._exportMenuSeq = (this._exportMenuSeq || 0) + 1)}`;
+        const csvOptions = `
+            <div class="marker-export-card__options">
+                <label><input type="radio" name="${group}" value="xy" checked> X/Y points</label>
+                <label><input type="radio" name="${group}" value="wkt"> WKT geometry</label>
+            </div>`;
+        const cards = formats.map(format => `
+            <div class="marker-export-card" role="button" tabindex="0" data-format="${format.value}">
+                <sl-icon name="${format.icon}" class="marker-export-card__icon"></sl-icon>
+                <div class="marker-export-card__text">
+                    <span class="marker-export-card__label">${format.label}</span>
+                    <span class="marker-export-card__help">${this._escapeAttr(format.description)}</span>
+                    ${format.value === 'csv' ? csvOptions : ''}
+                </div>
+            </div>`).join('');
+        return `<div class="marker-export-menu" style="display:none;">${cards}</div>`;
+    }
+
+    /**
+     * Opens just this layer in GeoLibre: a one-layer project on the current
+     * view, published to the shared pad GeoLibre's `?url=` loader reads (see
+     * geolibre-api.js), the way the shortcut menu opens the whole map.
+     */
+    async _openLayerInGeoLibre(layerId) {
+        const layerConfig = this._stateManager.getLayerConfig(layerId);
+        const project = this._map && GeoLibreAPI.buildProjectForLayer(this._map, layerConfig);
+        if (!project) {
+            window.layerControl?._showToast('This layer cannot be opened in GeoLibre yet', 'error');
+            return;
+        }
+
+        window.layerControl?._showToast('Opening in GeoLibre...', 'info');
+        try {
+            await GeoLibreAPI.publishProject(project);
+            window.open(GeoLibreAPI.PROJECT_VIEWER_URL, '_blank', 'noopener');
+        } catch (error) {
+            console.error('[MapMarkerManager] Failed to publish GeoLibre project:', error);
+            window.layerControl?._showToast('Could not open GeoLibre — publishing failed', 'error');
+        }
     }
 
     /**
@@ -1022,6 +1167,59 @@ export class MapMarkerManager {
     _attachChipLayerRowHandler(chip, f) {
         const row = chip.querySelector('.marker-layer-info-row');
         if (!row) return;
+
+        const exportBtn = chip.querySelector('.marker-feature-export-btn');
+        const exportMenu = chip.querySelector('.marker-export-menu');
+        if (exportBtn && exportMenu) {
+            const activate = (handler) => (e) => {
+                // The card's own options (GeoCSV's geometry field) are
+                // controls, not part of the click target that downloads.
+                if (e.target.closest?.('.marker-export-card__options')) {
+                    e.stopPropagation();
+                    return;
+                }
+                if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+                e.preventDefault();
+                e.stopPropagation();
+                handler();
+            };
+            const bind = (target, handler) => {
+                target.addEventListener('click', activate(handler));
+                target.addEventListener('keydown', activate(handler));
+            };
+            bind(exportBtn, () => {
+                const open = exportMenu.style.display === 'none';
+                exportMenu.style.display = open ? 'flex' : 'none';
+                exportBtn.classList.toggle('on', open);
+            });
+            exportMenu.querySelectorAll('.marker-export-card').forEach(card => {
+                bind(card, () => {
+                    exportMenu.style.display = 'none';
+                    exportBtn.classList.remove('on');
+                    if (card.dataset.format === 'geolibre') {
+                        this._openLayerInGeoLibre(f.layerId);
+                        return;
+                    }
+                    if (f.isRasterInspection) {
+                        exportRasterLayerView({
+                            format: card.dataset.format,
+                            layerId: f.layerId,
+                            exportControl: window.exportControl,
+                            map: this._map
+                        }).catch(err => console.warn('[MapMarkerManager] Raster export failed:', err));
+                        return;
+                    }
+                    const options = card.dataset.format === 'csv'
+                        ? { geometryField: card.querySelector('input[type="radio"]:checked')?.value || 'xy' }
+                        : {};
+                    this._handleLayerExportAction(
+                        'export-selected', card.dataset.format, f.layerId,
+                        encodeURIComponent(JSON.stringify(f.feature)), options
+                    );
+                });
+            });
+        }
+
         row.addEventListener('click', (e) => {
             e.stopPropagation();
             const layerConfig = this._stateManager.getLayerConfig(f.layerId);
@@ -1502,7 +1700,7 @@ export class MapMarkerManager {
         // the value instead of a small mark beside it (_closeAllSummaryDetails
         // swaps them back). The address row has no layer behind it, so it
         // keeps its plain icon always - layerRowHTML is just '' for it.
-        const row = (iconHTML, fieldName, label, index, extraClass = '', layerRowHTML = '') => `
+        const row = (iconHTML, fieldName, label, index, extraClass = '', layerRowHTML = '', valueColor = '', actionsHTML = '') => `
             <div class="marker-summary-item" data-badge-index="${index}" style="border-top: 1px solid ${MARKER_ROW_BORDER};">
                 <div style="display: flex; align-items: center;">
                     <input type="checkbox" class="marker-summary-pick" data-badge-index="${index}"
@@ -1511,15 +1709,16 @@ export class MapMarkerManager {
                         data-badge-index="${index}" aria-expanded="false"
                         style="flex: 1; min-width: 0; flex-direction: column; align-items: stretch; gap: 3px; border-left: 1px solid transparent;"
                         title="${this._escapeAttr(fieldName ? `${fieldName}: ${label}` : label)}">
-                        ${layerRowHTML}
-                        <div style="display: flex; align-items: center; gap: 8px; width: 100%; flex: none;">
+                        <div class="marker-summary-chip__main" style="display: flex; align-items: center; gap: 8px; width: 100%; flex: none;">
                             <span class="marker-summary-chip__icon" style="display: inline-flex; flex: none;">${iconHTML}</span>
                             <div style="display: flex; flex-direction: column; align-items: flex-start; flex: 1; min-width: 0; overflow: hidden;">
-                                <span class="marker-summary-chip__value" style="flex: none; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this._escapeAttr(this._truncateName(label, 30))}</span>
+                                <span class="marker-summary-chip__value" data-short="${this._escapeAttr(this._truncateName(label, 30))}" data-full="${this._escapeAttr(label)}" style="${valueColor ? `color: ${this._escapeAttr(valueColor)}; ` : ''}flex: none; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this._escapeAttr(this._truncateName(label, 30))}</span>
                                 ${fieldName ? `<span class="marker-summary-chip__field" style="flex: none; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; line-height: 1.3; color: #9ca3af;">${this._escapeAttr(fieldName)}</span>` : ''}
+                                ${actionsHTML}
                             </div>
-                            <sl-icon class="shortcut-menu-chevron marker-summary-chevron" name="chevron-right" style="flex-shrink: 0;"></sl-icon>
+                            <span class="marker-summary-close" role="button" aria-label="Close" title="Close" style="display: none; flex: none; align-self: flex-start; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; font-size: 14px; color: rgba(255, 255, 255, 0.72);"><sl-icon name="x-lg"></sl-icon></span>
                         </div>
+                        ${layerRowHTML}
                     </button>
                 </div>
                 <div class="marker-summary-details" style="display: none; width: 100%; box-sizing: border-box; padding: 0 10px;"></div>
@@ -1528,7 +1727,8 @@ export class MapMarkerManager {
 
         const rows = this._featuresInInspectorOrder(features).map(({ f, index }) => {
             const { fieldName, value } = this._getBadgeLabelInfo(f);
-            return row(this._layerIconHTML(f.layerId), fieldName, value, index, '', this._buildChipLayerRowHTML(f.layerId));
+            const exportKind = f.isRasterInspection ? 'raster' : (f.feature?.geometry ? 'vector' : null);
+            return row(this._featureIconHTML(f, lngLat), fieldName, value, index, '', this._buildChipLayerRowHTML(f.layerId, exportKind), f.pixelHex, this._buildChipActionsHTML(exportKind));
         });
 
         // Always last, never instead: where the point is is one more thing known
@@ -1556,6 +1756,26 @@ export class MapMarkerManager {
         const layerConfig = this._stateManager.getLayerConfig(layerId);
         if (!layerConfig) return null;
         return getPrimaryColor(layerConfig.style || layerConfig);
+    }
+
+    /** A thumbnail of the queried feature itself, styled as it is on the map, falling back to the layer's. */
+    _featureIconHTML(f, lngLat, size = FEATURE_THUMBNAIL_SIZE) {
+        const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+        const whole = f.isRasterInspection ? f : {
+            ...f,
+            feature: this._assembleTiledFeature(f.feature, f.layerId, layerConfig)
+        };
+        const tiles = f.isRasterInspection
+            ? rasterTileWindow(this._map, f.layerId, lngLat || f.lngLat, size)
+            : [];
+        const thumbnail = FeatureThumbnail.generate(whole, layerConfig, size, { lngLat, tiles });
+        if (!thumbnail) return this._layerIconHTML(f.layerId);
+        if (thumbnail.classList.contains('feature-thumbnail')) {
+            thumbnail.classList.add('feature-thumbnail--chip');
+        } else {
+            thumbnail.classList.add('shortcut-menu-icon-img');
+        }
+        return thumbnail.outerHTML;
     }
 
     /** A layer's thumbnail sized for a menu row, falling back to a generic icon. */
@@ -2153,13 +2373,19 @@ export class MapMarkerManager {
      */
     _closeAllSummaryDetails(el) {
         el.querySelectorAll('.marker-summary-details').forEach(d => { d.style.display = 'none'; });
-        el.querySelectorAll('.marker-summary-chevron').forEach(c => c.setAttribute('name', 'chevron-right'));
+        el.querySelectorAll('.marker-summary-item').forEach(item => { item.style.display = ''; });
+        el.querySelectorAll('.marker-summary-chip__value[data-full]').forEach(value => {
+            const chip = value.closest('.marker-summary-chip');
+            if (chip) this._setChipHero(chip, null, false);
+        });
+        el.querySelectorAll('.marker-summary-close').forEach(c => { c.style.display = 'none'; });
         el.querySelectorAll('.marker-summary-chip').forEach(c => c.setAttribute('aria-expanded', 'false'));
         // `visibility`, not `display: none` - the icon still has to hold its
         // place in the row so the value beside it lines up with where it sat
         // collapsed, the same indent the property rows below line up with too.
-        el.querySelectorAll('.marker-summary-chip__icon').forEach(icon => { icon.style.visibility = 'visible'; });
         el.querySelectorAll('.marker-layer-info-row').forEach(row => { row.style.display = 'none'; });
+        el.querySelectorAll('.marker-export-menu, .marker-feature-export-bar').forEach(node => { node.style.display = 'none'; });
+        el.querySelectorAll('.marker-feature-export-btn').forEach(btn => btn.classList.remove('on'));
         this._setActiveSummaryChip(el, null);
         // Unlike the quick property filter above, the layer isolation an open
         // row applied is purely a way of looking at that one row - nothing is
@@ -2183,18 +2409,23 @@ export class MapMarkerManager {
     _openSummaryDetails(el, chip, details, f) {
         this._setActiveSummaryChip(el, chip, f ? this._getLayerAccentColor(f.layerId) : null);
         chip.setAttribute('aria-expanded', 'true');
-        chip.querySelector('.marker-summary-chevron')?.setAttribute('name', 'chevron-down');
-        // The chip's own icon collapses back to this same layer-info row once
-        // expanded (see _buildChipLayerRowHTML) - swap them, rather than
-        // rebuilding either, since both were already built with the chip.
-        // `visibility`, not `display: none`, so the icon keeps its place in
-        // the row and the value beside it doesn't shift left to fill the gap.
-        const icon = chip.querySelector('.marker-summary-chip__icon');
-        if (icon) icon.style.visibility = 'hidden';
+        // Only one feature is read at a time, so the other rows step aside and
+        // the open one takes the space directly under the header; collapsing
+        // it (_closeAllSummaryDetails) brings them back.
+        el.querySelectorAll('.marker-summary-item').forEach(item => {
+            item.style.display = item.contains(chip) ? '' : 'none';
+        });
+        const close = chip.querySelector('.marker-summary-close');
+        if (close) close.style.display = 'inline-flex';
+        // The chip's icon grows into the hero thumbnail (_setChipHero) and the
+        // layer-info row appears as a band beneath the name.
         const layerRow = chip.querySelector('.marker-layer-info-row');
         if (layerRow) layerRow.style.display = 'flex';
+        const exportBar = chip.querySelector('.marker-feature-export-bar');
+        if (exportBar) exportBar.style.display = 'flex';
 
         if (f) {
+            this._setChipHero(chip, f, true);
             // The row's own filter is committed the moment its details open
             // (_attachFeatureRowActionHandlers' applyConditions below), so the
             // matching layer isolation is committed here too - it outlives the
@@ -2217,6 +2448,37 @@ export class MapMarkerManager {
         }
 
         details.style.display = 'block';
+    }
+
+    /**
+     * The open row's header blown up: the feature's own thumbnail large, and
+     * its name set in full at a bigger size instead of one truncated line.
+     * Undone on collapse (_closeAllSummaryDetails).
+     */
+    _setChipHero(chip, f, on) {
+        const icon = chip.querySelector('.marker-summary-chip__icon');
+        const value = chip.querySelector('.marker-summary-chip__value');
+        const field = chip.querySelector('.marker-summary-chip__field');
+        if (!icon || !value) return;
+
+        if (on) {
+            if (icon.dataset.small === undefined) icon.dataset.small = icon.innerHTML;
+            icon.innerHTML = this._featureIconHTML(f, f.lngLat, FEATURE_HERO_THUMBNAIL_SIZE);
+            value.textContent = value.dataset.full;
+            Object.assign(value.style, { fontSize: '15px', lineHeight: '1.2', whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', overflowWrap: 'anywhere' });
+            // A raster pixel keeps its own colour; any other label is white,
+            // and its title is set like the attribute table's keys below.
+            value.dataset.color = value.style.color;
+            if (!f.pixelHex) value.style.color = '#fff';
+            if (field) Object.assign(field.style, { color: '#fff', opacity: '0.5', fontSize: '10px', fontWeight: '300', lineHeight: '1.35' });
+        } else if (icon.dataset.small !== undefined) {
+            icon.innerHTML = icon.dataset.small;
+            delete icon.dataset.small;
+            value.textContent = value.dataset.short;
+            Object.assign(value.style, { fontSize: '', lineHeight: '', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', overflowWrap: '' });
+            value.style.color = value.dataset.color || '';
+            if (field) Object.assign(field.style, { color: '#9ca3af', opacity: '', fontSize: '9px', fontWeight: '', lineHeight: '1.3' });
+        }
     }
 
     _findMarkerIdByElement(el) {
@@ -5007,11 +5269,11 @@ export class MapMarkerManager {
      * several features to the map, and writing out only the piece that was
      * clicked is what "Export Selected" used to do.
      */
-    async _handleLayerExportAction(action, format, layerId, featureData) {
+    async _handleLayerExportAction(action, format, layerId, featureData, options = {}) {
         const exportControl = window.exportControl;
         if (!exportControl || !layerId || !format) return;
 
-        const config = { format, exportSelectedOnly: true };
+        const config = { format, exportSelectedOnly: true, ...options };
         const layerConfig = this._stateManager.getLayerConfig(layerId);
 
         if (action === 'export-selected') {
