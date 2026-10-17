@@ -324,6 +324,7 @@ export class MapAttributionControl {
         this._locationName = locationName;
         this._address = address;
         this._updateAttribution();
+        window.dispatchEvent(new CustomEvent('mapLocationChanged', { detail: { address } }));
     }
 
     /**

@@ -17,8 +17,11 @@ import { reassembleTiledFeatures, tileFragmentKey, isMergeableGeometry, mergeFea
 import { formatAttributeValue } from './attribute-value-renderer.js';
 import { sanitizeId, isValidId, nextSerialId, labelToId, uniqueId, sanitizeRouteRefPrefix, isValidRouteRefId } from './shorthand-id-utils.js';
 import * as markerRegistry from './marker-registry.js';
-import { WAYPOINT_PIN_COLOR } from './search/route-store.js';
+import { WAYPOINT_PIN_COLOR, routeStore } from './search/route-store.js';
+import { LANE_WIDTH, gapAfter, groupByRoute, planRouteLanes, renderDockLinks } from './marker-dock-links.js';
 import { RasterPixelInspector } from './raster-pixel-inspector.js';
+import { inspectStyleLayers, buildStyleInspectionHTML } from './style-layer-inspector.js';
+import { fitToFeature, restoreFeatureFit } from './feature-camera-fit.js';
 import { resolveLocalizedProperty } from './locale-text-field.js';
 import { localeManager } from './locale-manager.js';
 
@@ -110,6 +113,10 @@ const MARKER_PANEL_BG_RGB = '31, 41, 55'; // #1f2937
 const MARKER_PANEL_BG = `rgba(${MARKER_PANEL_BG_RGB}, 0.7)`;
 const MARKER_PANEL_BG_ACTIVE = `rgba(${MARKER_PANEL_BG_RGB}, 0.9)`;
 const MARKER_PANEL_BORDER = '#374151';
+const MARKER_SELECTED_BORDER = '#facc15';
+
+// Space between the map control bar and a marker panel docked beneath it.
+const MARKER_DOCK_GAP = 8;
 // Separator between rows inside the panel (see _buildMarkerSummaryHTML) -
 // translucent black rather than MARKER_PANEL_BORDER's fixed gray, which reads
 // lighter than the panel's own translucent fill wherever it sits over a dark
@@ -203,6 +210,10 @@ const MARKER_ID_ERROR_COLOR = '#ef4444';
  * from the corner its leader meets, whichever side of the point it sits on
  * (see _syncMarkerLeader).
  */
+function dockOrder(a, b) {
+    return (Number(!a.saved) - Number(!b.saved)) || (a.dockSeq - b.dockSeq);
+}
+
 function anchorFromOffset({ x = 0 } = {}) {
     return x < 0 ? 'top-right' : 'top-left';
 }
@@ -356,16 +367,230 @@ export class MapMarkerManager {
     _setupMapMovementTracking() {
         this._map.on('movestart', () => {
             this._isMapMoving = true;
+            this._markPanelAnchors();
+        });
+
+        this._map.on('move', () => {
+            this._holdSelectedPanels();
+            this._layoutDockedPanels();
+        });
+
+        window.addEventListener('layer-toggled', () => this._layoutDockedPanels());
+        this._map.on('idle', () => this._layoutDockedPanels());
+
+        window.addEventListener('resize', () => {
+            this._layoutDockedPanels();
         });
 
         this._map.on('moveend', () => {
             this._isMapMoving = false;
+            this._settleHeldPanels();
         });
+    }
 
-        // A dragged panel keeps a fixed pixel offset from its marker (see
-        // _attachBalloonDragHandler), and the marker element is what mapbox
-        // moves - so the panel follows through every pan and zoom on its own,
-        // with nothing to recompute here.
+    /**
+     * Docked panels form one column under the map control bar, lined up with the
+     * atlas button and search box above them: saved markers first, then any
+     * blank new one at the bottom. Each panel's offset is worked out in pixels
+     * from its point (projected, not read off the marker element, which mapbox
+     * has not moved yet when this runs on a 'move'), so a docked panel holds its
+     * place on screen through every pan and zoom with its tail stretching back
+     * to the point. The slot is a place on this screen, so it is not written to
+     * the marker registry; dragging a panel out of it undocks and saves it (see
+     * _attachBalloonDragHandler).
+     */
+    _dockMarkerPanel(markerId) {
+        const m = this._markers.get(markerId);
+        if (!m?.contentEl) return;
+        m.docked = true;
+        if (m.dockSeq == null) m.dockSeq = this._dockSeq = (this._dockSeq || 0) + 1;
+        if (!m.dockObserver && typeof ResizeObserver === 'function') {
+            m.dockObserver = new ResizeObserver(() => {
+                if (this._dockLayoutFrame) return;
+                this._dockLayoutFrame = requestAnimationFrame(() => {
+                    this._dockLayoutFrame = null;
+                    this._layoutDockedPanels();
+                });
+            });
+            m.dockObserver.observe(m.contentEl);
+        }
+        this._layoutDockedPanels();
+    }
+
+    _layoutDockedPanels() {
+        const container = this._map?.getCanvasContainer?.();
+        if (!container) return;
+        const docked = [...this._markers.values()].filter(m => m.docked && m.contentEl);
+        if (!docked.length) {
+            renderDockLinks(container, null);
+            return;
+        }
+        const main = document.querySelector('.map-control-bar-main');
+        const head = main?.closest('.map-control-bar-head');
+        if (!main || !head) return;
+        const mainRect = main.getBoundingClientRect();
+        if (!mainRect.width) return;
+        const canvas = this._map.getCanvas().getBoundingClientRect();
+
+        docked.sort(dockOrder);
+        const ordered = groupByRoute(routeStore.routes, docked);
+        const plan = planRouteLanes(routeStore.routes, ordered);
+        const gutter = plan.lanes.length ? plan.lanes.length * LANE_WIDTH + 4 : 0;
+        const panelLeft = mainRect.left + gutter;
+        const width = `${Math.round(mainRect.width - gutter)}px`;
+        const rows = [];
+        let top = head.getBoundingClientRect().bottom + MARKER_DOCK_GAP;
+        ordered.forEach((m, i) => {
+            const gap = gapAfter(plan, i, MARKER_DOCK_GAP);
+            rows[i] = { top, height: m.contentEl.offsetHeight };
+            if (m.dragging) {
+                top += m.contentEl.offsetHeight + gap;
+                return;
+            }
+            const point = this._map.project(m.marker.getLngLat());
+            m.panelOffset = {
+                x: Math.round(panelLeft - (canvas.left + point.x) - MARKER_ANCHOR_GAP),
+                y: Math.round(top - (canvas.top + point.y) - MARKER_ANCHOR_GAP)
+            };
+            m.panelAnchor = 'top-left';
+            const open = m.contentEl.querySelector('.marker-menu-body')?.style.display !== 'none';
+            const fitWidth = open ? width : '';
+            const fitMax = open ? width : `${MARKER_ID_MAX_WIDTH}px`;
+            if (m.contentEl.style.width !== fitWidth) m.contentEl.style.width = fitWidth;
+            if (m.contentEl.style.maxWidth !== fitMax) m.contentEl.style.maxWidth = fitMax;
+            m.contentEl.style.alignSelf = 'flex-start';
+            m.contentEl.style.touchAction = open ? '' : 'none';
+            this._applyPanelTransform(m);
+            this._syncMarkerLeader(m.marker.getElement());
+            top += m.contentEl.offsetHeight + gap;
+        });
+        renderDockLinks(container, plan, rows, mainRect.left, panelLeft);
+    }
+
+    /**
+     * A collapsed docked button is dragged vertically to reorder the column:
+     * the others make way as it passes their midpoints, and releasing drops it
+     * into the slot it reached. Expanded panels are left to their own drag.
+     */
+    _attachDockReorderHandler(contentEl, markerId) {
+        contentEl.addEventListener('pointerdown', (down) => {
+            const m = this._markers.get(markerId);
+            if (!m?.docked || down.button > 0) return;
+            const body = contentEl.querySelector('.marker-menu-body');
+            if (body && body.style.display !== 'none') return;
+
+            const base = { ...m.panelOffset };
+            let dragging = false;
+
+            const move = (e) => {
+                const dy = e.clientY - down.clientY;
+                if (!dragging && Math.hypot(e.clientX - down.clientX, dy) < 4) return;
+                dragging = true;
+                m.dragging = true;
+                contentEl.style.transform = `translate(${base.x}px, ${base.y + dy}px)`;
+                const box = contentEl.getBoundingClientRect();
+                const centre = box.top + box.height / 2;
+                const others = [...this._markers.values()]
+                    .filter(o => o.docked && o !== m && o.contentEl)
+                    .sort(dockOrder);
+                const index = others.filter(o => {
+                    const r = o.contentEl.getBoundingClientRect();
+                    return r.top + r.height / 2 < centre;
+                }).length;
+                others.splice(index, 0, m);
+                if (others.some((o, i) => o.dockSeq !== i + 1 || (o === m && o.saved !== m.saved))) {
+                    others.forEach((o, i) => { o.dockSeq = i + 1; });
+                }
+                this._layoutDockedPanels();
+                this._syncMarkerLeader(m.marker.getElement());
+                e.preventDefault();
+            };
+            const end = () => {
+                window.removeEventListener('pointermove', move, true);
+                window.removeEventListener('pointerup', end, true);
+                window.removeEventListener('pointercancel', end, true);
+                if (!dragging) return;
+                m.dragging = false;
+                const swallow = (e) => { e.stopPropagation(); e.preventDefault(); };
+                document.addEventListener('click', swallow, true);
+                setTimeout(() => document.removeEventListener('click', swallow, true), 0);
+                this._layoutDockedPanels();
+            };
+            window.addEventListener('pointermove', move, true);
+            window.addEventListener('pointerup', end, true);
+            window.addEventListener('pointercancel', end, true);
+        });
+    }
+
+    _undockMarkerPanel(m) {
+        m.docked = false;
+        m.dockObserver?.disconnect();
+        m.dockObserver = null;
+        if (m.contentEl) {
+            m.contentEl.style.width = '';
+            m.contentEl.style.maxWidth = `${MARKER_ID_MAX_WIDTH}px`;
+        }
+    }
+
+    _showSavedLabel(markerData) {
+        const el = markerData.marker.getElement();
+        const label = idToLabel(markerData.urlId);
+        const badgeText = el.querySelector('.marker-id-text');
+        if (badgeText?.textContent === MARKER_ID_PLACEHOLDER) {
+            badgeText.textContent = label;
+            const badge = badgeText.closest('.marker-id-badge');
+            if (badge) {
+                badge.title = label;
+                badge.style.color = MARKER_ID_TEXT_COLOR;
+            }
+            const input = el.querySelector('.marker-id-input');
+            if (input) input.value = label;
+        }
+        this._syncIdActions(el);
+    }
+
+    _selectedMarkerData() {
+        return [...this._markers.values()].filter(m =>
+            m.contentEl && !m.docked && m.marker.getElement().classList.contains('marker-selected'));
+    }
+
+    _markPanelAnchors() {
+        this._selectedMarkerData().forEach(m => {
+            const p = this._map.project(m.marker.getLngLat());
+            m.heldPoint = { x: p.x, y: p.y };
+        });
+    }
+
+    /**
+     * While the map moves, the selected marker's point travels with it but its
+     * panel stays where it is on screen: the point's movement is subtracted
+     * from the panel's pixel offset, and the leader tail stretches to follow.
+     * Transient only - the stored offset is settled on moveend.
+     */
+    _holdSelectedPanels() {
+        this._selectedMarkerData().forEach(m => {
+            const p = this._map.project(m.marker.getLngLat());
+            if (!m.heldPoint) {
+                m.heldPoint = { x: p.x, y: p.y };
+                return;
+            }
+            const offset = m.panelOffset || { x: 0, y: 0 };
+            m.panelOffset = { x: offset.x - (p.x - m.heldPoint.x), y: offset.y - (p.y - m.heldPoint.y) };
+            m.heldPoint = { x: p.x, y: p.y };
+            this._applyPanelTransform(m);
+            this._syncMarkerLeader(m.marker.getElement());
+        });
+    }
+
+    _settleHeldPanels() {
+        this._markers.forEach(m => {
+            if (!m.heldPoint) return;
+            m.heldPoint = null;
+            if (!m.panelOffset || m.docked) return;
+            this._setMarkerPanelOffset(m, m.panelOffset.x, m.panelOffset.y);
+            this._rebasePanelAnchor(m);
+            this._syncMarkerLeader(m.marker.getElement());
+        });
     }
 
     /**
@@ -465,7 +690,10 @@ export class MapMarkerManager {
             icon.style.color = markerData.pinned ? '#facc15' : '#9ca3af';
         }
 
-        if (el) this._syncMarkerContent(el, markerId);
+        if (el) {
+            this._syncMarkerContent(el, markerId);
+            this._syncIdActions(el);
+        }
         window.urlManager?.updateURL({ updateLayers: true });
     }
 
@@ -596,7 +824,9 @@ export class MapMarkerManager {
         // what's actually reported here, so raster inspection can't rely on
         // this being an empty click (see _handleEmptyMapClick) to ever run.
         // Append it alongside whatever vector feature(s) were found instead.
-        this.addMarker(lngLat, [...features, ...this._inspectRasterPixels(lngLat)]);
+        const rasterFeatures = this._inspectRasterPixels(lngLat);
+        const markerId = this.addMarker(lngLat, [...features, ...rasterFeatures], { dock: true });
+        this._appendStyleInspection(markerId, lngLat);
     }
 
     _handleEmptyMapClick(data) {
@@ -616,7 +846,9 @@ export class MapMarkerManager {
         // layer info only, but the topmost active raster layer can still
         // label this pixel (a legendMap class, or the raw color as a
         // fallback — see _inspectRasterPixel).
-        this.addMarker(lngLat, this._inspectRasterPixels(lngLat));
+        const rasterFeatures = this._inspectRasterPixels(lngLat);
+        const markerId = this.addMarker(lngLat, rasterFeatures, { dock: true });
+        this._appendStyleInspection(markerId, lngLat);
     }
 
     /**
@@ -635,6 +867,41 @@ export class MapMarkerManager {
      * raster layer - classified by its own legendMap when it matches the
      * sampled color, else showing that same color.
      */
+    async _appendStyleInspection(markerId, lngLat) {
+        if (!this._hasActiveStyleLayers()) return;
+        const inspected = await this._inspectStyleLayers(lngLat);
+        const markerData = this._markers.get(markerId);
+        if (!markerData) return;
+        const present = new Set(markerData.badgeFeatures.filter(f => f.isStyleInspection).map(f => f.layerId));
+        const extra = inspected.filter(f => !present.has(f.layerId));
+        if (!extra.length) return;
+
+        const startIndex = markerData.badgeFeatures.length;
+        markerData.badgeFeatures.push(...extra);
+        if (markerData.features !== markerData.badgeFeatures) markerData.features.push(...extra);
+
+        const el = markerData.marker.getElement();
+        const template = document.createElement('div');
+        template.innerHTML = this._buildMarkerSummaryHTML(markerData.badgeFeatures, lngLat);
+        const addressItem = el.querySelector('.marker-summary-chip--address')?.closest('.marker-summary-item');
+        const container = el.querySelector('.marker-summary-row');
+        if (!container) return;
+        template.querySelectorAll('.marker-summary-item').forEach(item => {
+            const index = parseInt(item.dataset.badgeIndex, 10);
+            if (index >= startIndex) container.insertBefore(item, addressItem || null);
+        });
+        this._attachMarkerSummaryHandlers(el, markerData.badgeFeatures, lngLat, startIndex);
+        this._syncMarkerLeader(el);
+    }
+
+    _hasActiveStyleLayers() {
+        return this._getAllActiveLayersInInspectorOrder().some(l => l.type === 'style');
+    }
+
+    async _inspectStyleLayers(lngLat) {
+        return inspectStyleLayers(this._map, lngLat, this._getAllActiveLayersInInspectorOrder(), window.layerControl?._mapboxAPI);
+    }
+
     _inspectRasterPixels(lngLat) {
         const primary = this._inspectRasterPixel(lngLat);
         if (!primary) return [];
@@ -838,6 +1105,7 @@ export class MapMarkerManager {
     }
 
     _getBadgeLabelInfo(f) {
+        if (f.isStyleInspection) return { fieldName: f.styleTitle, value: f.featureId };
         const layerConfig = this._stateManager.getLayerConfig(f.layerId);
         const inspectConfig = layerConfig?.inspect || {};
         const labelField = inspectConfig.label || inspectConfig.id || 'id';
@@ -1547,6 +1815,11 @@ export class MapMarkerManager {
                            background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
                     <sl-icon name="trash-fill" style="font-size: 14px; color: #ef4444; pointer-events: none;"></sl-icon>
                 </button>
+                <button type="button" class="marker-id-action marker-id-remove" title="Delete this marker"
+                    style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
+                           background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
+                    <sl-icon name="trash" style="font-size: 14px; color: #9ca3af; pointer-events: none;"></sl-icon>
+                </button>
                 <button type="button" class="marker-id-action marker-id-shortcuts" title="Options for this point"
                     style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
                            background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
@@ -1596,6 +1869,8 @@ export class MapMarkerManager {
                     fill="${MARKER_PANEL_BG}" stroke="transparent"
                     stroke-width="${MARKER_LEADER_GRAB}" stroke-linejoin="round"
                     style="pointer-events: none; cursor: move;"/>
+                <polyline class="marker-leader-edge" points="" fill="none"
+                    stroke="${MARKER_PANEL_BORDER}" stroke-width="1" style="pointer-events: none;"/>
             </svg>
         `;
     }
@@ -1666,6 +1941,12 @@ export class MapMarkerManager {
         svg.querySelectorAll('.marker-leader-line').forEach(tail => {
             tail.setAttribute('points', points);
         });
+
+        const ux = len ? -corner.x / len : 0;
+        const uy = len ? -corner.y / len : 0;
+        const cut = MARKER_LEADER_INSET;
+        const edge = `${pt(base.x + nx + ux * cut, base.y + ny + uy * cut)} ${pt(c, c)} ${pt(base.x - nx + ux * cut, base.y - ny + uy * cut)}`;
+        svg.querySelector('.marker-leader-edge')?.setAttribute('points', edge);
     }
 
     /**
@@ -1768,7 +2049,7 @@ export class MapMarkerManager {
         const tiles = f.isRasterInspection
             ? rasterTileWindow(this._map, f.layerId, lngLat || f.lngLat, size)
             : [];
-        const thumbnail = FeatureThumbnail.generate(whole, layerConfig, size, { lngLat, tiles });
+        const thumbnail = FeatureThumbnail.generate(whole, layerConfig, size, { lngLat, tiles, map: this._map });
         if (!thumbnail) return this._layerIconHTML(f.layerId);
         if (thumbnail.classList.contains('feature-thumbnail')) {
             thumbnail.classList.add('feature-thumbnail--chip');
@@ -2172,7 +2453,7 @@ export class MapMarkerManager {
                         this._stateManager.setFeatureHoverState(f.layerId, f.featureId, true);
                         if (!isHover) {
                             // Hovering a badge dims sibling layers via the shared isolation manager.
-                            window.layerControl?.isolation?.hoverIsolate(f.layerId, layerIsBasemap());
+                            this._beginRowHover(f, false);
                         }
                     }
                 });
@@ -2188,7 +2469,7 @@ export class MapMarkerManager {
                     if (f) {
                         this._stateManager.setFeatureHoverState(f.layerId, f.featureId, false);
                         if (!isHover) {
-                            window.layerControl?.isolation?.clearHover();
+                            this._endRowHover(f, false);
                         }
                     }
                 });
@@ -2225,13 +2506,14 @@ export class MapMarkerManager {
      * max-height in addMarker) instead of spilling a flyout off the edge of
      * a small screen.
      */
-    _attachMarkerSummaryHandlers(el, features, lngLat) {
+    _attachMarkerSummaryHandlers(el, features, lngLat, startIndex = 0) {
         el.querySelectorAll('.marker-summary-item').forEach(item => {
             const chip = item.querySelector('.marker-summary-chip');
             const details = item.querySelector('.marker-summary-details');
             if (!chip || !details) return;
 
             const index = parseInt(chip.dataset.badgeIndex, 10);
+            if (startIndex && !(index >= startIndex)) return;
             const f = index >= 0 ? (features || [])[index] : null;
 
             // Wired once here, not on every open/close - unlike the fields
@@ -2391,6 +2673,7 @@ export class MapMarkerManager {
         // row applied is purely a way of looking at that one row - nothing is
         // expanded any more, so nothing is being isolated for.
         window.layerControl?.isolation?.clear();
+        restoreFeatureFit(this._map);
     }
 
     /** Whether a layer sits in the basemap section (see LayerIsolationManager). */
@@ -2425,6 +2708,11 @@ export class MapMarkerManager {
         if (exportBar) exportBar.style.display = 'flex';
 
         if (f) {
+            const featureGeometry = this._assembleTiledFeature(f.feature, f.layerId, this._stateManager.getLayerConfig(f.layerId))?.geometry;
+            if (featureGeometry) {
+                const panel = chip.closest('.marker-content')?.getBoundingClientRect();
+                fitToFeature(this._map, featureGeometry, panel?.width ? panel : null);
+            }
             this._setChipHero(chip, f, true);
             // The row's own filter is committed the moment its details open
             // (_attachFeatureRowActionHandlers' applyConditions below), so the
@@ -2432,11 +2720,15 @@ export class MapMarkerManager {
             // pointer leaving the chip, and is dropped again when the row (or
             // the whole panel) closes, see _closeAllSummaryDetails.
             window.layerControl?.isolation?.isolate(f.layerId, this._isLayerBasemap(f.layerId));
-            details.innerHTML = this._buildFeatureFlyoutContentHTML(f);
-            this._attachFeatureDetailsHandlers(details);
-            this._attachFeatureRowActionHandlers(details, f);
-            const badgeDetails = details.querySelector('.feature-badge-details');
-            if (badgeDetails) this._loadInspectionHandlerHTML(badgeDetails, f.layerId, f.featureId);
+            if (f.isStyleInspection) {
+                details.innerHTML = buildStyleInspectionHTML(f);
+            } else {
+                details.innerHTML = this._buildFeatureFlyoutContentHTML(f);
+                this._attachFeatureDetailsHandlers(details);
+                this._attachFeatureRowActionHandlers(details, f);
+                const badgeDetails = details.querySelector('.feature-badge-details');
+                if (badgeDetails) this._loadInspectionHandlerHTML(badgeDetails, f.layerId, f.featureId);
+            }
         } else {
             details.innerHTML = `<div class="marker-flyout-drag-handle" style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:#111827;border-bottom:1px solid #374151;">` +
                 `<sl-icon name="signpost" style="font-size:12px;color:#9ca3af;"></sl-icon>` +
@@ -3337,6 +3629,10 @@ export class MapMarkerManager {
         const openBadge = (e) => {
             e.stopPropagation();
             if (e.type === 'touchend') e.preventDefault();
+            if (this._markers.get(markerId)?.docked && !el.classList.contains('marker-selected')) {
+                this._selectMarker(markerId);
+                return;
+            }
             if (badgeText.textContent === MARKER_ID_PLACEHOLDER) {
                 this._selectMarker(markerId);
                 startEdit({ initial: true });
@@ -3363,6 +3659,15 @@ export class MapMarkerManager {
         };
         shortcutsBtn.addEventListener('click', openShortcuts);
         if (this._isTouch) shortcutsBtn.addEventListener('touchend', openShortcuts);
+
+        const removeBtn = group.querySelector('.marker-id-remove');
+        const removeMarker = (e) => {
+            e.stopPropagation();
+            if (e.type === 'touchend') e.preventDefault();
+            this.removeMarker(markerId);
+        };
+        removeBtn.addEventListener('click', removeMarker);
+        if (this._isTouch) removeBtn.addEventListener('touchend', removeMarker);
 
         const pinBtn = group.querySelector('.marker-id-pin');
         const togglePin = (e) => {
@@ -3521,6 +3826,7 @@ export class MapMarkerManager {
      */
     _syncIdActions(el) {
         const shortcuts = el.querySelector('.marker-id-shortcuts');
+        const removeHandle = el.querySelector('.marker-id-remove');
         const moveHandle = el.querySelector('.marker-id-move');
         const pinHandle = el.querySelector('.marker-id-pin');
         // Pushes the trailing action buttons to the end of the header - kept
@@ -3537,6 +3843,7 @@ export class MapMarkerManager {
         // to naming the marker.
         if (el.dataset.idEditing === '1') {
             if (shortcuts) shortcuts.style.display = 'none';
+            if (removeHandle) removeHandle.style.display = 'none';
             if (moveHandle) moveHandle.style.display = 'none';
             if (pinHandle) pinHandle.style.display = 'none';
             if (spacer) spacer.style.display = 'flex';
@@ -3544,15 +3851,17 @@ export class MapMarkerManager {
         }
 
         const focused = el.classList.contains('marker-selected');
+        const saved = [...this._markers.values()].some(m => m.saved && m.marker.getElement() === el);
         // The options button belongs to an open marker, alongside its rows -
         // a chip is just a name. Removal and collapse are deliberately absent:
         // clicking away closes a marker, and add-mode keeps the ones you want.
         const expanded = focused || el.dataset.markerHover === '1';
         if (shortcuts) shortcuts.style.display = expanded ? 'flex' : 'none';
+        if (removeHandle) removeHandle.style.display = expanded && saved ? 'flex' : 'none';
         // Same as the move handle: pinning is something you do to the marker
         // you're working with, not one you're just passing over.
-        if (moveHandle) moveHandle.style.display = focused ? 'flex' : 'none';
-        if (pinHandle) pinHandle.style.display = focused ? 'flex' : 'none';
+        if (moveHandle) moveHandle.style.display = focused && saved ? 'flex' : 'none';
+        if (pinHandle) pinHandle.style.display = focused && saved ? 'flex' : 'none';
         if (spacer) spacer.style.display = expanded ? 'flex' : 'none';
     }
 
@@ -3596,7 +3905,8 @@ export class MapMarkerManager {
      */
     _syncMarkerContent(el, markerId) {
         const selected = el.classList.contains('marker-selected');
-        const hovered = el.dataset.markerHover === '1';
+        // A docked button opens on click only (selection), never on hover.
+        const hovered = el.dataset.markerHover === '1' && !this._markers.get(markerId)?.docked;
         // A pinned marker holds its menu open regardless of focus/hover - the
         // whole point of the pin (see _toggleMarkerPinned) - and map-export.html
         // exports whatever is live in the DOM (see _prepareMarkerCloneForExport
@@ -3631,6 +3941,9 @@ export class MapMarkerManager {
         // MARKER_GLOW_FILTER for why this is a filter on `el` rather than a
         // box-shadow on the panel alone.
         el.style.filter = show ? MARKER_GLOW_FILTER : 'none';
+        content.style.borderColor = selected ? MARKER_SELECTED_BORDER : MARKER_PANEL_BORDER;
+        // The tail stays beneath the panel; its two edges carry the border colour.
+        el.querySelector('.marker-leader-edge')?.setAttribute('stroke', selected ? MARKER_SELECTED_BORDER : MARKER_PANEL_BORDER);
         body.style.display = show ? 'flex' : 'none';
         // Menu width only once it is a menu; as a chip it stays as wide as its id.
         content.style.minWidth = show ? `${MARKER_MENU_MIN_WIDTH}px` : '';
@@ -3655,6 +3968,7 @@ export class MapMarkerManager {
         // Opening changes the panel's size, so the corner nearest the point can
         // change with it.
         this._syncMarkerLeader(el);
+        this._layoutDockedPanels();
 
         if (!show) {
             this._closeAllSummaryDetails(el);
@@ -4061,6 +4375,7 @@ export class MapMarkerManager {
         markerData.onDrag = onDrag;
         markerData.onDragEnd = onDragEnd;
         markerData.onRemove = onRemove;
+        this._layoutDockedPanels();
 
         if (pinColor) {
             markerData.pinColor = pinColor;
@@ -4142,6 +4457,7 @@ export class MapMarkerManager {
         const markerData = this._markers.get(markerId);
         if (!markerData) return;
         if (!markerData.routeRefs) markerData.routeRefs = new Map();
+        queueMicrotask(() => this._layoutDockedPanels());
 
         const badge = markerData.marker.getElement()?.querySelector('.marker-id-badge');
 
@@ -4663,7 +4979,8 @@ export class MapMarkerManager {
             pinColor = '#f97316',
             urlId: requestedUrlId = null,
             select: selectOnCreate = true,
-            saved: savedOnCreate = false
+            saved: savedOnCreate = false,
+            dock = true
         } = options;
         features = this._dedupeFeatures(features);
         const markerId = `marker-${Date.now()}-${this._markers.size}`;
@@ -4771,6 +5088,7 @@ export class MapMarkerManager {
         let dragRAF = null;
         marker.on('dragstart', () => this._handleMarkerDragStart(markerId));
         marker.on('drag', () => {
+            if (this._markers.get(markerId)?.docked) this._layoutDockedPanels();
             if (dragRAF) return;
             dragRAF = requestAnimationFrame(() => {
                 dragRAF = null;
@@ -4826,6 +5144,7 @@ export class MapMarkerManager {
             contentEl: null,
             panelOffset: null,
             panelAnchor: 'top-left',
+            docked: false,
             onRemove,
             onDrag,
             onDragEnd,
@@ -4859,6 +5178,7 @@ export class MapMarkerManager {
         if (contentEl) {
             markerData.contentEl = contentEl;
             this._attachBalloonDragHandler(contentEl, markerId);
+            this._attachDockReorderHandler(contentEl, markerId);
         }
 
         this._markers.set(markerId, markerData);
@@ -4876,6 +5196,7 @@ export class MapMarkerManager {
         // out, and the leader line is drawn from measurements.
         requestAnimationFrame(() => {
             this._applyStoredPanelOffset(markerId);
+            if (dock && !markerRegistry.get(urlId)?.offset) this._dockMarkerPanel(markerId);
             this._syncMarkerLeader(el);
         });
 
@@ -5114,6 +5435,12 @@ export class MapMarkerManager {
                 // what `?markers=` carries (see _setMarkerPanelOffset).
                 const markerData = this._markers.get(markerId);
                 if (markerData) {
+                    if (markerData.docked) {
+                        this._undockMarkerPanel(markerData);
+                        markerData.saved = true;
+                        this._showSavedLabel(markerData);
+                        this._layoutDockedPanels();
+                    }
                     this._setMarkerPanelOffset(markerData, offsetX, offsetY);
                     // Dragging past the point sideways changes which corner faces it.
                     this._rebasePanelAnchor(markerData);
@@ -5532,8 +5859,10 @@ export class MapMarkerManager {
         });
 
         markerData.marker.remove();
+        markerData.dockObserver?.disconnect();
         this._markers.delete(markerId);
         if (markerData.urlId) markerRegistry.remove(markerData.urlId);
+        this._layoutDockedPanels();
 
         if (this._markers.size > 0) {
             this._currentMarkerIndex = Math.min(this._currentMarkerIndex, this._markers.size - 1);

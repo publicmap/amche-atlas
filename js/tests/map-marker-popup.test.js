@@ -81,14 +81,16 @@ describe('marker popup layout', () => {
             expect(badge.style.textDecorationLine).toBe('none');
         });
 
-        it('offers options on the right of the header, and nothing else', () => {
+        it('offers delete and options on the right of the header, hidden until expanded', () => {
             const manager = makeManager();
             host.innerHTML = manager._buildMarkerMenuHeaderHTML('1');
 
             expect(host.querySelector('.marker-id-shortcuts sl-icon').getAttribute('name')).toBe('three-dots-vertical');
             expect(host.querySelector('.marker-id-shortcuts').style.display).toBe('none');
-            // Removal and collapse are gone: click away to close, add-mode to keep.
-            expect(host.querySelector('.marker-id-remove')).toBeNull();
+            const remove = host.querySelector('.marker-id-remove');
+            expect(remove.querySelector('sl-icon').getAttribute('name')).toBe('trash');
+            expect(remove.style.display).toBe('none');
+            expect(remove.nextElementSibling).toBe(host.querySelector('.marker-id-shortcuts'));
             expect(host.querySelector('.marker-id-collapse')).toBeNull();
         });
 

@@ -56,9 +56,6 @@ const LONG_PRESS_MOVE_THRESHOLD = 10;
 // (see ShortcutMenuBase._buildRemoveFromRouteItems).
 const ITEM_IDS = [
     'edit-marker-label',
-    'remove-marker',
-    'zoom-to-location',
-    'zoom-to-selected',
     'export-selected-kml',
     'route-from-here',
     'route-to-here',

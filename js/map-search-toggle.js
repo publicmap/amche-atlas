@@ -1,5 +1,16 @@
 import { SEARCH_SOURCES, isSearchSourceEnabled, setSearchSourceEnabled } from './search/search-sources.js';
 
+const ADMIN_UNITS_FINE_TO_COARSE = [
+    'neighbourhood', 'suburb', 'quarter', 'city_district', 'borough', 'village', 'hamlet',
+    'town', 'city', 'municipality', 'county', 'state_district', 'state', 'country'
+];
+
+export function finestAdminUnit(address) {
+    if (!address) return '';
+    const key = ADMIN_UNITS_FINE_TO_COARSE.find(k => address[k]);
+    return key ? String(address[key]) : '';
+}
+
 export class MapSearchToggle {
     constructor() {
         this._el = null;
@@ -27,7 +38,18 @@ export class MapSearchToggle {
             }
         });
 
-        this._el.append(this._btn, this._buildSourcesMenu());
+        this._hint = document.createElement('span');
+        this._hint.className = 'map-search-hint';
+        this._hint.textContent = 'Search places';
+        this._hint.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._expand();
+        });
+        window.addEventListener('mapLocationChanged', (e) => {
+            this._hint.textContent = finestAdminUnit(e.detail?.address) || 'Search places';
+        });
+
+        this._el.append(this._btn, this._hint, this._buildSourcesMenu());
         this._el.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 this._searchInput()?.blur();

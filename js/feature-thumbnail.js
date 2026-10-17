@@ -1,77 +1,15 @@
-import { collectStylePasses, resolveValue, extractIconUrl } from './layer-style-utils.js';
 import { LayerThumbnail } from './layer-thumbnail.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const PADDING_RATIO = 0.12;
-const POINT_RADIUS = 0.5;
-const POINT_STROKE = 0.5;
-
-const COMPARATORS = {
-    '==': (a, b) => a === b,
-    '!=': (a, b) => a !== b,
-    '>': (a, b) => a > b,
-    '>=': (a, b) => a >= b,
-    '<': (a, b) => a < b,
-    '<=': (a, b) => a <= b
-};
-
-function evaluate(expr, props) {
-    if (!Array.isArray(expr)) return expr;
-    const [op, ...args] = expr;
-    if (typeof op === 'number') return expr;
-    const ev = (e) => evaluate(e, props);
-
-    switch (op) {
-        case 'literal': return args[0];
-        case 'get': return props?.[args[0]];
-        case 'has': return props != null && args[0] in props;
-        case 'to-string': return String(ev(args[0]));
-        case 'to-number': return Number(ev(args[0]));
-        case '!': return !ev(args[0]);
-        case 'all': return args.every(a => ev(a));
-        case 'any': return args.some(a => ev(a));
-        case 'coalesce': {
-            for (const a of args) {
-                const v = ev(a);
-                if (v !== null && v !== undefined) return v;
-            }
-            return undefined;
-        }
-        case 'match': {
-            const input = ev(args[0]);
-            for (let i = 1; i < args.length - 1; i += 2) {
-                const key = args[i];
-                if (Array.isArray(key) ? key.includes(input) : key === input) return ev(args[i + 1]);
-            }
-            return ev(args[args.length - 1]);
-        }
-        case 'case': {
-            for (let i = 0; i < args.length - 1; i += 2) {
-                if (ev(args[i])) return ev(args[i + 1]);
-            }
-            return ev(args[args.length - 1]);
-        }
-        case 'step': {
-            const input = Number(ev(args[0]));
-            let picked = args[1];
-            for (let i = 2; i < args.length - 1; i += 2) {
-                if (input >= args[i]) picked = args[i + 1];
-            }
-            return ev(picked);
-        }
-        default:
-            if (COMPARATORS[op]) return COMPARATORS[op](ev(args[0]), ev(args[1]));
-            return undefined;
-    }
-}
-
-function paint(value, props, fallback) {
-    const evaluated = Array.isArray(value) && value[0] !== 'interpolate' ? evaluate(value, props) : value;
-    const resolved = typeof evaluated === 'string' || typeof evaluated === 'number'
-        ? evaluated
-        : resolveValue(value, fallback);
-    return resolved == null ? fallback : resolved;
-}
+const POINT_RADIUS_RATIO = 0.09;
+const POINT_STROKE_RATIO = 0.04;
+const VIEWPORT_STROKE = '#dc2626';
+const VIEWPORT_FILL = 'rgba(220, 38, 38, 0.2)';
+const DRAG_THRESHOLD = 3;
+const boundMaps = new WeakSet();
+const FIGURE_FILL = '#cbd5e1';
+const FIGURE_STROKE = '#1f2937';
 
 function ringsOf(geometry) {
     if (!geometry) return { points: [], lines: [], polygons: [] };
@@ -112,10 +50,128 @@ function makeProjector(shapes, size, extra = []) {
     const offsetX = (size - width * scale) / 2;
     const offsetY = (size - height * scale) / 2;
 
-    return ([lng, lat]) => [
+    const project = ([lng, lat]) => [
         offsetX + (lng - minLng) * cosLat * scale,
         offsetY + (maxLat - lat) * scale
     ];
+    project.params = { minLng, maxLat, cosLat, scale, offsetX, offsetY };
+    return project;
+}
+
+function projectWith(params, [lng, lat]) {
+    return [
+        params.offsetX + (lng - params.minLng) * params.cosLat * params.scale,
+        params.offsetY + (params.maxLat - lat) * params.scale
+    ];
+}
+
+function viewportRect(map, params) {
+    const bounds = map.getBounds();
+    const [x1, y1] = projectWith(params, [bounds.getWest(), bounds.getNorth()]);
+    const [x2, y2] = projectWith(params, [bounds.getEast(), bounds.getSouth()]);
+    return { x: x1, y: y1, width: Math.max(0, x2 - x1), height: Math.max(0, y2 - y1) };
+}
+
+function applyViewport(rect, map, params) {
+    Object.entries(viewportRect(map, params)).forEach(([k, v]) => rect.setAttribute(k, v.toFixed(2)));
+}
+
+function viewportOverlay(size, map, params) {
+    const svg = el('svg', { width: size, height: size, viewBox: `0 0 ${size} ${size}` });
+    svg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
+    const rect = el('rect', {
+        class: 'feature-thumbnail-viewport',
+        fill: VIEWPORT_FILL,
+        stroke: VIEWPORT_STROKE,
+        'stroke-width': 1
+    });
+    rect.style.cssText = 'pointer-events:all;cursor:grab;touch-action:none;';
+    applyViewport(rect, map, params);
+    svg.appendChild(rect);
+    return svg;
+}
+
+function syncViewports(map) {
+    document.querySelectorAll('.feature-thumbnail[data-projection]').forEach(box => {
+        const rect = box.querySelector('.feature-thumbnail-viewport');
+        if (!rect) return;
+        try {
+            applyViewport(rect, map, JSON.parse(box.dataset.projection));
+        } catch (error) {
+            return;
+        }
+    });
+}
+
+function bindDrag(map) {
+    document.addEventListener('pointerdown', (down) => {
+        const rect = down.target.closest?.('.feature-thumbnail-viewport');
+        const box = rect?.closest('.feature-thumbnail[data-projection]');
+        if (!box) return;
+
+        let params;
+        try {
+            params = JSON.parse(box.dataset.projection);
+        } catch (error) {
+            return;
+        }
+        const startCenter = map.getCenter();
+        let dragging = false;
+
+        const move = (e) => {
+            const dx = e.clientX - down.clientX;
+            const dy = e.clientY - down.clientY;
+            if (!dragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+            dragging = true;
+            rect.style.cursor = 'grabbing';
+            map.jumpTo({
+                center: [
+                    startCenter.lng - dx / (params.scale * params.cosLat),
+                    startCenter.lat + dy / params.scale
+                ]
+            });
+        };
+        const end = () => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', end);
+            window.removeEventListener('pointercancel', end);
+            rect.style.cursor = 'grab';
+            if (!dragging) return;
+            const swallow = (e) => e.stopPropagation();
+            window.addEventListener('click', swallow, { capture: true, once: true });
+            setTimeout(() => window.removeEventListener('click', swallow, true), 0);
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', end);
+        window.addEventListener('pointercancel', end);
+    }, true);
+}
+
+function bindLocatorClick(map) {
+    const center = (e) => {
+        const locator = e.target.closest?.('.feature-thumbnail-locator');
+        if (!locator) return;
+        e.stopPropagation();
+        e.preventDefault();
+        map.easeTo({ center: [parseFloat(locator.dataset.lng), parseFloat(locator.dataset.lat)] });
+    };
+    document.addEventListener('click', center, true);
+    document.addEventListener('touchend', center, true);
+}
+
+function bindMap(map) {
+    if (!map || boundMaps.has(map)) return;
+    boundMaps.add(map);
+    bindDrag(map);
+    bindLocatorClick(map);
+    let frame = null;
+    map.on('move', () => {
+        if (frame) return;
+        frame = requestAnimationFrame(() => {
+            frame = null;
+            syncViewports(map);
+        });
+    });
 }
 
 function el(name, attrs) {
@@ -131,74 +187,54 @@ function pathData(rings, project, close) {
     }).join('') + (close ? 'Z' : '')).join('');
 }
 
-function drawVector(svg, passes, shapes, project, props, size) {
+function drawFigure(svg, shapes, project, size) {
     const scale = size / 40;
-    const hasPolygons = shapes.polygons.length > 0;
+    const lineWidth = Math.max(1, 1.5 * scale);
 
-    if (hasPolygons) {
-        passes.fill.forEach(pass => {
-            const stroke = paint(pass.style['line-color'], props, pass.strokeColor);
-            const strokeWidth = paint(pass.style['line-width'], props, pass.strokeWidth);
-            svg.appendChild(el('path', {
-                d: shapes.polygons.map(poly => pathData(poly, project, true)).join(''),
-                'fill-rule': 'evenodd',
-                fill: paint(pass.colorExpr, props, pass.color),
-                'fill-opacity': paint(pass.style['fill-opacity'], props, pass.opacity),
-                stroke: stroke || null,
-                'stroke-width': stroke ? Math.max(0.5, Math.min((strokeWidth || 1) * scale, size * 0.08)) : null,
-                'stroke-linejoin': 'round'
-            }));
-        });
+    if (shapes.polygons.length) {
+        svg.appendChild(el('path', {
+            d: shapes.polygons.map(poly => pathData(poly, project, true)).join(''),
+            'fill-rule': 'evenodd',
+            fill: FIGURE_FILL,
+            stroke: FIGURE_STROKE,
+            'stroke-width': lineWidth,
+            'stroke-linejoin': 'round'
+        }));
     }
 
-    const lineRings = [...shapes.lines, ...(hasPolygons && !passes.fill.length ? shapes.polygons.flat() : [])];
-    if (lineRings.length) {
-        passes.line.forEach(pass => {
-            const dash = paint(pass.style['line-dasharray'], props, null);
-            svg.appendChild(el('path', {
-                d: pathData(lineRings, project, false),
-                fill: 'none',
-                stroke: paint(pass.colorExpr, props, pass.color),
-                'stroke-opacity': paint(pass.style['line-opacity'], props, pass.opacity),
-                'stroke-width': Math.max(1, Math.min(paint(pass.style['line-width'], props, pass.width) * scale, size * 0.14)),
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-dasharray': Array.isArray(dash) ? dash.map(d => d * scale).join(' ') : null
-            }));
-        });
+    if (shapes.lines.length) {
+        svg.appendChild(el('path', {
+            d: pathData(shapes.lines, project, false),
+            fill: 'none',
+            stroke: FIGURE_STROKE,
+            'stroke-width': lineWidth,
+            'stroke-linecap': 'round',
+            'stroke-linejoin': 'round'
+        }));
     }
 
-    if (shapes.points.length) {
-        passes.circle.forEach(pass => {
-            const radius = Math.max(2, Math.min(paint(pass.style['circle-radius'], props, pass.radius) * scale * 1.5, size * 0.3));
-            const strokeWidth = paint(pass.style['circle-stroke-width'], props, pass.strokeWidth);
-            shapes.points.forEach(point => {
-                const [cx, cy] = project(point);
-                svg.appendChild(el('circle', {
-                    cx: shapes.points.length === 1 ? size / 2 : cx,
-                    cy: shapes.points.length === 1 ? size / 2 : cy,
-                    r: radius,
-                    fill: paint(pass.colorExpr, props, pass.color),
-                    'fill-opacity': paint(pass.style['circle-opacity'], props, pass.opacity),
-                    stroke: paint(pass.style['circle-stroke-color'], props, pass.strokeColor) || null,
-                    'stroke-width': strokeWidth ? Math.max(0.5, strokeWidth * scale) : null
-                }));
-            });
-        });
-    }
+    shapes.points.forEach(point => {
+        const [cx, cy] = shapes.points.length === 1 ? [size / 2, size / 2] : project(point);
+        svg.appendChild(el('circle', { cx, cy, r: Math.max(2, size * 0.1), fill: FIGURE_STROKE }));
+    });
 }
 
 function pointMarker(size, lngLat, project) {
     const [cx, cy] = project ? project([lngLat.lng, lngLat.lat]) : [size / 2, size / 2];
     const svg = el('svg', { width: size, height: size, viewBox: `0 0 ${size} ${size}` });
     svg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
-    svg.appendChild(el('circle', {
+    const locator = el('circle', {
+        class: 'feature-thumbnail-locator',
+        'data-lng': lngLat.lng,
+        'data-lat': lngLat.lat,
         cx, cy,
-        r: POINT_RADIUS,
+        r: size * POINT_RADIUS_RATIO,
         fill: 'black',
-        stroke: 'black',
-        'stroke-width': POINT_STROKE
-    }));
+        stroke: 'white',
+        'stroke-width': Math.max(1, size * POINT_STROKE_RATIO)
+    });
+    locator.style.cssText = 'pointer-events:all;cursor:pointer;';
+    svg.appendChild(locator);
     return svg;
 }
 
@@ -212,11 +248,12 @@ function shell(size) {
 export class FeatureThumbnail {
     /**
      * @param {{lngLat?: {lng:number,lat:number}, tiles?: Array}} options -
-     *   the clicked point, drawn as a black dot, and the raster tile images
+     *   the clicked point, drawn as a black dot with a white outline, the raster tile images, and the
+     *   map whose viewport is outlined and kept in sync as it moves
      */
     static generate(f, layerConfig, size = 28, options = {}) {
         if (f?.isRasterInspection) return FeatureThumbnail._raster(f, size, options);
-        return FeatureThumbnail._vector(f, layerConfig, size, options) || FeatureThumbnail._fallback(layerConfig, size);
+        return FeatureThumbnail._vector(f, size, options) || FeatureThumbnail._fallback(layerConfig, size);
     }
 
     static _fallback(layerConfig, size) {
@@ -227,34 +264,25 @@ export class FeatureThumbnail {
         return thumbnail;
     }
 
-    static _vector(f, layerConfig, size, { lngLat } = {}) {
-        if (!layerConfig) return null;
-        const props = f.feature?.properties || {};
-        const style = layerConfig.style || layerConfig;
-        const passes = collectStylePasses(style);
+    static _vector(f, size, { lngLat, map } = {}) {
         const shapes = ringsOf(f.feature?.geometry);
         const project = makeProjector(shapes, size, lngLat ? [[lngLat.lng, lngLat.lat]] : []);
         if (!project) return null;
 
         const box = shell(size);
-        const iconImage = passes.base['icon-image'] || layerConfig['icon-image'];
-        const iconUrl = iconImage && extractIconUrl(evaluate(iconImage, props) ?? iconImage);
-        const hasGeometryStyle = passes.fill.length || passes.line.length || passes.circle.length;
-
-        if (iconUrl && !hasGeometryStyle) {
-            box.style.background = `#fff center / 70% no-repeat url('${iconUrl}')`;
-            return box;
-        }
-        if (!hasGeometryStyle) return null;
-
         const svg = el('svg', { width: size, height: size, viewBox: `0 0 ${size} ${size}` });
-        drawVector(svg, passes, shapes, project, props, size);
+        drawFigure(svg, shapes, project, size);
         box.appendChild(svg);
+        if (typeof map?.getBounds === 'function') {
+            box.dataset.projection = JSON.stringify(project.params);
+            box.appendChild(viewportOverlay(size, map, project.params));
+            bindMap(map);
+        }
         if (lngLat) box.appendChild(pointMarker(size, lngLat, project));
         return box;
     }
 
-    static _raster(f, size, { lngLat, tiles = [] } = {}) {
+    static _raster(f, size, { lngLat, tiles = [], map } = {}) {
         const box = shell(size);
         if (f.pixelHex && !tiles.length) box.style.background = f.pixelHex;
         tiles.forEach(({ url, left, top, width }) => {
@@ -266,6 +294,7 @@ export class FeatureThumbnail {
             box.appendChild(img);
         });
         box.appendChild(pointMarker(size, lngLat || f.lngLat, null));
+        if (typeof map?.getBounds === 'function') bindMap(map);
         return box;
     }
 }

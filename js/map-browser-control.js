@@ -919,6 +919,7 @@ export class MapBrowserControl {
             }
         }
 
+        window.urlManager?.updateURL({ updateLayers: true });
         this._updateIframeActiveLayers();
     }
 

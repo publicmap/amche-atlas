@@ -613,6 +613,8 @@ export class MapboxAPI {
         try {
             const { visible = false, currentGroup = null } = options;
 
+            if (this._pendingImport) await this._pendingImport;
+
             // Fill in fallback title/description/attribution derived from the
             // layer type and source URL. This ensures a minimal config (e.g. an
             // inline layer from the ?layers= URL param) still contributes
@@ -883,6 +885,9 @@ export class MapboxAPI {
 
     // Style layer methods
     _createStyleLayer(groupId, config, visible) {
+        if (!config.layers && config.url) {
+            return this._toggleStyleImport(groupId, config, visible);
+        }
         // Style layers are already in the map, just need to control visibility
         if (config.layers) {
             const styleLayers = this._map.getStyle().layers;
@@ -918,6 +923,38 @@ export class MapboxAPI {
             return true;
         }
         return false;
+    }
+
+    _waitForStyleLoaded() {
+        return new Promise(resolve => {
+            const timer = setTimeout(finish, 15000);
+            const check = () => { if (this._map.isStyleLoaded()) finish(); };
+            function finish() {
+                clearTimeout(timer);
+                map.off('styledata', check);
+                map.off('idle', check);
+                resolve();
+            }
+            const map = this._map;
+            map.on('styledata', check);
+            map.on('idle', check);
+            check();
+        });
+    }
+
+    _toggleStyleImport(groupId, config, visible) {
+        if (typeof this._map.addImport !== 'function') {
+            console.warn(`[MapboxAPI] Style imports are not supported by this renderer: ${groupId}`);
+            return false;
+        }
+        const hasImport = this._map.getStyle().imports?.some(i => i.id === groupId);
+        if (visible && !hasImport) {
+            this._map.addImport({ id: groupId, url: config.url });
+            this._pendingImport = this._waitForStyleLoaded().finally(() => { this._pendingImport = null; });
+        } else if (!visible && hasImport) {
+            this._map.removeImport(groupId);
+        }
+        return true;
     }
 
     _updateStyleLayerVisibility(groupId, config, visible) {

@@ -679,13 +679,26 @@
 
 .map-control-bar-head {
     display: flex;
+    flex-direction: column;
     align-items: stretch;
     gap: 6px;
     min-width: 0;
 }
 
-.map-control-bar-head > .map-control-bar-main {
+.map-search-hint {
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    padding-right: 12px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: text;
+}
+
+.map-search-control.searching .map-search-hint {
+    display: none;
 }
 
 .map-control-bar:has(.map-search-control.searching) {
@@ -699,16 +712,6 @@
 
 .map-control-bar:has(.map-search-control.searching) .map-control-bar-count,
 .layer-stack-strip:has(~ .map-control-bar .map-search-control.searching) {
-    display: none;
-}
-
-.map-control-bar-head:has(.map-search-control.searching) > .map-control-bar-main {
-    flex: none;
-    padding: 6px;
-}
-
-.map-control-bar-head:has(.map-search-control.searching) .map-control-bar-text,
-.map-control-bar-head:has(.map-search-control.searching) .map-control-bar-chevron {
     display: none;
 }
 

@@ -1660,7 +1660,7 @@ export class MapFeatureControl {
                 }
             }
         } catch (error) {
-            if (error instanceof RangeError) {
+            if (error instanceof RangeError || /featuresets/.test(error?.message || '')) {
                 usedFallback = true;
             } else {
                 console.error('[MapFeatureControl] Error querying rendered features:', error);

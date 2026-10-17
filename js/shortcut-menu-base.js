@@ -23,10 +23,6 @@ import { WaypointPicker } from './waypoint-picker.js';
 import { reverseGeocodeAddress } from './nominatim-search.js';
 import { DIRECTIONS_PROFILES, getDirectionsProfile, getDirectionsProfileInfo, setDirectionsProfile } from './search/directions-profile.js';
 
-// Zoom "Zoom To Location" settles at when the map is further out than this -
-// the same detail level CameraUtils.DEFAULT_FIT_OPTIONS caps its fits at.
-const LOCATION_ZOOM = 16;
-
 export class ShortcutMenuBase {
     constructor() {
         this._map = null;
@@ -195,18 +191,6 @@ export class ShortcutMenuBase {
                 icon: 'pencil',
                 label: 'Edit Label',
                 action: () => this._editMarkerLabel()
-            },
-            {
-                id: 'remove-marker',
-                icon: 'trash',
-                label: 'Remove Marker',
-                action: () => this._removeMarkerAtPoint()
-            },
-            {
-                id: 'zoom-to-location',
-                icon: 'geo-alt',
-                label: 'Zoom To Location',
-                action: () => this._zoomToLocation()
             },
             // The three route rows sit at the top level rather than behind a
             // "Route" flyout: starting/extending a route from the pressed
@@ -465,7 +449,7 @@ export class ShortcutMenuBase {
 
     /**
      * The marker at this menu's own point, if any - both "Edit Label" and
-     * "Remove Marker" act on it. Opening the menu on a bare point still leaves
+     * "Edit Label" acts on it. Opening the menu on a bare point still leaves
      * a marker there (the placeholder _ensureMarkerAt drops, or the one the
      * marker's own options button was clicked on), so this is the same marker
      * either entry point would show a popup for.
@@ -479,28 +463,6 @@ export class ShortcutMenuBase {
     _editMarkerLabel() {
         const markerId = this._markerAtPoint();
         if (markerId) window.featureControl?._markerManager?.startIdEdit(markerId);
-    }
-
-    _removeMarkerAtPoint() {
-        const markerId = this._markerAtPoint();
-        if (markerId) window.featureControl?._markerManager?.removeMarker(markerId);
-    }
-
-    /**
-     * Centers the map on the point the menu was opened at - the spot itself,
-     * whatever is or isn't selected there, unlike "Zoom To Selected" below it
-     * (zoomToSelected), which frames the selected feature's geometry or every
-     * marker on the map. Already being zoomed in past LOCATION_ZOOM is kept:
-     * this is a recenter, so it should never pull the map back out.
-     */
-    _zoomToLocation() {
-        if (!this._map || !this._lngLat) return;
-        this._map.flyTo({
-            center: this._lngLat,
-            zoom: Math.max(this._map.getZoom(), LOCATION_ZOOM),
-            duration: 1000,
-            essential: true
-        });
     }
 
     /**
