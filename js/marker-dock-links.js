@@ -101,7 +101,7 @@ export function gapAfter(plan, pos, base) {
     return count ? count * LABEL_ROW + LABEL_PAD : base;
 }
 
-export function renderDockLinks(container, plan, rows, left, panelLeft, routeRows = new Map()) {
+export function renderDockLinks(container, plan, rows, left, panelLeft, routeRows = new Map(), limit = Infinity) {
     let layer = container.querySelector(':scope > .marker-dock-links');
     if (!plan?.lanes.length) {
         layer?.remove();
@@ -128,13 +128,10 @@ export function renderDockLinks(container, plan, rows, left, panelLeft, routeRow
         const button = routeRows.get(route.id);
         const buttonY = button ? button.top + button.height / 2 - box.top : null;
         const top = Math.min(...ys, ...(buttonY == null ? [] : [buttonY]));
-        const bottom = Math.max(...ys);
-        place(`left:${x - 1.5}px;top:${top}px;width:3px;height:${bottom - top}px;background:${color};border-radius:2px;`);
-        if (buttonY != null) {
-            place(`left:${x}px;top:${buttonY - 1.5}px;width:${panelLeft - box.left - x}px;height:3px;background:${color};`);
-            place(`left:${x - 4}px;top:${buttonY - 4}px;width:8px;height:8px;border-radius:50%;background:${color};`);
-        }
+        const bottom = Math.min(Math.max(...ys), limit - box.top);
+        place(`left:${x - 1.5}px;top:${top}px;width:3px;height:${Math.max(0, bottom - top)}px;background:${color};border-radius:2px;`);
         stops.forEach((s, i) => {
+            if (rows[s.pos].hidden) return;
             const dot = place(`left:${x - DOT_SIZE / 2}px;top:${ys[i] - DOT_SIZE / 2}px;width:${DOT_SIZE}px;height:${DOT_SIZE}px;border-radius:50%;background:${color};border:1.5px solid #fff;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;line-height:1;color:#fff;`);
             dot.textContent = s.number;
         });
@@ -145,6 +142,7 @@ export function renderDockLinks(container, plan, rows, left, panelLeft, routeRow
         const n = seen.get(after) || 0;
         seen.set(after, n + 1);
         const row = rows[after];
+        if (row.hidden || row.top + row.height >= limit) return;
         const text = place(`left:${panelLeft + 4 - box.left}px;top:${row.top + row.height + LABEL_PAD / 2 + n * LABEL_ROW - box.top}px;font-size:10px;line-height:${LABEL_ROW - 4}px;color:#e5e7eb;background:rgba(17,24,39,0.85);padding:0 5px;border-left:3px solid ${lane.color};border-radius:3px;white-space:nowrap;`);
         text.textContent = label;
     });

@@ -36,7 +36,7 @@
  */
 
 import { fetchRouteForWaypoints, parseRoutingEngineProfile, routingEngineAttribution } from './search/directions-router.js';
-import { buildRouteFeatureCollection, isRouteColor, ROUTE_STYLE, ROUTE_INSPECT } from './search/route-geojson.js';
+import { buildRouteFeatureCollection, defaultRouteColor, isRouteColor, ROUTE_STYLE, ROUTE_INSPECT } from './search/route-geojson.js';
 import { formatDistance } from './geo-distance-utils.js';
 import { splitArgs } from './shorthand-id-utils.js';
 import { get as getRegisteredMarker } from './marker-registry.js';
@@ -98,7 +98,11 @@ export class RouteApi {
             profile: route.profile,
             source: route.source
         });
-        if (color) geojson.features.forEach(feature => { feature.properties.color = color; });
+        const drawn = color || defaultRouteColor({ rid });
+        geojson.features.forEach(feature => {
+            feature.properties.color = drawn;
+            if (color) feature.properties.colorCustom = true;
+        });
 
         const distance = formatDistance(route.distance);
         const minutes = Math.round(route.duration / 60);

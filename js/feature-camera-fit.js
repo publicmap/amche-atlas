@@ -32,20 +32,20 @@ function geometryBbox(geometry) {
     return [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]];
 }
 
-function paddingAround(map, avoid) {
-    const padding = { top: FIT_PADDING, bottom: FIT_PADDING, left: FIT_PADDING, right: FIT_PADDING };
+function paddingAround(map, avoid, base = FIT_PADDING, extraLeft = 0) {
+    const padding = { top: base, bottom: base, left: base + extraLeft, right: base };
     const canvas = map.getCanvas?.().getBoundingClientRect();
     if (!avoid || !canvas?.width) return padding;
     const limit = canvas.width * 0.6;
     if (avoid.left + avoid.width / 2 < canvas.left + canvas.width / 2) {
-        padding.left = Math.min(limit, Math.max(FIT_PADDING, avoid.right - canvas.left + FIT_PADDING));
+        padding.left = Math.min(limit, Math.max(padding.left, avoid.right - canvas.left + base + extraLeft));
     } else {
-        padding.right = Math.min(limit, Math.max(FIT_PADDING, canvas.right - avoid.left + FIT_PADDING));
+        padding.right = Math.min(limit, Math.max(base, canvas.right - avoid.left + base));
     }
     return padding;
 }
 
-export function fitToFeature(map, geometry, avoid = null) {
+export function fitToFeature(map, geometry, avoid = null, { padding = FIT_PADDING, extraLeft = 0 } = {}) {
     clearTimeout(restoreTimer);
     const bbox = geometryBbox(geometry);
     if (!map || !bbox || (bbox[0][0] === bbox[1][0] && bbox[0][1] === bbox[1][1])) return;
@@ -56,7 +56,7 @@ export function fitToFeature(map, geometry, avoid = null) {
     map.once('moveend', () => {
         if (state === current) current.fitted = cameraOf(map);
     });
-    map.fitBounds(bbox, { padding: paddingAround(map, avoid) });
+    map.fitBounds(bbox, { padding: paddingAround(map, avoid, padding, extraLeft) });
 }
 
 export function restoreFeatureFit(map) {

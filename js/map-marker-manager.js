@@ -213,7 +213,7 @@ const MARKER_ID_ERROR_COLOR = '#ef4444';
  * (see _syncMarkerLeader).
  */
 function dockOrder(a, b) {
-    return (Number(!a.saved) - Number(!b.saved)) || (a.dockSeq - b.dockSeq);
+    return (Number(a.saved) - Number(b.saved)) || (a.dockSeq - b.dockSeq);
 }
 
 function anchorFromOffset({ x = 0 } = {}) {
@@ -381,6 +381,7 @@ export class MapMarkerManager {
         });
 
         window.addEventListener('layer-toggled', () => this._layoutDockedPanels());
+        document.addEventListener('wheel', (e) => this._scrollDock(e), { passive: false, capture: true });
         window.addEventListener('routes-changed', () => requestAnimationFrame(() => this._layoutDockedPanels()));
         this._map.on('idle', () => this._layoutDockedPanels());
 
@@ -409,6 +410,7 @@ export class MapMarkerManager {
         const m = this._markers.get(markerId);
         if (!m?.contentEl) return;
         m.docked = true;
+        m.marker.getElement().classList.add('marker-docked');
         if (m.dockSeq == null) m.dockSeq = this._dockSeq = (this._dockSeq || 0) + 1;
         if (!m.dockObserver && typeof ResizeObserver === 'function') {
             m.dockObserver = new ResizeObserver(() => {
@@ -426,8 +428,30 @@ export class MapMarkerManager {
     _routeStack() {
         if (!this._routeDockStack) {
             this._routeDockStack = new RouteDockStack({
+                onHover: (id) => {
+                    clearTimeout(this._routeHoverTimer);
+                    const apply = () => {
+                        this._routeHover = id;
+                        const route = id ? routeStore.routes.find(r => r.id === id) : null;
+                        if (route) window.layerControl?.isolation?.hoverIsolate(route.groupId, false);
+                        else window.layerControl?.isolation?.clearHover();
+                        this._layoutDockedPanels();
+                    };
+                    if (id) apply();
+                    else this._routeHoverTimer = setTimeout(apply, ROW_HOVER_END_DELAY_MS);
+                },
                 onToggle: (id) => {
                     this._routeFilter = this._routeFilter === id ? null : id;
+                    const route = this._routeFilter ? routeStore.routes.find(r => r.id === id) : null;
+                    if (route) window.layerControl?.isolation?.isolate(route.groupId, false);
+                    else window.layerControl?.isolation?.clear();
+                    const geometry = route?.geojson?.features?.find(f => f.properties?.kind === 'route')?.geometry;
+                    if (geometry) {
+                        const { panelLeft = 0, width = 0 } = this._dockGeometry || {};
+                        fitToFeature(this._map, geometry, { left: panelLeft, right: panelLeft + width, width }, { padding: 48, extraLeft: 32 });
+                    } else {
+                        restoreFeatureFit(this._map);
+                    }
                     this._layoutDockedPanels();
                 },
                 onReorder: (ids) => {
@@ -435,6 +459,10 @@ export class MapMarkerManager {
                     this._layoutDockedPanels();
                 },
                 onSettle: () => this._layoutDockedPanels(),
+                onSetProfile: async (id, profile) => {
+                    await routeStore.setRouteProfile(id, profile).catch(error => console.warn('[MarkerManager] Could not switch profile:', error));
+                    this._layoutDockedPanels();
+                },
                 onReverse: (id) => {
                     const route = routeStore.routes.find(r => r.id === id);
                     if (!route) return;
@@ -452,7 +480,11 @@ export class MapMarkerManager {
                     return ok;
                 },
                 onRemove: (id) => {
-                    if (this._routeFilter === id) this._routeFilter = null;
+                    if (this._routeFilter === id) {
+                        this._routeFilter = null;
+                        window.layerControl?.isolation?.clear();
+                        restoreFeatureFit(this._map);
+                    }
                     routeStore.removeRoute(id);
                     this._layoutDockedPanels();
                 },
@@ -484,6 +516,7 @@ export class MapMarkerManager {
         const docked = [...this._markers.values()].filter(m => m.docked && m.contentEl);
         const stack = this._routeStack();
         if (!docked.length) {
+            this._renderDockedLeaders(container, []);
             renderDockLinks(container, null);
             stack.render(container, [], new Map(), 0);
             return;
@@ -499,6 +532,10 @@ export class MapMarkerManager {
         const stackRoutes = this._orderedDockRoutes(docked);
         let filterRoute = stackRoutes.find(r => r.id === this._routeFilter) || null;
         if (!filterRoute) this._routeFilter = null;
+        const hoverRoute = stackRoutes.find(r => r.id === this._routeHover) || null;
+        if (!hoverRoute) this._routeHover = null;
+        // Pointing at a route button previews its filter; a click makes it stick.
+        filterRoute = hoverRoute || filterRoute;
         const visible = filterRoute ? new Set(stopMarkers(filterRoute, docked).filter(Boolean)) : null;
         docked.forEach(m => {
             m.marker.getElement().style.visibility = !visible || visible.has(m) ? '' : 'hidden';
@@ -510,6 +547,7 @@ export class MapMarkerManager {
         if (!filterRoute) plan.segments = [];
         const gutter = stackRoutes.length ? stackRoutes.length * LANE_WIDTH + 4 : 0;
         const panelLeft = mainRect.left + gutter;
+        this._dockGeometry = { panelLeft, width: mainRect.width - gutter, lanes: [] };
         const width = `${Math.round(mainRect.width - gutter)}px`;
 
         let top = head.getBoundingClientRect().bottom + MARKER_DOCK_GAP;
@@ -520,20 +558,8 @@ export class MapMarkerManager {
         });
         if (stackRoutes.length) top += MARKER_DOCK_GAP;
 
-        const rows = [];
-        ordered.forEach((m, i) => {
-            const gap = gapAfter(plan, i, MARKER_DOCK_GAP);
-            rows[i] = { top, height: m.contentEl.offsetHeight };
-            if (m.dragging) {
-                top += m.contentEl.offsetHeight + gap;
-                return;
-            }
-            const point = this._map.project(m.marker.getLngLat());
-            m.panelOffset = {
-                x: Math.round(panelLeft - (canvas.left + point.x) - MARKER_ANCHOR_GAP),
-                y: Math.round(top - (canvas.top + point.y) - MARKER_ANCHOR_GAP)
-            };
-            m.panelAnchor = 'top-left';
+        this._dockLayout = { ordered };
+        const heights = ordered.map(m => {
             const open = m.contentEl.querySelector('.marker-menu-body')?.style.display !== 'none';
             const editing = m.marker.getElement().dataset.idEditing === '1';
             const fitWidth = open && !editing ? width : '';
@@ -542,16 +568,74 @@ export class MapMarkerManager {
             if (m.contentEl.style.maxWidth !== fitMax) m.contentEl.style.maxWidth = fitMax;
             m.contentEl.style.alignSelf = 'flex-start';
             m.contentEl.style.touchAction = open ? '' : 'none';
-            this._applyPanelTransform(m);
-            this._syncMarkerLeader(m.marker.getElement());
-            top += m.contentEl.offsetHeight + gap;
+            return m.contentEl.offsetHeight;
         });
-        renderDockLinks(container, plan, rows, mainRect.left, panelLeft, routeRows);
+        const gaps = ordered.map((m, i) => gapAfter(plan, i, MARKER_DOCK_GAP));
+
+        // Unsaved markers lead the column and stay put; everything after them
+        // scrolls inside whatever height the viewport has left.
+        let fixedCount = 0;
+        while (fixedCount < ordered.length && !ordered[fixedCount].saved) fixedCount++;
+        let rawTop = top;
+        let regionTop = top;
+        const raws = ordered.map((m, i) => {
+            if (i === fixedCount) regionTop = rawTop;
+            const at = rawTop;
+            rawTop += heights[i] + gaps[i];
+            return at;
+        });
+        if (fixedCount === ordered.length) regionTop = rawTop;
+        const limit = Math.min(canvas.bottom, window.innerHeight) - MARKER_DOCK_GAP;
+        const overflow = rawTop - MARKER_DOCK_GAP - regionTop - (limit - regionTop);
+        this._dockMaxScroll = Math.max(0, overflow);
+        this._dockScroll = Math.min(Math.max(this._dockScroll || 0, 0), this._dockMaxScroll);
+
+        const rows = [];
+        ordered.forEach((m, i) => {
+            const scrolls = i >= fixedCount;
+            const y = scrolls ? raws[i] - this._dockScroll : raws[i];
+            const h = heights[i];
+            const hidden = scrolls && (y + h <= regionTop || y >= limit);
+            rows[i] = { top: y, height: h, hidden };
+            const el = m.marker.getElement();
+            if (hidden) el.style.visibility = 'hidden';
+            const clipTop = scrolls ? Math.max(0, regionTop - y) : 0;
+            const clipBottom = scrolls ? Math.max(0, y + h - limit) : 0;
+            m.contentEl.style.clipPath = !hidden && (clipTop || clipBottom) ? `inset(${clipTop}px -24px ${clipBottom}px -24px)` : '';
+            if (m.dragging) return;
+            // A docked marker's element is pinned to the container's origin (see
+            // .marker-docked in styles.css), so the panel's offset is just its slot
+            // in the container - it never depends on where the point is, however
+            // far a zoom has carried that off screen.
+            const containerBox = container.getBoundingClientRect();
+            m.panelOffset = {
+                x: Math.round(panelLeft - containerBox.left - MARKER_ANCHOR_GAP),
+                y: Math.round(y - containerBox.top - MARKER_ANCHOR_GAP)
+            };
+            m.panelAnchor = 'top-left';
+            this._applyPanelTransform(m);
+            this._syncMarkerLeader(el);
+        });
+        this._dockGeometry.lanes = plan.lanes.map(lane => {
+            const button = routeRows.get(lane.route.id);
+            const stopRows = lane.stops.map(s => rows[s.pos]).filter(Boolean);
+            return {
+                route: lane.route,
+                left: mainRect.left + lane.k * LANE_WIDTH,
+                top: button ? button.top : Math.min(...stopRows.map(r => r.top)),
+                bottom: Math.max(...stopRows.map(r => r.top + r.height))
+            };
+        });
+        this._renderDockedLeaders(container, ordered);
+        renderDockLinks(container, plan, rows, mainRect.left, panelLeft, routeRows, limit);
         stack.render(container, stackRoutes.map(route => ({
             id: route.id,
+            left: mainRect.left + stackIndex.get(route.id) * LANE_WIDTH,
             ...routeButtonLabel(route),
             color: routeColor(route),
-            selected: route.id === this._routeFilter
+            selected: route.id === this._routeFilter,
+            hovered: route.id === this._routeHover,
+            profile: route.profile
         })), routeRows, panelLeft);
     }
 
@@ -570,26 +654,15 @@ export class MapMarkerManager {
             const base = { ...m.panelOffset };
             let dragging = false;
 
+            let intent = null;
             const move = (e) => {
                 const dy = e.clientY - down.clientY;
                 if (!dragging && Math.hypot(e.clientX - down.clientX, dy) < 4) return;
                 dragging = true;
                 m.dragging = true;
                 contentEl.style.transform = `translate(${base.x}px, ${base.y + dy}px)`;
-                const box = contentEl.getBoundingClientRect();
-                const centre = box.top + box.height / 2;
-                const others = [...this._markers.values()]
-                    .filter(o => o.docked && o !== m && o.contentEl)
-                    .sort(dockOrder);
-                const index = others.filter(o => {
-                    const r = o.contentEl.getBoundingClientRect();
-                    return r.top + r.height / 2 < centre;
-                }).length;
-                others.splice(index, 0, m);
-                if (others.some((o, i) => o.dockSeq !== i + 1 || (o === m && o.saved !== m.saved))) {
-                    others.forEach((o, i) => { o.dockSeq = i + 1; });
-                }
-                this._layoutDockedPanels();
+                intent = this._dockDropIntent(m, e);
+                this._showDropIndicator(intent);
                 this._syncMarkerLeader(m.marker.getElement());
                 e.preventDefault();
             };
@@ -597,9 +670,15 @@ export class MapMarkerManager {
                 window.removeEventListener('pointermove', move, true);
                 window.removeEventListener('pointerup', end, true);
                 window.removeEventListener('pointercancel', end, true);
+                this._hideDropIndicator();
                 if (!dragging) return;
                 m.dragging = false;
-                this._reorderRouteStop(m);
+                if (intent?.mode === 'route') this._createRouteBetween(intent.target, m);
+                else if (intent?.mode === 'lane') this._insertIntoRoute(intent.route, m, intent.at);
+                else {
+                    if (intent) this._applyDockOrder(m, intent.index);
+                    this._reorderRouteStop(m);
+                }
                 const swallow = (e) => { e.stopPropagation(); e.preventDefault(); };
                 document.addEventListener('click', swallow, true);
                 setTimeout(() => document.removeEventListener('click', swallow, true), 0);
@@ -609,6 +688,93 @@ export class MapMarkerManager {
             window.addEventListener('pointerup', end, true);
             window.addEventListener('pointercancel', end, true);
         });
+    }
+
+    /**
+     * What dropping the dragged button here would do. Over the middle of
+     * another button it makes a route from that one to this; anywhere else it
+     * inserts between two buttons, at the slot named by `index` and drawn at `y`.
+     */
+    _dockDropIntent(m, pointer) {
+        const box = m.contentEl.getBoundingClientRect();
+        const centre = box.top + box.height / 2;
+        const docked = (this._dockLayout?.ordered || []);
+
+        const lane = (this._dockGeometry?.lanes || []).find(l =>
+            pointer.clientX >= l.left - 6 && pointer.clientX <= l.left + LANE_WIDTH + 6
+            && pointer.clientY >= l.top && pointer.clientY <= l.bottom
+            && !stopMarkers(l.route, docked).includes(m));
+        if (lane) {
+            const stops = stopMarkers(lane.route, docked);
+            const at = stops.filter(s => s && s.contentEl && s.contentEl.getBoundingClientRect().bottom - 18 < pointer.clientY).length;
+            return { mode: 'lane', route: lane.route, lane, at, y: pointer.clientY };
+        }
+        const others = (this._dockLayout?.ordered || []).filter(o => o !== m && o.contentEl
+            && o.marker.getElement().style.visibility !== 'hidden');
+        const rects = others.map(o => o.contentEl.getBoundingClientRect());
+        const onto = rects.findIndex(r => centre > r.top + r.height * 0.25 && centre < r.bottom - r.height * 0.25);
+        if (onto >= 0) return { mode: 'route', target: others[onto], rect: rects[onto] };
+
+        const index = rects.filter(r => r.top + r.height / 2 < centre).length;
+        const above = rects[index - 1];
+        const below = rects[index];
+        const y = above && below ? (above.bottom + below.top) / 2 : (above ? above.bottom + 4 : (below ? below.top - 4 : centre));
+        return { mode: 'insert', index, y };
+    }
+
+    _showDropIndicator(intent) {
+        const container = this._map?.getCanvasContainer?.();
+        if (!container || !intent) return;
+        let el = container.querySelector(':scope > .marker-dock-drop');
+        if (!el) {
+            el = document.createElement('div');
+            el.className = 'marker-dock-drop';
+            container.appendChild(el);
+        }
+        const box = container.getBoundingClientRect();
+        const { panelLeft, width } = this._dockGeometry || { panelLeft: 0, width: 200 };
+        const amber = '#f59e0b';
+        if (intent.mode === 'lane') {
+            const { lane } = intent;
+            el.style.cssText = `position:absolute;pointer-events:none;z-index:2;box-sizing:border-box;left:${lane.left - box.left}px;top:${lane.top - box.top}px;width:${LANE_WIDTH}px;height:${lane.bottom - lane.top}px;border:2px dashed ${amber};border-radius:8px;background:rgba(245,158,11,0.14);`;
+            el.innerHTML = `<span style="position:absolute;left:50%;top:${intent.y - lane.top - 6}px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:${amber};border:2px solid #fff;box-sizing:border-box;"></span>` +
+                `<span style="position:absolute;left:${LANE_WIDTH + 6}px;top:${intent.y - lane.top - 8}px;padding:1px 6px;border-radius:4px;background:${amber};color:#111827;font:600 10px/14px inherit;white-space:nowrap;">Insert into route-${intent.route.rid}</span>`;
+        } else if (intent.mode === 'route') {
+            const r = intent.rect;
+            el.style.cssText = `position:absolute;pointer-events:none;z-index:2;box-sizing:border-box;left:${r.left - box.left - 3}px;top:${r.top - box.top - 3}px;width:${r.width + 6}px;height:${r.height + 6}px;border:2px dashed ${amber};border-radius:10px;background:rgba(245,158,11,0.14);`;
+            el.innerHTML = `<span style="position:absolute;left:8px;bottom:100%;margin-bottom:2px;padding:1px 6px;border-radius:4px;background:${amber};color:#111827;font:600 10px/14px inherit;white-space:nowrap;">Create route from here</span>`;
+        } else {
+            el.style.cssText = `position:absolute;pointer-events:none;z-index:2;left:${panelLeft - box.left}px;top:${intent.y - box.top - 1.5}px;width:${width}px;height:3px;border-radius:2px;background:${amber};box-shadow:0 0 0 1px rgba(17,24,39,0.6);`;
+            el.innerHTML = `<span style="position:absolute;left:-4px;top:-3px;width:9px;height:9px;border-radius:50%;background:${amber};"></span>`;
+        }
+    }
+
+    _hideDropIndicator() {
+        this._map?.getCanvasContainer?.()?.querySelector(':scope > .marker-dock-drop')?.remove();
+    }
+
+    _applyDockOrder(m, index) {
+        const others = (this._dockLayout?.ordered || []).filter(o => o !== m);
+        others.splice(index, 0, m);
+        others.forEach((o, i) => { o.dockSeq = i + 1; });
+    }
+
+    /** Dropping a button on a route's lane: the marker joins that route as the stop at `at`. */
+    _insertIntoRoute(route, marker, at) {
+        const docked = (this._dockLayout?.ordered || []);
+        const stops = stopMarkers(route, docked);
+        if (stops.some(s => !s)) return;
+        marker.saved = true;
+        this._showSavedLabel(marker);
+        routeStore.insertMarkerAt(route.id, stops.map(s => s.id), marker.id, marker.lngLat, at);
+    }
+
+    /** Dropping one button on another: a new route from the one underneath to the one dropped. */
+    _createRouteBetween(base, dropped) {
+        const point = (marker) => ({ lng: marker.lngLat.lng, lat: marker.lngLat.lat });
+        const label = (marker) => (/^\d+$/.test(marker.urlId || '') ? '' : idToLabel(marker.urlId));
+        routeStore.routeTo(point(base), label(base), point(dropped), label(dropped), { routeId: 'new' })
+            .catch(error => console.warn('[MarkerManager] Could not route between markers:', error));
     }
 
     /**
@@ -639,6 +805,15 @@ export class MapMarkerManager {
     _undockMarkerPanel(m) {
         m.docked = false;
         m.undockedByUser = true;
+        const leader = m.marker.getElement().querySelector('.marker-leader');
+        m.marker.getElement().classList.remove('marker-docked');
+        if (leader) {
+            const c = MARKER_LEADER_EXTENT;
+            leader.setAttribute('width', c * 2);
+            leader.setAttribute('height', c * 2);
+            leader.style.left = `${-c}px`;
+            leader.style.top = `${-c}px`;
+        }
         m.dockObserver?.disconnect();
         m.dockObserver = null;
         if (m.contentEl) {
@@ -662,6 +837,23 @@ export class MapMarkerManager {
             if (input) input.value = label;
         }
         this._syncIdActions(el);
+    }
+
+    /** Wheel over a docked panel scrolls the column when it overflows, instead of zooming the map. */
+    _scrollDock(e) {
+        if (!this._dockMaxScroll) return;
+        const panel = e.target?.closest?.('.marker-content');
+        if (!panel || ![...this._markers.values()].some(m => m.docked && m.contentEl === panel)) return;
+        const inner = e.target.closest('.marker-menu-body, .marker-summary-details');
+        if (inner && inner.scrollHeight > inner.clientHeight) {
+            const atTop = inner.scrollTop <= 0 && e.deltaY < 0;
+            const atBottom = inner.scrollTop + inner.clientHeight >= inner.scrollHeight - 1 && e.deltaY > 0;
+            if (!atTop && !atBottom) return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        this._dockScroll = Math.min(Math.max((this._dockScroll || 0) + e.deltaY, 0), this._dockMaxScroll);
+        this._layoutDockedPanels();
     }
 
     _selectedMarkerData() {
@@ -2027,6 +2219,10 @@ export class MapMarkerManager {
         const content = el.querySelector('.marker-content');
         const svg = el.querySelector('.marker-leader');
         if (!content || !svg) return;
+        if (el.classList.contains('marker-docked')) {
+            this._syncDockedLeader(el, content, svg);
+            return;
+        }
 
         // el's border box is anchored at the point (mapbox anchor 'top-left',
         // zero offset), and a child's transform never moves it - so the point is
@@ -2047,6 +2243,75 @@ export class MapMarkerManager {
 
         this._drawMarkerLeaderTail(svg, nearest);
         el.dataset.leaderCorner = nearest.name;
+    }
+
+    /**
+     * The tail of a docked marker. The element sits at the container's origin
+     * rather than at the point, so the tail is drawn in container coordinates
+     * on a surface the size of the container, from the point (wherever it is,
+     * even off screen) to the panel's nearer top corner.
+     */
+    _syncDockedLeader(el, content, svg) {
+        // Drawn by _renderDockedLeaders into a layer of its own instead.
+        svg.style.display = 'none';
+    }
+
+    /**
+     * The callouts of docked markers, drawn into one overlay in container
+     * coordinates, from each marker's point (wherever it is, even off screen) to
+     * its panel's nearer top corner. Not inside the marker element: that is
+     * pinned to the container's origin, so a tail living in it would have to be
+     * sized and clipped by it. Shown only while the marker is hovered or selected.
+     */
+    _renderDockedLeaders(container, markers) {
+        let layer = container.querySelector(':scope > .marker-dock-leaders');
+        if (!layer) {
+            layer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            layer.setAttribute('class', 'marker-dock-leaders');
+            layer.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;overflow:hidden;';
+            const first = container.querySelector('.selection-marker');
+            container.insertBefore(layer, first || null);
+        }
+        const box = container.getBoundingClientRect();
+        layer.setAttribute('width', Math.round(box.width));
+        layer.setAttribute('height', Math.round(box.height));
+
+        const NS = 'http://www.w3.org/2000/svg';
+        const pt = (x, y) => `${Math.round(x * 100) / 100},${Math.round(y * 100) / 100}`;
+        const nodes = [];
+        markers.forEach(m => {
+            const el = m.marker.getElement();
+            const shown = el.classList.contains('marker-selected') || el.dataset.markerHover === '1';
+            if (!shown || el.style.visibility === 'hidden') return;
+            const panel = m.contentEl.getBoundingClientRect();
+            if (!panel.width || !panel.height) return;
+            const point = this._map.project(m.marker.getLngLat());
+
+            const inset = Math.min(MARKER_LEADER_INSET, panel.width / 2, panel.height / 2);
+            const left = panel.left - box.left + inset;
+            const top = panel.top - box.top + inset;
+            const corners = [{ x: left, y: top }, { x: left + panel.width - inset * 2, y: top }];
+            const nearest = corners.reduce((a, b) =>
+                (Math.hypot(a.x - point.x, a.y - point.y) <= Math.hypot(b.x - point.x, b.y - point.y) ? a : b));
+            const dx = nearest.x - point.x;
+            const dy = nearest.y - point.y;
+            const len = Math.hypot(dx, dy);
+            const half = len ? MARKER_LEADER_WIDTH / 2 : 0;
+            const nx = len ? (-dy / len) * half : 0;
+            const ny = len ? (dx / len) * half : 0;
+
+            const selected = el.classList.contains('marker-selected');
+            const tail = document.createElementNS(NS, 'polygon');
+            tail.setAttribute('points', `${pt(point.x, point.y)} ${pt(nearest.x + nx, nearest.y + ny)} ${pt(nearest.x - nx, nearest.y - ny)}`);
+            tail.setAttribute('fill', MARKER_PANEL_BG_ACTIVE);
+            const edge = document.createElementNS(NS, 'polyline');
+            edge.setAttribute('points', `${pt(nearest.x + nx, nearest.y + ny)} ${pt(point.x, point.y)} ${pt(nearest.x - nx, nearest.y - ny)}`);
+            edge.setAttribute('fill', 'none');
+            edge.setAttribute('stroke', selected ? MARKER_SELECTED_BORDER : MARKER_PANEL_BORDER);
+            edge.setAttribute('stroke-width', '1');
+            nodes.push(tail, edge);
+        });
+        layer.replaceChildren(...nodes);
     }
 
     /**

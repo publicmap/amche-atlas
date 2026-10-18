@@ -8123,3 +8123,12 @@ body:not(.map-search-active) .cadastral-dropdown {
     cursor: pointer;
     accent-color: #3b82f6;
 }
+
+/* A docked marker's panel is placed in the container, not beside its point, so
+   mapbox's own positioning of the element (which tracks the point, and can
+   lag it by a frame or carry it far off screen on zoom) is switched off: the
+   element stays at the container's origin. See MapMarkerManager._layoutDockedPanels. */
+.selection-marker.marker-docked {
+    transform: none !important;
+    translate: none !important;
+}

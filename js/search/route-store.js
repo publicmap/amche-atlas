@@ -367,6 +367,23 @@ export class RouteStore {
         this._resolve(route).catch(error => console.warn('[directions] re-route failed:', error));
     }
 
+    /**
+     * Inserts a marker into a route as the stop at waypoint position `at`.
+     * `markerIds` is the marker at every existing waypoint, resolved by the
+     * caller (the route's own ids can be stale).
+     */
+    insertMarkerAt(routeId, markerIds, markerId, lngLat, at) {
+        const route = this._routes.find(r => r.id === routeId);
+        if (!route || markerIds.length !== route.waypoints.length || markerIds.includes(markerId)) return;
+
+        const position = Math.min(Math.max(at, 0), route.waypoints.length);
+        route.markerIds = [...markerIds];
+        route.waypoints.splice(position, 0, [lngLat.lng, lngLat.lat]);
+        route.names.splice(position, 0, '');
+        route.markerIds.splice(position, 0, markerId);
+        this._resolve(route).catch(error => console.warn('[directions] re-route failed:', error));
+    }
+
     /** Appends an existing marker as the route's last stop, for good. */
     async addMarkerToRoute(routeId, markerId) {
         const route = this._routes.find(r => r.id === routeId);
@@ -767,7 +784,8 @@ export class RouteStore {
                     id: `${route.id}-${featureKey(feature)}`,
                     routeId: route.id,
                     routeName: route.name,
-                    color: route.color
+                    color: route.color,
+                    colorCustom: route.colorCustom
                 }
             }))
         );
@@ -985,7 +1003,7 @@ function routeFromFeatures(id, groupId, features) {
         name: ''
     };
     route.name = line?.properties?.title || routeName(route);
-    route.colorCustom = isRouteColor(line?.properties?.color);
+    route.colorCustom = !!line?.properties?.colorCustom && isRouteColor(line?.properties?.color);
     route.color = route.colorCustom ? line.properties.color : defaultRouteColor(route);
     return route;
 }

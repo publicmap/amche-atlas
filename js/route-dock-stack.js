@@ -68,14 +68,15 @@ export class RouteDockStack {
             }
             this._style(el, entry);
             if (this.draggingId !== entry.id) {
-                el.style.left = `${left - box.left}px`;
+                el.style.left = `${entry.left - box.left}px`;
                 el.style.top = `${rows.get(entry.id).top - box.top}px`;
             }
         });
     }
 
-    _style(el, { id, rid, name, meta, color, selected }) {
+    _style(el, { id, rid, name, meta, color, selected, hovered, profile }) {
         el.dataset.rid = rid;
+        el.dataset.profile = profile || '';
         const dot = el.querySelector('.route-dock-dot');
         if (dot.value !== color) dot.value = color;
         dot.style.background = color;
@@ -86,7 +87,7 @@ export class RouteDockStack {
         const metaEl = el.querySelector('.route-dock-meta');
         if (metaEl.textContent !== meta) metaEl.textContent = meta;
         el.querySelector('.route-dock-actions').style.display = selected ? 'flex' : 'none';
-        el.style.borderColor = selected ? color : 'rgba(255,255,255,0.18)';
+        el.style.borderColor = selected || hovered ? color : 'rgba(255,255,255,0.18)';
         el.style.background = selected ? 'rgba(17,24,39,0.96)' : 'rgba(31,41,55,0.8)';
         el.title = selected ? 'Show all markers' : `Show only the markers on ${name}`;
         el.setAttribute('aria-pressed', String(!!selected));
@@ -98,13 +99,14 @@ export class RouteDockStack {
         el.setAttribute('role', 'button');
         el.tabIndex = 0;
         el.className = 'route-dock-button';
-        el.style.cssText = `position:absolute;height:${BUTTON_HEIGHT}px;display:flex;align-items:center;gap:6px;padding:0 4px 0 10px;box-sizing:border-box;border:1px solid;border-radius:14px;color:#f3f4f6;font:500 12px/1 inherit;font-family:inherit;white-space:nowrap;cursor:pointer;pointer-events:auto;touch-action:none;box-shadow:0 2px 8px rgba(0,0,0,0.35);`;
+        el.style.cssText = `position:absolute;height:${BUTTON_HEIGHT}px;display:flex;align-items:center;gap:6px;padding:0 4px 0 1px;box-sizing:border-box;border:1px solid;border-radius:14px;color:#f3f4f6;font:500 12px/1 inherit;font-family:inherit;white-space:nowrap;cursor:pointer;pointer-events:auto;touch-action:none;box-shadow:0 2px 8px rgba(0,0,0,0.35);`;
         el.innerHTML = `
             <input type="color" class="route-dock-dot" title="Route colour" style="width:14px;height:14px;padding:0;border:1.5px solid #fff;border-radius:50%;flex:none;cursor:pointer;background:none;-webkit-appearance:none;appearance:none;overflow:hidden;">
             <span class="route-dock-label"></span>
             <span class="route-dock-meta" style="color:#9ca3af;"></span>
             <span class="route-dock-actions" style="display:none;align-items:center;gap:0;margin-left:2px;">
                 <button type="button" class="route-dock-edit" title="Rename route" style="${ACTION_STYLE}"><sl-icon name="pencil" style="pointer-events:none;"></sl-icon></button>
+                <button type="button" class="route-dock-profile" title="Switch the routing profile" style="${ACTION_STYLE}"><sl-icon name="signpost-split" style="pointer-events:none;"></sl-icon></button>
                 <button type="button" class="route-dock-reverse" title="Reverse the order of the stops" style="${ACTION_STYLE}"><sl-icon name="arrow-down-up" style="pointer-events:none;"></sl-icon></button>
                 <button type="button" class="route-dock-mode" title="Add a route in another mode" style="${ACTION_STYLE}"><sl-icon name="plus-circle" style="pointer-events:none;"></sl-icon></button>
                 <button type="button" class="route-dock-remove" title="Delete this route" style="${ACTION_STYLE}"><sl-icon name="trash" style="pointer-events:none;"></sl-icon></button>
@@ -118,10 +120,13 @@ export class RouteDockStack {
             const action = e.target.closest('button');
             if (action?.classList.contains('route-dock-edit')) return this._startEdit(el, id);
             if (action?.classList.contains('route-dock-reverse')) return this._handlers.onReverse(id);
-            if (action?.classList.contains('route-dock-mode')) return this._openMenu(el, id);
+            if (action?.classList.contains('route-dock-profile')) return this._openMenu(el, id, 'switch');
+            if (action?.classList.contains('route-dock-mode')) return this._openMenu(el, id, 'add');
             if (action?.classList.contains('route-dock-remove')) return this._handlers.onRemove(id);
             this._handlers.onToggle(id);
         });
+        el.addEventListener('mouseenter', () => { if (!this.draggingId) this._handlers.onHover(id); });
+        el.addEventListener('mouseleave', () => this._handlers.onHover(null));
         el.addEventListener('pointerdown', down => {
             if (down.target.closest('button, input')) return;
             this._startDrag(id, el, down);
@@ -162,26 +167,27 @@ export class RouteDockStack {
         this._handlers.onSettle();
     }
 
-    _openMenu(el, id) {
+    _openMenu(el, id, kind = 'add') {
         this._closeMenu();
         const menu = document.createElement('div');
         menu.className = 'route-dock-menu';
         menu.style.cssText = `position:absolute;left:${el.offsetLeft}px;top:${el.offsetTop + BUTTON_HEIGHT + 4}px;z-index:2;display:flex;flex-direction:column;min-width:170px;padding:4px;background:#111827;border:1px solid rgba(255,255,255,0.3);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.45);pointer-events:auto;`;
         const title = document.createElement('div');
-        title.textContent = 'Add route as';
+        title.textContent = kind === 'switch' ? 'Routing profile' : 'Add route as';
         title.style.cssText = 'padding:4px 8px;font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.04em;';
         menu.appendChild(title);
         DIRECTIONS_PROFILES.forEach(profile => {
             const item = document.createElement('button');
             item.type = 'button';
-            item.textContent = profile.label;
+            item.textContent = kind === 'switch' && profile.id === el.dataset.profile ? `✓ ${profile.label}` : profile.label;
             item.style.cssText = 'text-align:left;padding:6px 8px;background:transparent;border:none;border-radius:4px;color:#f3f4f6;font:inherit;font-size:12px;cursor:pointer;';
             item.addEventListener('mouseenter', () => { item.style.background = 'rgba(255,255,255,0.12)'; });
             item.addEventListener('mouseleave', () => { item.style.background = 'transparent'; });
             item.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this._closeMenu();
-                this._handlers.onAddMode(id, profile.id);
+                if (kind === 'switch') this._handlers.onSetProfile(id, profile.id);
+                else this._handlers.onAddMode(id, profile.id);
             });
             menu.appendChild(item);
         });
