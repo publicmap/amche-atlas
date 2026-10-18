@@ -253,11 +253,11 @@
         "wikipedia"
       ],
       "title": "Wikipedia Articles",
-      "description": "Places in Goa with an English <a href='https://en.wikipedia.org'>Wikipedia</a> article, from geotagged items in <a href='https://www.wikidata.org'>Wikidata</a>.",
+      "description": "Geotagged English <a href='https://en.wikipedia.org'>Wikipedia</a> articles about places in and around Goa.",
       "type": "js",
       "id": "wikipedia",
-      "url": "https://query.wikidata.org/sparql",
-      "attribution": "<a href='https://www.wikipedia.org'>Wikipedia</a>, <a href='https://www.wikidata.org'>Wikidata</a>",
+      "url": "https://en.wikipedia.org/w/api.php",
+      "attribution": "<a href='https://www.wikipedia.org'>Wikipedia</a>",
       "style": {
         "circle-radius": [
           "case",
@@ -272,7 +272,7 @@
         "circle-stroke-color": "#ffffff"
       },
       "inspect": {
-        "id": "qid",
+        "id": "pageid",
         "title": "Wikipedia",
         "label": "title",
         "onClick": "wikipediaSummary"

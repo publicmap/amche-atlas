@@ -85,46 +85,47 @@ export const dataFunctions = {
 
     /**
      * Geotagged Wikipedia articles
-     * Queries the Wikidata SPARQL endpoint at `url` for items with coordinates
-     * inside the Goa bounding box that have an English Wikipedia article.
-     * One request covers the whole state, unlike the Wikipedia geosearch API
-     * which is limited to a 10km radius.
+     * Uses the Wikipedia geosearch API at `url`, which returns each article's
+     * own primary coordinates. The API rejects boxes larger than ~0.15°, so
+     * the Goa bounding box is split into tiles fetched a few at a time.
      *
      * Used for: Wikipedia Articles layer (id: "wikipedia")
      */
     wikipedia: async ({ url }) => {
-        const query = `SELECT ?item ?title ?coord WHERE {
-            SERVICE wikibase:box {
-                ?item wdt:P625 ?coord .
-                bd:serviceParam wikibase:cornerSouthWest "Point(73.6 14.85)"^^geo:wktLiteral .
-                bd:serviceParam wikibase:cornerNorthEast "Point(74.35 15.85)"^^geo:wktLiteral .
-            }
-            ?article schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> ; schema:name ?title .
-        }`;
+        const [WEST, SOUTH, EAST, NORTH] = [73.6, 14.85, 74.35, 15.85];
+        const TILE = 0.15;
+        const CONCURRENCY = 5;
 
-        const response = await fetch(`${url}?query=${encodeURIComponent(query)}`, {
-            headers: { Accept: 'application/sparql-results+json' }
-        });
-        if (!response.ok) {
-            throw new Error(`Wikidata query failed with status ${response.status}`);
+        const tiles = [];
+        for (let s = SOUTH; s < NORTH; s += TILE) {
+            for (let w = WEST; w < EAST; w += TILE) {
+                tiles.push(`${Math.min(s + TILE, NORTH)}|${w}|${s}|${Math.min(w + TILE, EAST)}`);
+            }
         }
 
-        const { results } = await response.json();
-        const features = new Map();
-
-        for (const { item, title, coord } of results.bindings) {
-            const qid = item.value.split('/').pop();
-            const match = coord.value.match(/^Point\(([-\d.eE]+) ([-\d.eE]+)\)$/);
-            if (!match || features.has(qid)) continue;
-
-            features.set(qid, {
-                type: 'Feature',
-                geometry: {
-                    type: 'Point',
-                    coordinates: [Number(match[1]), Number(match[2])]
-                },
-                properties: { qid, title: title.value }
+        const fetchTile = async (bbox) => {
+            const params = new URLSearchParams({
+                action: 'query', list: 'geosearch', gsbbox: bbox, gslimit: 500, format: 'json', origin: '*'
             });
+            const response = await fetch(`${url}?${params}`);
+            const data = response.ok ? await response.json() : null;
+            if (!data?.query) {
+                console.warn(`[Wikipedia] Tile ${bbox} failed: ${data?.error?.info || response.status}`);
+                return [];
+            }
+            return data.query.geosearch;
+        };
+
+        const features = new Map();
+        for (let i = 0; i < tiles.length; i += CONCURRENCY) {
+            const results = await Promise.all(tiles.slice(i, i + CONCURRENCY).map(fetchTile));
+            for (const { pageid, title, lat, lon } of results.flat()) {
+                features.set(pageid, {
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: [lon, lat] },
+                    properties: { pageid, title }
+                });
+            }
         }
 
         return { type: 'FeatureCollection', features: Array.from(features.values()) };
@@ -419,7 +420,7 @@ export const handlers = {
  * Available data functions:
  * - aqi: Paginates the AQI Online devices API and converts device readings
  *        into a GeoJSON FeatureCollection of point features
- * - wikipedia: Queries Wikidata for geotagged English Wikipedia articles in Goa
+ * - wikipedia: Tiles the Wikipedia geosearch API over Goa for geotagged articles
  *
  * ============================================================================
  */
