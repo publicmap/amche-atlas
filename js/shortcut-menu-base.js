@@ -214,6 +214,7 @@ export class ShortcutMenuBase {
                 label: routeStore.pendingOrigin?.label ? `Route To from ${routeStore.pendingOrigin.label}` : 'Route To',
                 action: () => this._handleRouteEndpoint('to', this._getExternalLinkPoint(), 'this location')
             },
+            ...this._buildAddToRouteItems(),
             ...this._buildRemoveFromRouteItems(),
             {
                 id: 'routing-options-menu',
@@ -664,6 +665,26 @@ export class ShortcutMenuBase {
      * Returned as an array so _getAllMenuItems can spread it: with nothing to
      * detach there is no row at all.
      */
+    _buildAddToRouteItems() {
+        const point = this._getExternalLinkPoint();
+        const markerId = point ? window.featureControl?._markerManager?.findMarkerNear?.(point, 20) : null;
+        if (!markerId) return [];
+        const otherRoutes = routeStore.routes.filter(r => !r.markerIds.includes(markerId));
+        if (!otherRoutes.length) return [];
+
+        return [{
+            id: 'add-to-route-menu',
+            icon: 'plus-circle',
+            label: 'Add to Route',
+            children: otherRoutes.map(r => ({
+                id: `add-to-route-${r.id}`,
+                icon: 'signpost',
+                label: `route-${r.rid}`,
+                action: () => routeStore.addMarkerToRoute(r.id, markerId)
+            }))
+        }];
+    }
+
     _buildRemoveFromRouteItems() {
         const point = this._getExternalLinkPoint();
         const markerId = point ? window.featureControl?._markerManager?.findMarkerNear?.(point, 20) : null;

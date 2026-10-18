@@ -1,11 +1,11 @@
 import { formatDistance, haversineDistanceMeters } from './geo-distance-utils.js';
+import { defaultRouteColor } from './search/route-geojson.js';
 
 export const LANE_WIDTH = 16;
 const LABEL_ROW = 16;
 const LABEL_PAD = 6;
 const DOT_SIZE = 14;
 const ROW_CENTRE = 18;
-const LANE_COLORS = ['#1da1f2', '#f97316', '#22c55e', '#a855f7', '#ec4899', '#eab308'];
 
 export function routeSegmentLabel(route, index) {
     const leg = route.result?.legs?.[index];
@@ -13,11 +13,11 @@ export function routeSegmentLabel(route, index) {
     let meters = leg?.distance;
     if (meters == null) {
         const [a, b] = [route.waypoints[index], route.waypoints[index + 1]];
-        if (!a || !b) return route.id;
+        if (!a || !b) return `route-${route.rid}`;
         meters = haversineDistanceMeters({ lng: a[0], lat: a[1] }, { lng: b[0], lat: b[1] });
     }
     const minutes = leg?.duration != null ? `${Math.max(1, Math.round(leg.duration / 60))}m-` : '';
-    return `${route.id}-${mode}-${minutes}${formatDistance(meters).replace(/\s+/g, '')}`;
+    return `route-${route.rid}-${mode}-${minutes}${formatDistance(meters).replace(/\s+/g, '')}`;
 }
 
 const MATCH_METERS = 25;
@@ -60,7 +60,20 @@ export function groupByRoute(routes, docked) {
  * 1-based number on that route) and each hop between consecutive stops is a
  * `segment` that carries the route's label.
  */
-export function planRouteLanes(routes, ordered) {
+export function routeColor(route) {
+    return route.color || defaultRouteColor(route);
+}
+
+export function routeButtonLabel(route) {
+    const props = route.geojson?.features?.[0]?.properties || {};
+    return {
+        name: `route-${route.rid}`,
+        rid: route.rid,
+        meta: [props.mode || route.profile, props.distanceText].filter(Boolean).join(' · ')
+    };
+}
+
+export function planRouteLanes(routes, ordered, stackIndex) {
     const position = new Map(ordered.map((m, i) => [m.id, i]));
     const lanes = [];
     const segments = [];
@@ -69,7 +82,7 @@ export function planRouteLanes(routes, ordered) {
             .map((m, index) => ({ pos: m ? position.get(m.id) : null, number: index + 1, index }))
             .filter(s => s.pos != null);
         if (stops.length < 2) return;
-        const lane = { route, color: LANE_COLORS[lanes.length % LANE_COLORS.length], stops, k: lanes.length };
+        const lane = { route, color: routeColor(route), stops, k: stackIndex.get(route.id) ?? lanes.length };
         lanes.push(lane);
         for (let i = 0; i < stops.length - 1; i++) {
             if (stops[i + 1].index !== stops[i].index + 1) continue;
@@ -88,7 +101,7 @@ export function gapAfter(plan, pos, base) {
     return count ? count * LABEL_ROW + LABEL_PAD : base;
 }
 
-export function renderDockLinks(container, plan, rows, left, panelLeft) {
+export function renderDockLinks(container, plan, rows, left, panelLeft, routeRows = new Map()) {
     let layer = container.querySelector(':scope > .marker-dock-links');
     if (!plan?.lanes.length) {
         layer?.remove();
@@ -109,11 +122,18 @@ export function renderDockLinks(container, plan, rows, left, panelLeft) {
         return node;
     };
 
-    plan.lanes.forEach(({ color, k, stops }) => {
+    plan.lanes.forEach(({ color, k, stops, route }) => {
         const x = left + k * LANE_WIDTH + LANE_WIDTH / 2 - box.left;
         const ys = stops.map(s => rows[s.pos].top + ROW_CENTRE - box.top);
-        const top = Math.min(...ys);
-        place(`left:${x - 1.5}px;top:${top}px;width:3px;height:${Math.max(...ys) - top}px;background:${color};border-radius:2px;`);
+        const button = routeRows.get(route.id);
+        const buttonY = button ? button.top + button.height / 2 - box.top : null;
+        const top = Math.min(...ys, ...(buttonY == null ? [] : [buttonY]));
+        const bottom = Math.max(...ys);
+        place(`left:${x - 1.5}px;top:${top}px;width:3px;height:${bottom - top}px;background:${color};border-radius:2px;`);
+        if (buttonY != null) {
+            place(`left:${x}px;top:${buttonY - 1.5}px;width:${panelLeft - box.left - x}px;height:3px;background:${color};`);
+            place(`left:${x - 4}px;top:${buttonY - 4}px;width:8px;height:8px;border-radius:50%;background:${color};`);
+        }
         stops.forEach((s, i) => {
             const dot = place(`left:${x - DOT_SIZE / 2}px;top:${ys[i] - DOT_SIZE / 2}px;width:${DOT_SIZE}px;height:${DOT_SIZE}px;border-radius:50%;background:${color};border:1.5px solid #fff;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;line-height:1;color:#fff;`);
             dot.textContent = s.number;

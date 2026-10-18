@@ -36,7 +36,7 @@
  */
 
 import { fetchRouteForWaypoints, parseRoutingEngineProfile, routingEngineAttribution } from './search/directions-router.js';
-import { buildRouteFeatureCollection, ROUTE_STYLE, ROUTE_INSPECT } from './search/route-geojson.js';
+import { buildRouteFeatureCollection, isRouteColor, ROUTE_STYLE, ROUTE_INSPECT } from './search/route-geojson.js';
 import { formatDistance } from './geo-distance-utils.js';
 import { splitArgs } from './shorthand-id-utils.js';
 import { get as getRegisteredMarker } from './marker-registry.js';
@@ -68,7 +68,12 @@ export class RouteApi {
             }
         }
 
-        const markerIds = splitArgs(argsText).filter(Boolean);
+        const args = splitArgs(argsText).filter(Boolean).map(arg => {
+            try { return decodeURIComponent(arg); } catch (error) { return arg; }
+        });
+        // An optional trailing hex colour (`#rrggbb`) rides after the marker ids.
+        const color = isRouteColor(args[args.length - 1]) ? args.pop().toLowerCase() : null;
+        const markerIds = args;
         if (markerIds.length < 2) return null;
 
         const waypoints = markerIds.map(markerId => {
@@ -78,7 +83,7 @@ export class RouteApi {
         if (waypoints.some(w => w === null)) return null;
 
         const { engine, profile } = parseRoutingEngineProfile(token);
-        return { token, engine, profile, markerIds, waypoints };
+        return { token, engine, profile, markerIds, waypoints, color };
     }
 
     static async createConfigFromId(id, rid) {
@@ -87,12 +92,13 @@ export class RouteApi {
             throw new Error(`Expected at least two resolvable marker ids, got "${id}"`);
         }
 
-        const { engine, profile, markerIds, waypoints } = parsed;
+        const { engine, profile, markerIds, waypoints, color } = parsed;
         const route = await fetchRouteForWaypoints(waypoints, { engine, profile });
         const geojson = buildRouteFeatureCollection(route, waypoints, {
             profile: route.profile,
             source: route.source
         });
+        if (color) geojson.features.forEach(feature => { feature.properties.color = color; });
 
         const distance = formatDistance(route.distance);
         const minutes = Math.round(route.duration / 60);

@@ -30,9 +30,10 @@
  */
 
 import { fetchRouteForWaypoints } from './directions-router.js';
-import { buildRouteFeatureCollection, routeShorthand, DIRECTIONS_LAYER_ID } from './route-geojson.js';
+import { buildRouteFeatureCollection, routeShorthand, defaultRouteColor, isRouteColor, DIRECTIONS_LAYER_ID } from './route-geojson.js';
 import { getDirectionsProfile } from './directions-profile.js';
 import { haversineDistanceMeters } from '../geo-distance-utils.js';
+import { sanitizeId } from '../shorthand-id-utils.js';
 
 const EMPTY_DATA = { type: 'FeatureCollection', features: [] };
 
@@ -47,6 +48,7 @@ export const WAYPOINT_PIN_COLOR = '#1da1f2';
 // "continuing that route" rather than starting a new one - generous enough to
 // absorb float drift when the point is that waypoint's own marker.
 const CONTINUE_ROUTE_THRESHOLD_METERS = 5;
+const MARKER_MATCH_METERS = 25;
 
 // A drag fires every animation frame; re-routing that often would hammer the
 // Directions API for frames nobody sees. Trailing edge only, then once more on
@@ -161,6 +163,7 @@ export class RouteStore {
                 // a re-route to rebuild markerIds through _syncMarkers.
                 adopted.markerIds = waypointMarkerIds(group, adopted.waypoints.length);
                 this._routes.push(adopted);
+                this._pushGeojson(adopted.groupId);
             });
         });
     }
@@ -272,8 +275,157 @@ export class RouteStore {
         }, LIVE_REROUTE_MS);
     }
 
+    /**
+     * A marker was deleted by the user: every route it is a stop on loses that
+     * stop and re-routes, and a route left with fewer than two stops is dropped
+     * - its remaining pins stay on the map as ordinary markers. The stop is
+     * found by the route's own marker id, falling back to whichever waypoint
+     * the marker sits on, since ids go stale when markers are rebuilt.
+     */
+    removeMarkerFromRoutes(markerId, lngLat) {
+        [...this._routes].forEach(route => {
+            let index = route.markerIds.indexOf(markerId);
+            if (index < 0 && lngLat) {
+                index = route.waypoints.findIndex(([lng, lat]) =>
+                    haversineDistanceMeters({ lng, lat }, lngLat) < MARKER_MATCH_METERS);
+            }
+            if (index >= 0) this.removeWaypoint(route.id, index, { keepMarkers: true });
+        });
+    }
+
+    /**
+     * Renames a route's user-facing id (the `<rid>` in `route-<rid>:` and in
+     * its segment labels). Rejected, returning false, when empty or already
+     * another route's.
+     */
+    renameRoute(routeId, value) {
+        const route = this._routes.find(r => r.id === routeId);
+        const rid = sanitizeId(value);
+        if (!route || !rid) return false;
+        if (rid === route.rid) return true;
+        if (this._routes.some(r => r !== route && r.rid === rid)) return false;
+
+        route.rid = rid;
+        this._write(route.groupId);
+        return true;
+    }
+
+    /**
+     * Deletes one route and leaves its markers on the map as ordinary
+     * markers. A route restored from a link lives in a layer of its own, which
+     * is switched off instead (see the 'layer-toggled' listener).
+     */
+    removeRoute(routeId) {
+        const route = this._routes.find(r => r.id === routeId);
+        if (!route) return;
+        if (route.groupId === DIRECTIONS_LAYER_ID) {
+            this.remove(routeId, { keepMarkers: true });
+            return;
+        }
+        this._routes = this._routes.filter(r => r !== route);
+        this._releaseMarkers(route, { keepMarkers: true });
+        this._setLayerVisible(route.groupId, false);
+    }
+
+    /**
+     * A fresh route over the same stops and labels as `routeId`, fetched with
+     * `profile` - another travel mode between the same markers. Returns the
+     * new route, or null if it could not be routed.
+     */
+    async duplicateRoute(routeId, profile) {
+        const source = this._routes.find(r => r.id === routeId);
+        if (!source) return null;
+
+        const route = this._create(source.waypoints.map(w => [...w]), [...source.names]);
+        route.engine = source.engine;
+        route.profile = profile;
+        try {
+            await this._resolve(route);
+        } catch (error) {
+            console.warn('[directions] could not route another mode:', error);
+            this._routes = this._routes.filter(r => r !== route);
+            return null;
+        }
+        return route;
+    }
+
+    /**
+     * Moves one stop to a new position and re-routes. `markerIds` is the
+     * marker at every waypoint, resolved by the caller - the route's own ids
+     * can be stale or missing - and `from`/`to` are waypoint positions, `to`
+     * counted after the stop has been taken out.
+     */
+    moveStop(routeId, markerIds, from, to) {
+        const route = this._routes.find(r => r.id === routeId);
+        if (!route || markerIds.length !== route.waypoints.length || from === to) return;
+
+        const shift = (list) => list.splice(to, 0, list.splice(from, 1)[0]);
+        route.markerIds = [...markerIds];
+        shift(route.waypoints);
+        shift(route.names);
+        shift(route.markerIds);
+        this._resolve(route).catch(error => console.warn('[directions] re-route failed:', error));
+    }
+
+    /** Appends an existing marker as the route's last stop, for good. */
+    async addMarkerToRoute(routeId, markerId) {
+        const route = this._routes.find(r => r.id === routeId);
+        const lngLat = window.featureControl?._markerManager?._markers?.get(markerId)?.lngLat;
+        if (!route || !lngLat || route.markerIds.includes(markerId)) return;
+
+        route.waypoints.push([lngLat.lng, lngLat.lat]);
+        route.names.push('');
+        route.markerIds[route.waypoints.length - 1] = markerId;
+        try {
+            await this._resolve(route);
+        } catch (error) {
+            console.warn('[directions] could not add marker to route:', error);
+            const index = route.markerIds.indexOf(markerId);
+            if (index >= 0) {
+                route.waypoints.splice(index, 1);
+                route.names.splice(index, 1);
+                route.markerIds.splice(index, 1);
+            }
+        }
+    }
+
+    /**
+     * Appends a marker just clicked as the route's last stop, for as long as
+     * that marker lasts: it is not adopted as a waypoint (which would save
+     * it), so an unsaved one that closes drops its stop again
+     * (dropTemporaryStop), while saving it makes the stop permanent.
+     */
+    async extendWithTemporaryStop(routeId, markerId, lngLat) {
+        const route = this._routes.find(r => r.id === routeId);
+        if (!route) return;
+
+        route.waypoints.push([lngLat.lng, lngLat.lat]);
+        route.names.push('');
+        route.markerIds[route.waypoints.length - 1] = markerId;
+        (route.tempMarkerIds ||= new Set()).add(markerId);
+        try {
+            await this._resolve(route);
+        } catch (error) {
+            console.warn('[directions] could not extend route:', error);
+            this.dropTemporaryStop(routeId, markerId, { resolve: false });
+        }
+    }
+
+    dropTemporaryStop(routeId, markerId, { resolve = true } = {}) {
+        const route = this._routes.find(r => r.id === routeId);
+        const index = route ? route.markerIds.indexOf(markerId) : -1;
+        if (index < 0) return;
+        route.tempMarkerIds?.delete(markerId);
+        if (resolve) this.removeWaypoint(routeId, index, { keepMarkers: true });
+        else {
+            route.waypoints.splice(index, 1);
+            route.names.splice(index, 1);
+            route.markerIds.splice(index, 1);
+        }
+    }
+
     /** A waypoint's marker was closed: drop it and re-route what's left. */
-    removeWaypoint(routeId, index) {
+    removeWaypoint(routeId, index, { keepMarkers = false } = {}) {
         const route = this._routes.find(r => r.id === routeId);
         if (index < 0 || !route || !route.waypoints[index]) return;
 
@@ -283,7 +435,7 @@ export class RouteStore {
         route.markerIds.splice(index, 1);
 
         if (route.waypoints.length < 2) {
-            this.remove(routeId);
+            this.remove(routeId, { keepMarkers });
             return;
         }
         this._resolve(route).catch(error => console.warn('[directions] re-route failed:', error));
@@ -321,12 +473,12 @@ export class RouteStore {
     }
 
     /** Drops one route, leaving every other route on the map alone. */
-    remove(id) {
+    remove(id, { keepMarkers = false } = {}) {
         const route = this._routes.find(r => r.id === id);
         if (!route) return;
 
         this._routes = this._routes.filter(r => r.id !== id);
-        this._releaseMarkers(route);
+        this._releaseMarkers(route, { keepMarkers });
         this._write(route.groupId);
     }
 
@@ -355,12 +507,12 @@ export class RouteStore {
      * MapMarkerManager.releaseWaypoint): the user placed it, and losing a
      * marker to a route being removed isn't something they asked for.
      */
-    _releaseMarkers(route) {
+    _releaseMarkers(route, { keepMarkers = false } = {}) {
         const markers = window.featureControl?._markerManager;
         if (!markers) return;
 
         route.markerIds.filter(Boolean).forEach(markerId => {
-            if (route.ownedMarkerIds?.has(markerId)) markers.removeMarker(markerId, { silent: true });
+            if (!keepMarkers && route.ownedMarkerIds?.has(markerId)) markers.removeMarker(markerId, { silent: true });
             else markers.releaseWaypoint(markerId, route.id);
         });
         route.markerIds = [];
@@ -377,7 +529,11 @@ export class RouteStore {
     }
 
     _create(waypoints, names) {
-        const number = nextRouteNumber++;
+        const groups = window.layerControl?._state?.groups || [];
+        const taken = (n) => this._routes.some(r => r.rid === String(n)) || groups.some(g => g.id === `route-${n}`);
+        let number = nextRouteNumber;
+        while (taken(number)) number++;
+        nextRouteNumber = number + 1;
         const route = {
             id: `route-${number}`,
             // The route's own user-facing id in its `route-<rid>:` URL
@@ -389,6 +545,8 @@ export class RouteStore {
             number,
             code: routeLetterCode(number),
             groupId: DIRECTIONS_LAYER_ID,
+            color: null,
+            colorCustom: false,
             waypoints,
             names,
             engine: null,
@@ -408,15 +566,18 @@ export class RouteStore {
             name: ''
         };
         route.name = routeName(route);
+        route.color = defaultRouteColor(route);
         this._routes.push(route);
         return route;
     }
 
     async _resolve(route) {
+        const seq = route._resolveSeq = (route._resolveSeq || 0) + 1;
         const result = await fetchRouteForWaypoints(route.waypoints, {
             engine: route.engine,
             profile: route.profile
         });
+        if (seq !== route._resolveSeq) return;
         route.engine = result.source;
         route.profile = result.profile;
         this._apply(route, result);
@@ -425,6 +586,7 @@ export class RouteStore {
         // _syncMarkers is what assigns into route.markerIds.
         this._syncMarkers(route);
         this._write(route.groupId);
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('routes-changed'));
     }
 
     /**
@@ -468,6 +630,14 @@ export class RouteStore {
         route.waypoints.forEach((coordinates, index) => {
             const lngLat = { lng: coordinates[0], lat: coordinates[1] };
             const existingId = route.markerIds[index];
+
+            if (existingId && route.tempMarkerIds?.has(existingId)) {
+                if (!markers._markers?.get(existingId)?.saved) {
+                    markers.setMarkerRefLabel(existingId, route.id, refLabelFor(existingId, index), refOptions(existingId));
+                    return;
+                }
+                route.tempMarkerIds.delete(existingId);
+            }
 
             if (existingId && markers._markers?.has(existingId)) {
                 markers.moveMarker(existingId, lngLat);
@@ -587,7 +757,7 @@ export class RouteStore {
      * already has, so re-writing a route adopted back off the map (see sync)
      * doesn't stack another prefix on each pass.
      */
-    _write(groupId) {
+    _pushGeojson(groupId) {
         const routes = this._routes.filter(r => r.groupId === groupId);
         const features = routes.flatMap(route =>
             (route.geojson?.features || []).map(feature => ({
@@ -596,24 +766,57 @@ export class RouteStore {
                     ...feature.properties,
                     id: `${route.id}-${featureKey(feature)}`,
                     routeId: route.id,
-                    routeName: route.name
+                    routeName: route.name,
+                    color: route.color
                 }
             }))
         );
 
         const geojson = { type: 'FeatureCollection', features };
-        const findGroup = () => window.layerControl?._state?.groups?.find(g => g.id === groupId);
-        const config = findGroup();
+        const config = window.layerControl?._state?.groups?.find(g => g.id === groupId);
         if (config) config.geojson = geojson;
 
         // Written to the group's config first: the layer is created from that
-        // config the moment it is switched on below, so the first route drawn
-        // in a session is already in it. Only a layer that is actually on the
-        // map has a source to push data into - asking for one that was never
+        // config the moment it is switched on, so the first route drawn in a
+        // session is already in it. Only a layer that is actually on the map
+        // has a source to push data into - asking for one that was never
         // created just logs a warning.
         if (api()?._map?.getSource(`geojson-${groupId}`)) {
             api().updateGeoJSONLayerData(groupId, geojson);
         }
+        return features;
+    }
+
+    /** Re-draws a route in the colour the user picked. */
+    setRouteColor(routeId, color) {
+        const route = this._routes.find(r => r.id === routeId);
+        if (!route || !color) return;
+        route.color = color;
+        route.colorCustom = true;
+        this._write(route.groupId);
+    }
+
+    /**
+     * Reverses the order of a route's stops and re-routes. `markerIds` is the
+     * marker at every waypoint as resolved by the caller (the route's own ids
+     * can be stale); the route's own are used when that is incomplete.
+     */
+    reverseRoute(routeId, markerIds = []) {
+        const route = this._routes.find(r => r.id === routeId);
+        if (!route || route.waypoints.length < 2) return;
+
+        if (markerIds.length === route.waypoints.length) route.markerIds = [...markerIds];
+        route.waypoints.reverse();
+        route.names.reverse();
+        if (route.markerIds.length === route.waypoints.length) route.markerIds.reverse();
+        else route.markerIds = [];
+        this._resolve(route).catch(error => console.warn('[directions] re-route failed:', error));
+    }
+
+    _write(groupId) {
+        const routes = this._routes.filter(r => r.groupId === groupId);
+        const features = this._pushGeojson(groupId);
+        const findGroup = () => window.layerControl?._state?.groups?.find(g => g.id === groupId);
 
         // The routes layer follows its routes: switched on by the first one
         // drawn, off again when the last one goes - like the `mask` layer (see
@@ -638,15 +841,26 @@ export class RouteStore {
         const shorthand = routes
             .filter(r => r.waypoints.length >= 2)
             .map(r => {
-                const markerIds = r.markerIds.map(id => markers?.getMarkerUrlId(id)).filter(Boolean);
+                // A route restored from a link may not have its marker ids yet
+                // (see waypointMarkerIds), so a waypoint with none is matched to
+                // the marker standing on it rather than leaving the route
+                // unwritable - which would drop its shorthand and let the layer
+                // fall back to serializing its whole geojson into the URL.
+                const markerIds = r.waypoints.map(([lng, lat], index) => {
+                    let id = r.markerIds[index];
+                    if (!id || !markers?.getMarkerUrlId(id)) {
+                        id = markers?.findMarkerNear?.({ lng, lat }, 20) || null;
+                        if (id) r.markerIds[index] = id;
+                    }
+                    return id ? markers.getMarkerUrlId(id) : null;
+                }).filter(Boolean);
                 if (markerIds.length !== r.waypoints.length) return null;
-                return routeShorthand(r.rid, markerIds, r.engine, r.profile);
-            })
-            .filter(Boolean)
-            .join(',');
+                return routeShorthand(r.rid, markerIds, r.engine, r.profile, r.colorCustom ? r.color : null);
+            });
+        const complete = shorthand.filter(Boolean).join(',');
 
-        if (shorthand) group._originalJson = shorthand;
-        else delete group._originalJson;
+        if (complete) group._originalJson = complete;
+        else if (!routes.some(r => r.waypoints.length >= 2)) delete group._originalJson;
 
         window.urlManager?.updateURL({ updateLayers: true });
     }
@@ -753,7 +967,7 @@ function routeFromFeatures(id, groupId, features) {
 
     const route = {
         id,
-        rid: String(number),
+        rid: groupId.startsWith('route-') ? groupId.slice('route-'.length) : String(number),
         number,
         code,
         groupId,
@@ -771,6 +985,8 @@ function routeFromFeatures(id, groupId, features) {
         name: ''
     };
     route.name = line?.properties?.title || routeName(route);
+    route.colorCustom = isRouteColor(line?.properties?.color);
+    route.color = route.colorCustom ? line.properties.color : defaultRouteColor(route);
     return route;
 }
 

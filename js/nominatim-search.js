@@ -1,6 +1,7 @@
 const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search'
 const NOMINATIM_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse'
 const NOMINATIM_DETAILS_URL = 'https://nominatim.openstreetmap.org/details'
+const NOMINATIM_LOOKUP_URL = 'https://nominatim.openstreetmap.org/lookup'
 const OSM_OBJECT_URL = 'https://www.openstreetmap.org'
 
 // Nominatim writes osm_type as a full word in reverse/search results and as a
@@ -236,6 +237,9 @@ export async function reverseGeocodeAddress(lat, lon, { zoom = 18, detail = 2, s
             osmType: result.osm_type || null,
             osmId: result.osm_id != null ? String(result.osm_id) : null,
             displayName: result.display_name || '',
+            lat: parseFloat(result.lat),
+            lon: parseFloat(result.lon),
+            boundingbox: Array.isArray(result.boundingbox) ? result.boundingbox.map(Number) : null,
         }
     }
 
@@ -250,6 +254,59 @@ export async function reverseGeocodeAddress(lat, lon, { zoom = 18, detail = 2, s
 /** The leading (most specific) `count` parts, joined for a one-line label. */
 export function formatNominatimAddress(parts, count = 2) {
     return (parts || []).slice(0, count).map(part => part.value).join(', ')
+}
+
+/**
+ * Where each of several OSM objects is - a point, and a bounding box where it
+ * has an extent - in one request. Keyed `W123` / `R456` / `N789`.
+ *
+ * @returns {Promise<Map<string, {lat: number, lon: number, boundingbox: number[]|null}>>}
+ */
+export async function lookupNominatimPlaces(refs, { signal } = {}) {
+    const ids = [...new Set((refs || [])
+        .map(ref => {
+            const letter = OSM_TYPE_LETTERS[String(ref.osmType || '').toLowerCase()]
+                || (OSM_TYPE_WORDS[ref.osmType] ? ref.osmType : null)
+            return letter && ref.osmId != null ? `${letter}${ref.osmId}` : null
+        })
+        .filter(Boolean))]
+    const places = new Map()
+    if (!ids.length) return places
+
+    const cacheKey = `lookup:${ids.join(',')}`
+    if (resultCache.has(cacheKey)) return resultCache.get(cacheKey)
+    if (isNominatimBackedOff()) return places
+
+    let response
+    try {
+        response = await fetch(`${NOMINATIM_LOOKUP_URL}?osm_ids=${ids.join(',')}&format=jsonv2`, {
+            headers: { 'Accept-Language': 'en' },
+            signal,
+        })
+    } catch (err) {
+        if (err.name !== 'AbortError') reportNominatimFailure()
+        throw err
+    }
+    if (!response.ok) {
+        reportNominatimFailure()
+        throw new Error(`Nominatim lookup failed: ${response.status}`)
+    }
+
+    const results = await response.json()
+    ;(Array.isArray(results) ? results : []).forEach(result => {
+        const letter = OSM_TYPE_LETTERS[result.osm_type] || result.osm_type
+        places.set(`${letter}${result.osm_id}`, {
+            lat: parseFloat(result.lat),
+            lon: parseFloat(result.lon),
+            boundingbox: Array.isArray(result.boundingbox) ? result.boundingbox.map(Number) : null,
+        })
+    })
+
+    if (resultCache.size >= MAX_CACHE_ENTRIES) {
+        resultCache.delete(resultCache.keys().next().value)
+    }
+    resultCache.set(cacheKey, places)
+    return places
 }
 
 /** openstreetmap.org URL for an OSM object, from either osm_type spelling. */
@@ -310,6 +367,8 @@ export async function fetchNominatimAddressParts(osmType, osmId, { signal } = {}
         .map(entry => ({
             name: entry.localname,
             url: osmObjectUrl(entry.osm_type, entry.osm_id),
+            osmType: entry.osm_type || null,
+            osmId: entry.osm_id != null ? String(entry.osm_id) : null,
             category: entry.type || entry.class || '',
             adminLevel: entry.admin_level ?? null,
         }))

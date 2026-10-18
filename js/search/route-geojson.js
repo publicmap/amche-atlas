@@ -27,6 +27,37 @@ export const DIRECTIONS_LAYER_ID = 'directions';
 
 const LOCATION_BLUE = '#1da1f2';
 
+/**
+ * Twenty colours in the spirit of transit maps (Underground, subway, metro
+ * lines), in the order routes are given them: a route's colour is the one at
+ * its numeric id, so it needs no storing - only a colour the user picks is
+ * written into the link (see routeShorthand).
+ */
+export const ROUTE_COLORS = [
+    LOCATION_BLUE, '#e32017', '#00a651', '#ff6319', '#b933ad',
+    '#fccc0a', '#00a3a1', '#ec6fa5', '#996633', '#003688',
+    '#6cbe45', '#808183', '#d71f85', '#a05eb5', '#f58220',
+    '#006341', '#9b1d20', '#00a0df', '#c7b299', '#cddc29'
+];
+
+/** The colour a route is drawn in until the user picks one: by its numeric id, else by a hash of its id. */
+export function defaultRouteColor(route) {
+    const n = parseInt(route.rid, 10);
+    let index = Number.isFinite(n) && n > 0 ? n - 1 : null;
+    if (index === null) {
+        index = [...String(route.rid ?? route.id ?? '')].reduce((sum, ch) => (sum * 31 + ch.charCodeAt(0)) >>> 0, 7);
+    }
+    return ROUTE_COLORS[index % ROUTE_COLORS.length];
+}
+
+const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
+
+export function isRouteColor(value) {
+    return typeof value === 'string' && HEX_COLOR_RE.test(value);
+}
+
+const colorOr = (fallback) => ['case', ['has', 'color'], ['to-color', ['get', 'color']], fallback];
+
 // Declaration order matters: js/mapbox-api.js stacks a style's prefixed
 // variants above its unprefixed base, so the white casing (base) sits under the
 // blue route line, which sits under the waypoint dots and their labels.
@@ -60,9 +91,9 @@ export const ROUTE_STYLE = {
     // Terminals are the location-blue disc; intermediate stops are a small
     // white dot, so they read as beads on the route rather than endpoints.
     'waypoints/circle-radius': ['match', ['get', 'role'], 'waypoint', 3, 6],
-    'waypoints/circle-color': ['match', ['get', 'role'], 'waypoint', '#ffffff', LOCATION_BLUE],
+    'waypoints/circle-color': ['match', ['get', 'role'], 'waypoint', '#ffffff', colorOr(LOCATION_BLUE)],
     'waypoints/circle-stroke-width': ['match', ['get', 'role'], 'waypoint', 1.5, 2],
-    'waypoints/circle-stroke-color': ['match', ['get', 'role'], 'waypoint', LOCATION_BLUE, '#ffffff'],
+    'waypoints/circle-stroke-color': ['match', ['get', 'role'], 'waypoint', colorOr(LOCATION_BLUE), '#ffffff'],
     // Only the terminals are labelled; the stops in between are bare dots.
     'waypoints/text-field': ['case',
         ['==', ['get', 'role'], 'waypoint'], '',
@@ -85,9 +116,9 @@ export const ROUTE_STYLE = {
     'arrows/text-allow-overlap': true,
     'arrows/text-ignore-placement': true,
     'arrows/text-color': '#ffffff',
-    'arrows/text-halo-color': LOCATION_BLUE,
+    'arrows/text-halo-color': colorOr(LOCATION_BLUE),
     'arrows/text-halo-width': 1,
-    'route/line-color': LOCATION_BLUE,
+    'route/line-color': colorOr(LOCATION_BLUE),
     'route/line-width': 5,
     'route/line-opacity': 1,
     'route/line-cap': 'round',
@@ -245,12 +276,13 @@ function formatClockTime(date) {
  * comma-separated like every other shorthand arg list (no pair-separator
  * needed, since each argument is a single id).
  */
-export function routeShorthand(rid, markerIds, engine, profile) {
+export function routeShorthand(rid, markerIds, engine, profile, color = null) {
     // Percent-encoded for the same reason a `markers=` call token is (see
     // shorthand-id-utils.js's encodeId): an id may hold anything but the
     // grammar's own characters, and `layers=`'s reader decodes it back before
     // route-url-api.js splits this list apart.
-    const waypoints = markerIds.map(encodeId).join(',');
+    const args = isRouteColor(color) ? [...markerIds.map(encodeId), encodeId(color.toLowerCase())] : markerIds.map(encodeId);
+    const waypoints = args.join(',');
     return `route-${rid}:${routingEngineProfileToken(engine, profile)}(${waypoints})`;
 }
 

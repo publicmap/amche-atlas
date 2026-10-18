@@ -7,7 +7,8 @@ import { FeatureThumbnail } from './feature-thumbnail.js';
 import { rasterTileWindow } from './raster-tile-window.js';
 import { exportRasterLayerView } from './raster-layer-export.js';
 import { getPrimaryColor } from './layer-style-utils.js';
-import { reverseGeocodeAddress, fetchNominatimAddressParts } from './nominatim-search.js';
+import { reverseGeocodeAddress, fetchNominatimAddressParts, lookupNominatimPlaces } from './nominatim-search.js';
+import { showAddressPreview, clearAddressPreview } from './address-preview.js';
 import { FeatureDisplayRenderer } from './feature-display-renderer.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { CameraUtils } from './map-camera-utils.js';
@@ -18,7 +19,8 @@ import { formatAttributeValue } from './attribute-value-renderer.js';
 import { sanitizeId, isValidId, nextSerialId, labelToId, uniqueId, sanitizeRouteRefPrefix, isValidRouteRefId } from './shorthand-id-utils.js';
 import * as markerRegistry from './marker-registry.js';
 import { WAYPOINT_PIN_COLOR, routeStore } from './search/route-store.js';
-import { LANE_WIDTH, gapAfter, groupByRoute, planRouteLanes, renderDockLinks } from './marker-dock-links.js';
+import { LANE_WIDTH, gapAfter, groupByRoute, planRouteLanes, renderDockLinks, routeButtonLabel, routeColor, stopMarkers } from './marker-dock-links.js';
+import { RouteDockStack, ROUTE_BUTTON_HEIGHT, ROUTE_BUTTON_GAP } from './route-dock-stack.js';
 import { RasterPixelInspector } from './raster-pixel-inspector.js';
 import { inspectStyleLayers, buildStyleInspectionHTML } from './style-layer-inspector.js';
 import { fitToFeature, restoreFeatureFit } from './feature-camera-fit.js';
@@ -247,6 +249,9 @@ const MARKER_ID_INPUT_MAX_WIDTH = 190;
 // $coordinates field replaced, so the address takes -2.
 const ADDRESS_BADGE_INDEX = -2;
 
+// Not a real layer: isolating it dims every overlay, leaving the basemap and the previewed address.
+const ADDRESS_PREVIEW_ISOLATION = '__address-preview__';
+
 
 export class MapMarkerManager {
     constructor(map, stateManager, mapboxAPI = null) {
@@ -376,6 +381,7 @@ export class MapMarkerManager {
         });
 
         window.addEventListener('layer-toggled', () => this._layoutDockedPanels());
+        window.addEventListener('routes-changed', () => requestAnimationFrame(() => this._layoutDockedPanels()));
         this._map.on('idle', () => this._layoutDockedPanels());
 
         window.addEventListener('resize', () => {
@@ -417,12 +423,69 @@ export class MapMarkerManager {
         this._layoutDockedPanels();
     }
 
+    _routeStack() {
+        if (!this._routeDockStack) {
+            this._routeDockStack = new RouteDockStack({
+                onToggle: (id) => {
+                    this._routeFilter = this._routeFilter === id ? null : id;
+                    this._layoutDockedPanels();
+                },
+                onReorder: (ids) => {
+                    this._routeOrder = ids;
+                    this._layoutDockedPanels();
+                },
+                onSettle: () => this._layoutDockedPanels(),
+                onReverse: (id) => {
+                    const route = routeStore.routes.find(r => r.id === id);
+                    if (!route) return;
+                    const docked = [...this._markers.values()].filter(m => m.docked && m.contentEl);
+                    const stops = stopMarkers(route, docked);
+                    routeStore.reverseRoute(id, stops.every(Boolean) ? stops.map(s => s.id) : []);
+                },
+                onColor: (id, color) => {
+                    routeStore.setRouteColor(id, color);
+                    this._layoutDockedPanels();
+                },
+                onRename: (id, value) => {
+                    const ok = routeStore.renameRoute(id, value);
+                    if (ok) this._layoutDockedPanels();
+                    return ok;
+                },
+                onRemove: (id) => {
+                    if (this._routeFilter === id) this._routeFilter = null;
+                    routeStore.removeRoute(id);
+                    this._layoutDockedPanels();
+                },
+                onAddMode: async (id, profile) => {
+                    const route = await routeStore.duplicateRoute(id, profile);
+                    if (route) this._routeFilter = route.id;
+                    this._layoutDockedPanels();
+                }
+            });
+        }
+        return this._routeDockStack;
+    }
+
+    _orderedDockRoutes(docked) {
+        const order = this._routeOrder || [];
+        const rank = (route) => (order.includes(route.id) ? order.indexOf(route.id) : order.length + route.number);
+        return routeStore.routes
+            .filter(route => stopMarkers(route, docked).filter(Boolean).length >= 2)
+            .sort((a, b) => rank(a) - rank(b));
+    }
+
     _layoutDockedPanels() {
         const container = this._map?.getCanvasContainer?.();
         if (!container) return;
+        this._markers.forEach((m, id) => {
+            if (m.role === 'route-waypoint' && !m.docked && !m.undockedByUser && m.contentEl
+                && !markerRegistry.get(m.urlId)?.offset) this._dockMarkerPanel(id);
+        });
         const docked = [...this._markers.values()].filter(m => m.docked && m.contentEl);
+        const stack = this._routeStack();
         if (!docked.length) {
             renderDockLinks(container, null);
+            stack.render(container, [], new Map(), 0);
             return;
         }
         const main = document.querySelector('.map-control-bar-main');
@@ -433,13 +496,31 @@ export class MapMarkerManager {
         const canvas = this._map.getCanvas().getBoundingClientRect();
 
         docked.sort(dockOrder);
-        const ordered = groupByRoute(routeStore.routes, docked);
-        const plan = planRouteLanes(routeStore.routes, ordered);
-        const gutter = plan.lanes.length ? plan.lanes.length * LANE_WIDTH + 4 : 0;
+        const stackRoutes = this._orderedDockRoutes(docked);
+        let filterRoute = stackRoutes.find(r => r.id === this._routeFilter) || null;
+        if (!filterRoute) this._routeFilter = null;
+        const visible = filterRoute ? new Set(stopMarkers(filterRoute, docked).filter(Boolean)) : null;
+        docked.forEach(m => {
+            m.marker.getElement().style.visibility = !visible || visible.has(m) ? '' : 'hidden';
+        });
+        const shown = visible ? docked.filter(m => visible.has(m)) : docked;
+        const ordered = groupByRoute(stackRoutes, shown);
+        const stackIndex = new Map(stackRoutes.map((r, i) => [r.id, i]));
+        const plan = planRouteLanes(filterRoute ? [filterRoute] : stackRoutes, ordered, stackIndex);
+        if (!filterRoute) plan.segments = [];
+        const gutter = stackRoutes.length ? stackRoutes.length * LANE_WIDTH + 4 : 0;
         const panelLeft = mainRect.left + gutter;
         const width = `${Math.round(mainRect.width - gutter)}px`;
-        const rows = [];
+
         let top = head.getBoundingClientRect().bottom + MARKER_DOCK_GAP;
+        const routeRows = new Map();
+        stackRoutes.forEach(route => {
+            routeRows.set(route.id, { top, height: ROUTE_BUTTON_HEIGHT });
+            top += ROUTE_BUTTON_HEIGHT + ROUTE_BUTTON_GAP;
+        });
+        if (stackRoutes.length) top += MARKER_DOCK_GAP;
+
+        const rows = [];
         ordered.forEach((m, i) => {
             const gap = gapAfter(plan, i, MARKER_DOCK_GAP);
             rows[i] = { top, height: m.contentEl.offsetHeight };
@@ -454,8 +535,9 @@ export class MapMarkerManager {
             };
             m.panelAnchor = 'top-left';
             const open = m.contentEl.querySelector('.marker-menu-body')?.style.display !== 'none';
-            const fitWidth = open ? width : '';
-            const fitMax = open ? width : `${MARKER_ID_MAX_WIDTH}px`;
+            const editing = m.marker.getElement().dataset.idEditing === '1';
+            const fitWidth = open && !editing ? width : '';
+            const fitMax = editing ? `${MARKER_ID_EDIT_MAX_WIDTH}px` : (open ? width : `${MARKER_ID_MAX_WIDTH}px`);
             if (m.contentEl.style.width !== fitWidth) m.contentEl.style.width = fitWidth;
             if (m.contentEl.style.maxWidth !== fitMax) m.contentEl.style.maxWidth = fitMax;
             m.contentEl.style.alignSelf = 'flex-start';
@@ -464,7 +546,13 @@ export class MapMarkerManager {
             this._syncMarkerLeader(m.marker.getElement());
             top += m.contentEl.offsetHeight + gap;
         });
-        renderDockLinks(container, plan, rows, mainRect.left, panelLeft);
+        renderDockLinks(container, plan, rows, mainRect.left, panelLeft, routeRows);
+        stack.render(container, stackRoutes.map(route => ({
+            id: route.id,
+            ...routeButtonLabel(route),
+            color: routeColor(route),
+            selected: route.id === this._routeFilter
+        })), routeRows, panelLeft);
     }
 
     /**
@@ -511,6 +599,7 @@ export class MapMarkerManager {
                 window.removeEventListener('pointercancel', end, true);
                 if (!dragging) return;
                 m.dragging = false;
+                this._reorderRouteStop(m);
                 const swallow = (e) => { e.stopPropagation(); e.preventDefault(); };
                 document.addEventListener('click', swallow, true);
                 setTimeout(() => document.removeEventListener('click', swallow, true), 0);
@@ -522,8 +611,34 @@ export class MapMarkerManager {
         });
     }
 
+    /**
+     * Dropping a docked marker among the others on its route changes that
+     * stop's place in the route: the stops are renumbered and the route is
+     * re-routed in the new order. The selected route wins when the marker is on
+     * several.
+     */
+    _reorderRouteStop(m) {
+        const docked = [...this._markers.values()].filter(o => o.docked && o.contentEl);
+        const routes = this._orderedDockRoutes(docked).filter(r => stopMarkers(r, docked).includes(m));
+        const route = routes.find(r => r.id === this._routeFilter) || routes[0];
+        if (!route) return;
+
+        const stops = stopMarkers(route, docked);
+        if (stops.some(s => !s)) return;
+        const from = stops.indexOf(m);
+        const box = m.contentEl.getBoundingClientRect();
+        const centre = box.top + box.height / 2;
+        const others = stops.filter(s => s !== m);
+        const to = others.filter(o => {
+            const r = o.contentEl.getBoundingClientRect();
+            return r.top + r.height / 2 < centre;
+        }).length;
+        routeStore.moveStop(route.id, stops.map(s => s.id), from, to);
+    }
+
     _undockMarkerPanel(m) {
         m.docked = false;
+        m.undockedByUser = true;
         m.dockObserver?.disconnect();
         m.dockObserver = null;
         if (m.contentEl) {
@@ -825,8 +940,24 @@ export class MapMarkerManager {
         // this being an empty click (see _handleEmptyMapClick) to ever run.
         // Append it alongside whatever vector feature(s) were found instead.
         const rasterFeatures = this._inspectRasterPixels(lngLat);
-        const markerId = this.addMarker(lngLat, [...features, ...rasterFeatures], { dock: true });
+        const markerId = this._addClickedMarker(lngLat, [...features, ...rasterFeatures]);
         this._appendStyleInspection(markerId, lngLat);
+    }
+
+    /**
+     * The marker a map click drops. While a route is selected in the route
+     * stack it also joins that route as a temporary last stop - kept if the
+     * marker is saved, dropped again if it closes unsaved.
+     */
+    _addClickedMarker(lngLat, features) {
+        const route = this._routeFilter ? routeStore.routes.find(r => r.id === this._routeFilter) : null;
+        const ref = { id: null };
+        const options = { dock: true };
+        if (route) options.onRemove = () => routeStore.dropTemporaryStop(route.id, ref.id);
+        const markerId = this.addMarker(lngLat, features, options);
+        ref.id = markerId;
+        if (route) routeStore.extendWithTemporaryStop(route.id, markerId, lngLat);
+        return markerId;
     }
 
     _handleEmptyMapClick(data) {
@@ -847,7 +978,7 @@ export class MapMarkerManager {
         // label this pixel (a legendMap class, or the raw color as a
         // fallback — see _inspectRasterPixel).
         const rasterFeatures = this._inspectRasterPixels(lngLat);
-        const markerId = this.addMarker(lngLat, rasterFeatures, { dock: true });
+        const markerId = this._addClickedMarker(lngLat, rasterFeatures);
         this._appendStyleInspection(markerId, lngLat);
     }
 
@@ -2320,11 +2451,60 @@ export class MapMarkerManager {
             ...(address.parts || []).map(part => ({ name: part.value, category: part.key, url: null }))
         ]);
 
+        this._wireAddressRowPreview(details, markerId);
+
         this._queueAddressLookup(() => fetchNominatimAddressParts(address.osmType, address.osmId))
-            .then(parts => {
-                if (parts.length > 0) details.innerHTML = this._addressRowsHTML([coords, ...parts]);
+            .then(async parts => {
+                if (parts.length === 0) return;
+                details.innerHTML = this._addressRowsHTML([coords, ...parts]);
+                const places = await this._queueAddressLookup(() => lookupNominatimPlaces(parts));
+                const current = this._markers.get(markerId);
+                if (current) current.addressPlaces = places;
             })
             .catch(error => console.warn('[MarkerManager] Address detail lookup failed:', error.message));
+    }
+
+    /**
+     * Pointing at an address row isolates the map to where that address part
+     * is: its point, or its bounding box where it has one. The point itself
+     * (the coordinates row) shows the marker's own location.
+     */
+    _wireAddressRowPreview(details, markerId) {
+        if (details._previewWired || this._isTouch) return;
+        details._previewWired = true;
+
+        details.addEventListener('mouseover', (e) => {
+            const row = e.target.closest('.address-detail-row');
+            if (!row || !details.contains(row)) return;
+            const markerData = this._markers.get(markerId);
+            if (!markerData) return;
+            if (row.dataset.addrPoint) {
+                const { lng, lat } = markerData.lngLat;
+                this._beginAddressPreview({ lng, lat });
+                return;
+            }
+            const letter = { node: 'N', way: 'W', relation: 'R' }[row.dataset.osmType] || row.dataset.osmType;
+            const place = markerData.addressPlaces?.get(`${letter}${row.dataset.osmId}`);
+            if (place) this._beginAddressPreview({ lng: place.lon, lat: place.lat, bbox: place.boundingbox });
+        });
+        details.addEventListener('mouseout', (e) => {
+            const row = e.target.closest('.address-detail-row');
+            if (row && !row.contains(e.relatedTarget)) this._endAddressPreview();
+        });
+    }
+
+    _beginAddressPreview(place) {
+        clearTimeout(this._addressPreviewEndTimer);
+        showAddressPreview(this._map, place);
+        window.layerControl?.isolation?.hoverIsolate(ADDRESS_PREVIEW_ISOLATION, false);
+    }
+
+    _endAddressPreview() {
+        clearTimeout(this._addressPreviewEndTimer);
+        this._addressPreviewEndTimer = setTimeout(() => {
+            clearAddressPreview(this._map);
+            window.layerControl?.isolation?.clearHover();
+        }, ROW_HOVER_END_DELAY_MS);
     }
 
     /**
@@ -2368,11 +2548,14 @@ export class MapMarkerManager {
     _addressRowsHTML(parts) {
         return parts.map(part => {
             const label = String(part.category || '').replace(/_/g, ' ');
+            const place = part.category === '$coordinates'
+                ? 'data-addr-point="1"'
+                : (part.osmType && part.osmId ? `data-osm-type="${part.osmType}" data-osm-id="${part.osmId}"` : '');
             const name = part.url
                 ? `<a href="${part.url}" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none;">${part.name}</a>`
                 : `<span style="color:#f3f4f6;">${part.name}</span>`;
             return `
-                <div style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:11px;">
+                <div class="address-detail-row" ${place} style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:11px;">
                     <span style="color:#6b7280;flex-shrink:0;min-width:74px;">${label}</span>
                     <span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</span>
                 </div>
@@ -2537,6 +2720,14 @@ export class MapMarkerManager {
                 const previews = () => details.style.display === 'none';
                 chip.addEventListener('mouseenter', () => this._beginRowHover(f, previews()));
                 chip.addEventListener('mouseleave', () => this._endRowHover(f, previews()));
+            }
+
+            if (!this._isTouch && index === ADDRESS_BADGE_INDEX) {
+                chip.addEventListener('mouseenter', () => {
+                    const address = this._markers.get(this._findMarkerIdByElement(el))?.address;
+                    if (address && Number.isFinite(address.lat)) this._beginAddressPreview({ lng: address.lon, lat: address.lat });
+                });
+                chip.addEventListener('mouseleave', () => this._endAddressPreview());
             }
 
             // The name-picker checkbox (see _applyLabelPick, exposed by
@@ -3664,6 +3855,7 @@ export class MapMarkerManager {
         const removeMarker = (e) => {
             e.stopPropagation();
             if (e.type === 'touchend') e.preventDefault();
+            routeStore.removeMarkerFromRoutes(markerId, this._markers.get(markerId)?.lngLat);
             this.removeMarker(markerId);
         };
         removeBtn.addEventListener('click', removeMarker);
@@ -3825,6 +4017,7 @@ export class MapMarkerManager {
      * you're working with, not one you're just passing over.
      */
     _syncIdActions(el) {
+        queueMicrotask(() => this._layoutDockedPanels());
         const shortcuts = el.querySelector('.marker-id-shortcuts');
         const removeHandle = el.querySelector('.marker-id-remove');
         const moveHandle = el.querySelector('.marker-id-move');
@@ -3942,6 +4135,9 @@ export class MapMarkerManager {
         // box-shadow on the panel alone.
         el.style.filter = show ? MARKER_GLOW_FILTER : 'none';
         content.style.borderColor = selected ? MARKER_SELECTED_BORDER : MARKER_PANEL_BORDER;
+        // The callout back to the point is only drawn while the marker is hovered or selected.
+        const leader = el.querySelector('.marker-leader');
+        if (leader) leader.style.display = selected || el.dataset.markerHover === '1' ? '' : 'none';
         // The tail stays beneath the panel; its two edges carry the border colour.
         el.querySelector('.marker-leader-edge')?.setAttribute('stroke', selected ? MARKER_SELECTED_BORDER : MARKER_PANEL_BORDER);
         body.style.display = show ? 'flex' : 'none';
@@ -4472,7 +4668,9 @@ export class MapMarkerManager {
         }
 
         markerData.routeRefs.set(routeId, { label: refLabel, color, onRenameRef });
-        if (!badge) return;
+        // The route stack carries the route now, so a stop's ref is no longer
+        // drawn inside the marker itself.
+        return;
 
         let row = badge.querySelector('.marker-id-refs');
         if (!row) {
@@ -5125,7 +5323,10 @@ export class MapMarkerManager {
         // Capture phase: badges, chips and the id label all stop their own
         // clicks from bubbling, but clicking any of them still means "this is
         // the marker I'm working with".
-        const select = () => this._selectMarker(markerId);
+        const select = (e) => {
+            if (e?.target?.closest?.('.marker-id-action')) return;
+            this._selectMarker(markerId);
+        };
         el.addEventListener('click', select, true);
         if (this._isTouch) el.addEventListener('touchend', select, true);
 
