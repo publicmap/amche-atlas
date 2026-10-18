@@ -81,9 +81,58 @@ export const dataFunctions = {
         }
 
         return { type: 'FeatureCollection', features };
+    },
+
+    /**
+     * Geotagged Wikipedia articles
+     * Queries the Wikidata SPARQL endpoint at `url` for items with coordinates
+     * inside the Goa bounding box that have an English Wikipedia article.
+     * One request covers the whole state, unlike the Wikipedia geosearch API
+     * which is limited to a 10km radius.
+     *
+     * Used for: Wikipedia Articles layer (id: "wikipedia")
+     */
+    wikipedia: async ({ url }) => {
+        const query = `SELECT ?item ?title ?coord WHERE {
+            SERVICE wikibase:box {
+                ?item wdt:P625 ?coord .
+                bd:serviceParam wikibase:cornerSouthWest "Point(73.6 14.85)"^^geo:wktLiteral .
+                bd:serviceParam wikibase:cornerNorthEast "Point(74.35 15.85)"^^geo:wktLiteral .
+            }
+            ?article schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> ; schema:name ?title .
+        }`;
+
+        const response = await fetch(`${url}?query=${encodeURIComponent(query)}`, {
+            headers: { Accept: 'application/sparql-results+json' }
+        });
+        if (!response.ok) {
+            throw new Error(`Wikidata query failed with status ${response.status}`);
+        }
+
+        const { results } = await response.json();
+        const features = new Map();
+
+        for (const { item, title, coord } of results.bindings) {
+            const qid = item.value.split('/').pop();
+            const match = coord.value.match(/^Point\(([-\d.eE]+) ([-\d.eE]+)\)$/);
+            if (!match || features.has(qid)) continue;
+
+            features.set(qid, {
+                type: 'Feature',
+                geometry: {
+                    type: 'Point',
+                    coordinates: [Number(match[1]), Number(match[2])]
+                },
+                properties: { qid, title: title.value }
+            });
+        }
+
+        return { type: 'FeatureCollection', features: Array.from(features.values()) };
     }
 
 };
+
+const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export const handlers = {
 
@@ -301,6 +350,35 @@ export const handlers = {
         `;
     },
 
+    /**
+     * Wikipedia article summary
+     * Fetches the lead extract and thumbnail from the Wikipedia REST API.
+     *
+     * Used for: Wikipedia Articles layer (id: "wikipedia")
+     * Properties needed: title
+     */
+    wikipediaSummary: async ({ feature }) => {
+        const title = feature.properties.title;
+        const pageUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+        const link = `<a href="${pageUrl}" target="_blank" rel="noopener" style="color:#60a5fa;">Read on Wikipedia</a>`;
+
+        const response = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+        if (!response.ok) return link;
+
+        const page = await response.json();
+        const thumbnail = page.thumbnail?.source
+            ? `<img src="${escapeHtml(page.thumbnail.source)}" alt="" style="float:right;max-width:80px;margin:0 0 6px 8px;border-radius:4px;">`
+            : '';
+
+        return `
+            <div style="overflow:hidden;">
+                ${thumbnail}
+                <p style="margin:0 0 6px;">${escapeHtml(page.extract || '')}</p>
+                ${link}
+            </div>
+        `;
+    },
+
 };
 
 /**
@@ -326,6 +404,7 @@ export const handlers = {
  * - getBhunakshaInfo: Fetches occupant details for plot layers
  * - waterBodyInfo: Shows water body details
  * - fireTruckStatus: Displays fire truck status with color coding
+ * - wikipediaSummary: Shows the Wikipedia extract, thumbnail and link
  *
  * This file also exports `dataFunctions` for `type: "js"` layers, used to
  * gather/transform a fetched API response into GeoJSON. Add a `type: "js"`
@@ -340,6 +419,7 @@ export const handlers = {
  * Available data functions:
  * - aqi: Paginates the AQI Online devices API and converts device readings
  *        into a GeoJSON FeatureCollection of point features
+ * - wikipedia: Queries Wikidata for geotagged English Wikipedia articles in Goa
  *
  * ============================================================================
  */
