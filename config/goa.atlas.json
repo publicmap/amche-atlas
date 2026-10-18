@@ -272,7 +272,6 @@
         "circle-stroke-color": "#ffffff"
       },
       "inspect": {
-        "id": "pageid",
         "title": "Wikipedia",
         "label": "title",
         "onClick": "wikipediaSummary"

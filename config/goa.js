@@ -122,8 +122,9 @@ export const dataFunctions = {
             for (const { pageid, title, lat, lon } of results.flat()) {
                 features.set(pageid, {
                     type: 'Feature',
+                    id: pageid,
                     geometry: { type: 'Point', coordinates: [lon, lat] },
-                    properties: { pageid, title }
+                    properties: { title }
                 });
             }
         }
