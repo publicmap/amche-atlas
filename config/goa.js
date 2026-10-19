@@ -81,9 +81,60 @@ export const dataFunctions = {
         }
 
         return { type: 'FeatureCollection', features };
+    },
+
+    /**
+     * Geotagged Wikipedia articles
+     * Uses the Wikipedia geosearch API at `url`, which returns each article's
+     * own primary coordinates. The API rejects boxes larger than ~0.15°, so
+     * the Goa bounding box is split into tiles fetched a few at a time.
+     *
+     * Used for: Wikipedia Articles layer (id: "wikipedia")
+     */
+    wikipedia: async ({ url }) => {
+        const [WEST, SOUTH, EAST, NORTH] = [73.6, 14.85, 74.35, 15.85];
+        const TILE = 0.15;
+        const CONCURRENCY = 5;
+
+        const tiles = [];
+        for (let s = SOUTH; s < NORTH; s += TILE) {
+            for (let w = WEST; w < EAST; w += TILE) {
+                tiles.push(`${Math.min(s + TILE, NORTH)}|${w}|${s}|${Math.min(w + TILE, EAST)}`);
+            }
+        }
+
+        const fetchTile = async (bbox) => {
+            const params = new URLSearchParams({
+                action: 'query', list: 'geosearch', gsbbox: bbox, gslimit: 500, format: 'json', origin: '*'
+            });
+            const response = await fetch(`${url}?${params}`);
+            const data = response.ok ? await response.json() : null;
+            if (!data?.query) {
+                console.warn(`[Wikipedia] Tile ${bbox} failed: ${data?.error?.info || response.status}`);
+                return [];
+            }
+            return data.query.geosearch;
+        };
+
+        const features = new Map();
+        for (let i = 0; i < tiles.length; i += CONCURRENCY) {
+            const results = await Promise.all(tiles.slice(i, i + CONCURRENCY).map(fetchTile));
+            for (const { pageid, title, lat, lon } of results.flat()) {
+                features.set(pageid, {
+                    type: 'Feature',
+                    id: pageid,
+                    geometry: { type: 'Point', coordinates: [lon, lat] },
+                    properties: { title }
+                });
+            }
+        }
+
+        return { type: 'FeatureCollection', features: Array.from(features.values()) };
     }
 
 };
+
+const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export const handlers = {
 
@@ -301,6 +352,35 @@ export const handlers = {
         `;
     },
 
+    /**
+     * Wikipedia article summary
+     * Fetches the lead extract and thumbnail from the Wikipedia REST API.
+     *
+     * Used for: Wikipedia Articles layer (id: "wikipedia")
+     * Properties needed: title
+     */
+    wikipediaSummary: async ({ feature }) => {
+        const title = feature.properties.title;
+        const pageUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+        const link = `<a href="${pageUrl}" target="_blank" rel="noopener" style="color:#60a5fa;">Read on Wikipedia</a>`;
+
+        const response = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+        if (!response.ok) return link;
+
+        const page = await response.json();
+        const thumbnail = page.thumbnail?.source
+            ? `<img src="${escapeHtml(page.thumbnail.source)}" alt="" style="float:right;max-width:80px;margin:0 0 6px 8px;border-radius:4px;">`
+            : '';
+
+        return `
+            <div style="overflow:hidden;">
+                ${thumbnail}
+                <p style="margin:0 0 6px;">${escapeHtml(page.extract || '')}</p>
+                ${link}
+            </div>
+        `;
+    },
+
 };
 
 /**
@@ -326,6 +406,7 @@ export const handlers = {
  * - getBhunakshaInfo: Fetches occupant details for plot layers
  * - waterBodyInfo: Shows water body details
  * - fireTruckStatus: Displays fire truck status with color coding
+ * - wikipediaSummary: Shows the Wikipedia extract, thumbnail and link
  *
  * This file also exports `dataFunctions` for `type: "js"` layers, used to
  * gather/transform a fetched API response into GeoJSON. Add a `type: "js"`
@@ -340,6 +421,7 @@ export const handlers = {
  * Available data functions:
  * - aqi: Paginates the AQI Online devices API and converts device readings
  *        into a GeoJSON FeatureCollection of point features
+ * - wikipedia: Tiles the Wikipedia geosearch API over Goa for geotagged articles
  *
  * ============================================================================
  */

@@ -249,6 +249,35 @@
       }
     },
     {
+      "tags": [
+        "wikipedia"
+      ],
+      "title": "Wikipedia Articles",
+      "description": "Geotagged English <a href='https://en.wikipedia.org'>Wikipedia</a> articles about places in and around Goa.",
+      "type": "js",
+      "id": "wikipedia",
+      "url": "https://en.wikipedia.org/w/api.php",
+      "attribution": "<a href='https://www.wikipedia.org'>Wikipedia</a>",
+      "style": {
+        "circle-radius": [
+          "case",
+          ["boolean", ["feature-state", "selected"], false],
+          8,
+          ["boolean", ["feature-state", "hover"], false],
+          7,
+          5
+        ],
+        "circle-color": "#3366cc",
+        "circle-stroke-width": 1,
+        "circle-stroke-color": "#ffffff"
+      },
+      "inspect": {
+        "title": "Wikipedia",
+        "label": "title",
+        "onClick": "wikipediaSummary"
+      }
+    },
+    {
       "id": "agricultural-landuse",
       "title": "Suggested Agricultural Landuse",
       "description": "Suggested agricultural crops and land-use practices for different areas of Goa based on soil characteristics, climate, and terrain analysis from <a href='http://gis.nbsslup.in/'>ICAR-NBSS&LUP Bhoomi Geoportal</a>.",
