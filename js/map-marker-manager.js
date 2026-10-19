@@ -2273,8 +2273,9 @@ export class MapMarkerManager {
             container.insertBefore(layer, first || null);
         }
         const box = container.getBoundingClientRect();
-        layer.setAttribute('width', Math.round(box.width));
-        layer.setAttribute('height', Math.round(box.height));
+        const canvas = this._map.getCanvas?.().getBoundingClientRect() || box;
+        layer.setAttribute('width', Math.round(Math.max(box.width, canvas.width)));
+        layer.setAttribute('height', Math.round(Math.max(box.height, canvas.height)));
 
         const NS = 'http://www.w3.org/2000/svg';
         const pt = (x, y) => `${Math.round(x * 100) / 100},${Math.round(y * 100) / 100}`;
@@ -2293,23 +2294,29 @@ export class MapMarkerManager {
             const corners = [{ x: left, y: top }, { x: left + panel.width - inset * 2, y: top }];
             const nearest = corners.reduce((a, b) =>
                 (Math.hypot(a.x - point.x, a.y - point.y) <= Math.hypot(b.x - point.x, b.y - point.y) ? a : b));
-            const dx = nearest.x - point.x;
-            const dy = nearest.y - point.y;
-            const len = Math.hypot(dx, dy);
-            const half = len ? MARKER_LEADER_WIDTH / 2 : 0;
-            const nx = len ? (-dy / len) * half : 0;
-            const ny = len ? (dx / len) * half : 0;
-
+            // A plain line with a dark casing, not the old tapering sliver: a
+            // panel docked far from its point makes a taper far too faint to see.
             const selected = el.classList.contains('marker-selected');
-            const tail = document.createElementNS(NS, 'polygon');
-            tail.setAttribute('points', `${pt(point.x, point.y)} ${pt(nearest.x + nx, nearest.y + ny)} ${pt(nearest.x - nx, nearest.y - ny)}`);
-            tail.setAttribute('fill', MARKER_PANEL_BG_ACTIVE);
-            const edge = document.createElementNS(NS, 'polyline');
-            edge.setAttribute('points', `${pt(nearest.x + nx, nearest.y + ny)} ${pt(point.x, point.y)} ${pt(nearest.x - nx, nearest.y - ny)}`);
-            edge.setAttribute('fill', 'none');
-            edge.setAttribute('stroke', selected ? MARKER_SELECTED_BORDER : MARKER_PANEL_BORDER);
-            edge.setAttribute('stroke-width', '1');
-            nodes.push(tail, edge);
+            const line = (stroke, width) => {
+                const node = document.createElementNS(NS, 'line');
+                node.setAttribute('x1', nearest.x);
+                node.setAttribute('y1', nearest.y);
+                node.setAttribute('x2', point.x);
+                node.setAttribute('y2', point.y);
+                node.setAttribute('stroke', stroke);
+                node.setAttribute('stroke-width', width);
+                node.setAttribute('stroke-linecap', 'round');
+                return node;
+            };
+            const colour = selected ? MARKER_SELECTED_BORDER : 'rgba(255, 255, 255, 0.92)';
+            const dot = document.createElementNS(NS, 'circle');
+            dot.setAttribute('cx', point.x);
+            dot.setAttribute('cy', point.y);
+            dot.setAttribute('r', 4.5);
+            dot.setAttribute('fill', colour);
+            dot.setAttribute('stroke', 'rgba(17, 24, 39, 0.8)');
+            dot.setAttribute('stroke-width', 1.5);
+            nodes.push(line('rgba(17, 24, 39, 0.7)', 4.5), line(colour, 2), dot);
         });
         layer.replaceChildren(...nodes);
     }
