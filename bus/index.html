@@ -4,7 +4,11 @@
 <head>
     <title>Bus Route Explorer - Real-time Bus Routes & Stops</title>
     <link rel="canonical" href="https://amche.in/bus" />
-    <link rel="manifest" href="/manifest.json">
+    <script>
+        // Injected at runtime so Vite's build doesn't hash/relocate manifest.json,
+        // which would break the relative icon paths inside it.
+        document.head.insertAdjacentHTML('beforeend', '<link rel="manifest" href="../manifest.json">');
+    </script>
 
     <!-- Favicon -->
     <link rel="icon" href="/assets/img/favicon.ico" type="image/x-icon">
