@@ -2983,7 +2983,7 @@
       "title": "Tillari Command Area Development Scheme",
       "description": "Notified Command Area Development Scheme for the Tillari Irrigation Project covering talukas of Bicholim, Pernem and Bardez in North Goa.",
       "headerImage": "https://mapwarper.net/uploads/96235/thumb/verla_yip.png",
-      "legendImage": "assets/map-layers/goa/legend-tillari.jpg",
+      "legendImage": "assets/map-layers/goa/legend-tillari.png",
       "type": "tms",
       "id": "tillari-cads",
       "url": "https://mapwarper.net/mosaics/tile/2267/{z}/{x}/{y}.png",

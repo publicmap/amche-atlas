@@ -1,6 +1,6 @@
 /**
- * MapLocationMenuControl - header-nav button (top-left, next to the shortcuts
- * menu) showing live context about the current map center: coordinates, map
+ * MapLocationMenuControl - a menu, opened from the map console's place line,
+ * showing live context about the current map center: coordinates, map
  * bearing, device bearing, map pitch, the reverse-geocoded address, and a
  * share section (QR thumbnail + link with a copy button) for the current view.
  *
@@ -22,7 +22,7 @@
  * fullscreen QR modal opened by clicking the thumbnail - the same UI that used
  * to be the "Link" export type in map-export.html.
  *
- * Not a mapboxgl control - this lives in the header-nav DOM, not on the map.
+ * Not a mapboxgl control of its own - it lives in the map console's bar.
  */
 import { queryNominatim } from './nominatim-search.js';
 import { ShareUrlPanel } from './share-url-panel.js';
@@ -72,22 +72,32 @@ export class MapLocationMenuControl {
         this._hide = this._hide.bind(this);
     }
 
-    mount(hostEl, map) {
-        if (!hostEl || !map) return;
+    /**
+     * @param {HTMLElement|null} hostEl - where to put this control's own button
+     * @param {Object} map
+     * @param {{button?: HTMLElement}} [options] - an existing trigger to use
+     *   instead (the map console's place line), in which case hostEl is unused
+     */
+    mount(hostEl, map, { button = null } = {}) {
+        if ((!hostEl && !button) || !map) return;
         this._map = map;
 
-        this._container = document.createElement('div');
-        this._container.className = 'header-shortcut-menu';
-
-        this._button = document.createElement('button');
-        this._button.type = 'button';
-        this._button.className = 'header-shortcut-menu-btn';
-        this._button.setAttribute('aria-label', 'Map location and share');
-        this._button.innerHTML = '<sl-icon name="qr-code"></sl-icon>';
+        if (button) {
+            this._button = button;
+            this._ownButton = false;
+        } else {
+            this._container = document.createElement('div');
+            this._container.className = 'header-shortcut-menu';
+            this._button = document.createElement('button');
+            this._button.type = 'button';
+            this._button.className = 'header-shortcut-menu-btn';
+            this._button.setAttribute('aria-label', 'Map location and share');
+            this._button.innerHTML = '<sl-icon name="qr-code"></sl-icon>';
+            this._ownButton = true;
+            this._container.appendChild(this._button);
+            hostEl.appendChild(this._container);
+        }
         this._button.addEventListener('click', () => this.toggle());
-
-        this._container.appendChild(this._button);
-        hostEl.appendChild(this._container);
 
         this._menu = document.createElement('div');
         this._menu.className = 'shortcut-menu map-location-menu';
@@ -137,7 +147,7 @@ export class MapLocationMenuControl {
         if (!this._map || !this._button || !this._menu) return;
         this._isOpenState = true;
         this._button.classList.add('active');
-        this._button.querySelector('sl-icon')?.setAttribute('name', 'qr-code-scan');
+        if (this._ownButton) this._button.querySelector('sl-icon')?.setAttribute('name', 'qr-code-scan');
 
         this._render();
 
@@ -160,7 +170,7 @@ export class MapLocationMenuControl {
             this._submenu.innerHTML = '';
         }
         this._button?.classList.remove('active');
-        this._button?.querySelector('sl-icon')?.setAttribute('name', 'qr-code');
+        if (this._ownButton) this._button?.querySelector('sl-icon')?.setAttribute('name', 'qr-code');
         this._clearRefreshTimer();
         this._clearHoverPreview();
     }
@@ -175,6 +185,7 @@ export class MapLocationMenuControl {
     _handleOutsideEvent(e) {
         if (!this._isOpenState) return;
         if (this._container?.contains(e.target)) return;
+        if (this._button?.contains(e.target)) return;
         if (this._menu?.contains(e.target)) return;
         if (this._submenu?.contains(e.target)) return;
         this._hide();

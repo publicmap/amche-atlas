@@ -80,7 +80,8 @@ Available API options and examples are maintained in `/docs/API.md`
 - `url-manager.js` - URL parameter handling and permalink management
 - `mapbox-api.js` - Mapbox GL JS abstraction layer
 - `layer-creator-ui.js` - UI for creating custom layers dynamically
-- `map-search-control.js` - Location search functionality
+- `map-control-bar.js` - The map console at the top-left: a bar (home, atlas, Find, On map, locale) over a place line in Explore mode, growing into Find (`js/console/find-panel.js`) - one list of atlases, maps, features and places with type filters. Replaces the old header strip, search dropdown, hover layer strip and map browser panel
+- `map-search-control.js` - Search providers; results render into Find via `js/search/search-suggestions-panel.js`
 - `map-export-control.js` - Export map to PDF/image
 - `terrain-3d-control.js` - 3D terrain visualization toggle
 
@@ -101,7 +102,7 @@ The application supports multiple data layer types:
 `docs/API.md` → **Layer Source Formats** is the canonical reference for every type's fields and examples. **When adding a new layer type, you MUST update `docs/API.md` in the same change** — the doc has an "Adding a New Layer Type" checklist that enumerates every file to touch (dispatch switches in `js/mapbox-api.js`, `getInsertPosition` in `js/layer-order-manager.js`, the new type's docs section). Treat the doc update as part of the implementation, not a follow-up.
 
 **Layer Ordering Logic**
-The layer ordering system ensures consistent visual stacking between URL parameters, map rendering, and the layer-stack strip / marker badges:
+The layer ordering system ensures consistent visual stacking between URL parameters, map rendering, and the console's On the map list / marker badges:
 
 1. **URL Convention**: `?layers=layer1,layer2,layer3`
    - First layer in URL (`layer1`) appears **on top** visually
@@ -136,7 +137,7 @@ The layer ordering system ensures consistent visual stacking between URL paramet
 6. **Centralized Logic** (js/layer-order-manager.js):
    - `urlOrderToMapOrder()`: Converts URL order to map rendering order (reverses both groups)
    - `mapOrderToUrlOrder()`: Returns layers as-is (no reversal - already in URL order)
-   - `getInspectorDisplayOrder()`: Returns layers in URL/visual order, split into overlays/basemaps sections with active/selected layers sorted to top within each - used by the layer-stack strip (js/layer-stack-strip.js) and the marker badges (js/map-marker-manager.js)
+   - `getInspectorDisplayOrder()`: Returns layers in URL/visual order, split into overlays/basemaps sections with active/selected layers sorted to top within each - used by the console's On the map list (js/layer-stack-strip.js) and the marker badges (js/map-marker-manager.js)
    - All layer ordering must use these methods for consistency
 
 ### Key Files

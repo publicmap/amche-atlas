@@ -825,10 +825,9 @@ export class MapInitializer {
 
     // Initialize the map with the configuration
     static async initializeMap() {
-        // Doesn't depend on the map or atlas config - mount immediately so
-        // the gear icon is available right away.
+        // Doesn't depend on the map or atlas config; mounted into the map
+        // console's bar once that exists (see below).
         window.settingsMenuControl = new SettingsMenuControl();
-        window.settingsMenuControl.mount(document.getElementById('settings-menu-container'));
 
         // Kick off the full atlas registry in parallel. We do NOT await it
         // here — loadConfiguration() awaits it inside map.on('load') once the
@@ -915,6 +914,7 @@ export class MapInitializer {
         // need the map to have fully loaded.
         window.browserControl = new MapBrowserControl();
         window.searchBoxControl.mountBrowserControl(window.browserControl.onAdd(map));
+        window.settingsMenuControl.mount(window.mapConsole?.menuSlot);
 
         // Setup proper cursor handling for map dragging
         map.on('load', async () => {
@@ -996,11 +996,12 @@ export class MapInitializer {
             window.featureControl = new MapFeatureControl();
             window.featureControl.onAdd(map);
 
-            // Header-nav map location menu: coordinates, bearing, pitch, and
-            // the reverse-geocoded address for the current map center (see
-            // map-location-menu-control.js).
+            // Map location menu: coordinates, bearing, pitch, the reverse-
+            // geocoded address and a share link for the current map center
+            // (see map-location-menu-control.js), opened from the place line
+            // under the console bar.
             window.mapLocationMenuControl = new MapLocationMenuControl();
-            window.mapLocationMenuControl.mount(document.getElementById('map-location-menu-container'), map);
+            window.mapLocationMenuControl.mount(null, map, { button: window.mapConsole?.placeButton });
 
             // Bottom-right, in stacking order from the corner up: attribution
             // sits lowest. Bottom corners insert each new control above the
@@ -1103,12 +1104,11 @@ export class MapInitializer {
             // read the current mask state without having to trigger one first.
             window.maskManager = new MapMaskManager(map);
 
-            // Preload iframe-backed controls once the map is idle, so their
-            // bundles (map-export.html, map-browser.html) load off the
-            // critical path but are ready before the user clicks.
+            // Preload the export iframe once the map is idle, so its bundle
+            // (map-export.html) loads off the critical path but is ready
+            // before the user clicks.
             map.once('idle', () => {
                 window.exportControl?.preload?.();
-                window.browserControl?.preload?.();
             });
 
             // `?edit=<layer-id>`: reopen that layer in the editor (links copied from the editor).
@@ -1273,8 +1273,8 @@ export class MapInitializer {
             let atlasBoundsCheckTimeout = null;
 
             // Switches the active atlas live (layer visibility only, no reload) -
-            // the same mechanism map-browser.html's atlas dropdown/[Select]
-            // buttons use (MapBrowserControl.switchAtlasLive), so the map stays
+            // the same mechanism picking an atlas in the console's Find uses
+            // (MapBrowserControl.switchAtlasLive), so the map stays
             // exactly where the user already was.
             window.__amcheSwitchAtlas = (targetAtlasId) => {
                 window.browserControl?.switchAtlasLive(targetAtlasId);

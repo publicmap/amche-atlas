@@ -110,7 +110,7 @@ export class MapExportControl {
         this._iframe.className = 'map-export-iframe';
         this._iframeSrcLoaded = false;
 
-        // Left-side panel matching map-browser.html's layer explorer: flush
+        // Left-side panel matching the layer editor's side panel: flush
         // under the header, full height, same width breakpoints and dark
         // chrome (#1f2937 + #374151 borders) rather than a floating card.
         this._iframe.style.cssText = `

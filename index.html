@@ -174,6 +174,7 @@
         href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.min.css">
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" href="css/styles.css">
     <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" href="css/layer-interactions.css">
+    <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" href="css/map-console.css">
 
     <!-- Critical CSS - Loaded inline to prevent FOUC -->
     <style>
@@ -237,12 +238,6 @@
             height: 100%;
         }
 
-        /* Header navigation */
-        .header-nav {
-            padding: 0 8px;
-            height: 20px;
-        }
-
         .bg-gray-900 {
             background-color: #111827;
         }
@@ -257,28 +252,6 @@
 
         .border-gray-800 {
             border-color: #1f2937;
-        }
-
-        /* Navigation brand */
-        .nav-brand {
-            height: 16px;
-        }
-
-        .nav-logo {
-            width: 16px;
-            height: 16px;
-            max-width: 16px;
-            max-height: 16px;
-            flex-shrink: 0;
-            object-fit: contain;
-        }
-
-        .nav-title {
-            font-size: 0.625rem;
-            line-height: 1;
-            white-space: nowrap;
-            font-weight: 600;
-            letter-spacing: -0.025em;
         }
 
         .rounded {
@@ -1289,38 +1262,6 @@
         </div>
     </div>
 
-    <!-- Header -->
-    <header class="header-nav bg-gray-900 text-white flex items-center justify-between border-b border-gray-800">
-        <!-- Left: Atlas + Layers nested menu -->
-        <div class="flex items-center min-w-0 gap-1">
-            <div id="settings-menu-container" class="flex items-center flex-shrink-0"></div>
-            <div id="map-location-menu-container" class="flex items-center flex-shrink-0"></div>
-        </div>
-
-        <!-- Right: Logo + Hamburger. Map browser, search, and geolocation controls
-             live on the map itself (top-left mapboxgl controls, see map-init.js) -->
-        <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-            <a href="#" id="nav-brand-link" class="nav-brand flex items-center gap-1 flex-shrink-0"
-                style="text-decoration: none; color: inherit; transition: opacity 0.2s;"
-                onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-                <span class="nav-title font-semibold tracking-tight hidden sm:inline">amche.in</span>
-                <img src="assets/img/icon-192x192.png" alt="amche.in" class="nav-logo rounded">
-            </a>
-            <a href="https://github.com/publicmap/amche-atlas/commits/dev" target="_blank" id="dev-badge"
-                style="display: none; padding: 1px 5px; background-color: #d97706; font-size: 0.5625rem; line-height: 1.3; font-weight: 600; border-radius: 3px; text-decoration: none; color: inherit; transition: opacity 0.2s;"
-                onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">DEV</a>
-            <button id="nav-menu-trigger"
-                class="flex items-center justify-center bg-transparent border-0 text-white transition-opacity hover:opacity-80"
-                aria-label="Open navigation menu">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="3" y1="12" x2="21" y2="12"></line>
-                    <line x1="3" y1="6" x2="21" y2="6"></line>
-                    <line x1="3" y1="18" x2="21" y2="18"></line>
-                </svg>
-            </button>
-        </div>
-    </header>
 
     <style>
         :root {
@@ -1397,7 +1338,6 @@
         // Navigation menu functionality
         (function () {
             const overlay = document.getElementById('nav-menu-overlay');
-            const trigger = document.getElementById('nav-menu-trigger');
             const closeBtn = document.getElementById('nav-menu-close');
             const latestUpdatesItem = document.getElementById('latest-updates-menu-item');
             const updatesModalOverlay = document.getElementById('updates-modal-overlay');
@@ -1431,21 +1371,20 @@
                 updatesIframe.src = 'about:blank';
             }
 
-            // Show dev badge if on localhost or /dev/
+            // Mark dev builds (localhost or /dev/): the splash shows a badge and
+            // the map console's home button a dot (js/map-control-bar.js)
             const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             const isDevPath = window.location.pathname.startsWith('/dev/');
-            if (isLocalhost || isDevPath) {
-                const devBadge = document.getElementById('dev-badge');
-                if (devBadge) {
-                    devBadge.style.display = 'inline-block';
-                }
+            window.amche.isDevBuild = isLocalhost || isDevPath;
+            if (window.amche.isDevBuild) {
                 const splashDevBadge = document.getElementById('splash-dev-badge');
                 if (splashDevBadge) {
                     splashDevBadge.style.display = 'inline-block';
                 }
             }
 
-            trigger.addEventListener('click', openMenu);
+            // Opened from the map console's home button
+            window.amche.openNavMenu = openMenu;
             closeBtn.addEventListener('click', closeMenu);
 
             // Handle nav menu brand click to navigate home
@@ -1480,16 +1419,6 @@
                     closeUpdatesModal();
                 }
             });
-
-            // Handle nav brand click to navigate home
-            const navBrandLink = document.getElementById('nav-brand-link');
-            if (navBrandLink) {
-                navBrandLink.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    // Navigate to home page (triggers full page reload with clean state)
-                    window.location.href = '/';
-                });
-            }
 
             const splashBrandLink = document.getElementById('splash-brand-link');
             if (splashBrandLink) {

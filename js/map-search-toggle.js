@@ -11,56 +11,46 @@ export function finestAdminUnit(address) {
     return key ? String(address[key]) : '';
 }
 
+/** The three finest distinct place names in a Nominatim address, finest first. */
+export function placeLine(address, count = 3) {
+    if (!address) return '';
+    const names = [];
+    ADMIN_UNITS_FINE_TO_COARSE.forEach(key => {
+        const value = address[key] && String(address[key]);
+        if (value && !names.includes(value)) names.push(value);
+    });
+    return names.slice(0, count).join(', ');
+}
+
+/**
+ * The search field of the map console's Find mode (js/map-control-bar.js):
+ * the <mapbox-search-box> host plus the "Search in" sources menu. The console
+ * decides when Find is open; this only reflects it (the `searching` class
+ * that shows the field) and offers focus/clear helpers.
+ */
 export class MapSearchToggle {
     constructor() {
         this._el = null;
-        this._btn = null;
     }
 
     build() {
         this._el = document.createElement('div');
         this._el.className = 'map-search-control';
 
-        this._btn = document.createElement('button');
-        this._btn.type = 'button';
-        this._btn.className = 'map-search-btn';
-        this._btn.setAttribute('aria-pressed', 'false');
-        this._btn.title = 'Search places';
-        this._btn.setAttribute('aria-label', 'Search places');
-        this._btn.innerHTML = '<sl-icon name="search"></sl-icon>';
-        this._btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (this._el.classList.contains('searching')) {
-                this._searchInput()?.blur();
-                this._collapse(true);
-            } else {
-                this._expand();
-            }
-        });
+        const glyph = document.createElement('sl-icon');
+        glyph.name = 'search';
+        glyph.className = 'map-search-glyph';
 
-        this._hint = document.createElement('span');
-        this._hint.className = 'map-search-hint';
-        this._hint.textContent = 'Search places';
-        this._hint.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._expand();
-        });
-        window.addEventListener('mapLocationChanged', (e) => {
-            this._hint.textContent = finestAdminUnit(e.detail?.address) || 'Search places';
-        });
-
-        this._el.append(this._btn, this._hint, this._buildSourcesMenu());
+        this._el.append(glyph, this._buildSourcesMenu());
         this._el.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                this._searchInput()?.blur();
-                this._collapse(true);
+                e.stopPropagation();
+                window.mapConsole?.escape();
             }
         });
+        // Tabbing into the field opens Find the same as the search button does
         this._el.addEventListener('focusin', (e) => {
-            if (e.target.closest?.('mapbox-search-box')) this._setSearching(true);
-        });
-        document.addEventListener('focusout', () => {
-            if (this._el.classList.contains('searching')) setTimeout(() => this._collapse(), 250);
+            if (e.target.closest?.('mapbox-search-box')) window.mapConsole?.setMode('find', { focus: false });
         });
         return this._el;
     }
@@ -74,10 +64,10 @@ export class MapSearchToggle {
         const more = document.createElement('button');
         more.type = 'button';
         more.slot = 'trigger';
-        more.className = 'map-search-btn';
-        more.title = 'Search sources';
-        more.setAttribute('aria-label', 'Search sources');
-        more.innerHTML = '<sl-icon name="three-dots"></sl-icon>';
+        more.className = 'console-btn map-search-sources-btn';
+        more.title = 'Choose what to search';
+        more.setAttribute('aria-label', 'Choose what to search');
+        more.innerHTML = '<sl-icon name="sliders"></sl-icon>';
         const menu = document.createElement('sl-menu');
         const label = document.createElement('sl-menu-label');
         label.textContent = 'Search in';
@@ -100,30 +90,38 @@ export class MapSearchToggle {
         return box?.shadowRoot?.querySelector('input') || box?.querySelector('input') || null;
     }
 
-    _setSearching(on) {
+    get value() {
+        return this._searchInput()?.value || '';
+    }
+
+    setSearching(on) {
+        if (!this._el) return;
         if (on && !this._el.classList.contains('searching')) {
             window.dispatchEvent(new CustomEvent('mapSearchStart'));
         }
         this._el.classList.toggle('searching', on);
         document.body.classList.toggle('map-search-active', on);
-        this._btn.setAttribute('aria-pressed', String(on));
     }
 
-    _expand() {
-        this._setSearching(true);
+    focus() {
         requestAnimationFrame(() => {
             const input = this._searchInput();
-            if (input) input.focus();
-            else document.querySelector('mapbox-search-box')?.focus?.();
+            if (input) {
+                input.focus();
+                input.select();
+            } else document.querySelector('mapbox-search-box')?.focus?.();
         });
     }
 
-    _collapse(force = false) {
-        if (!this._el) return;
-        const box = document.querySelector('mapbox-search-box');
-        if (!force && (this._el.matches(':focus-within') || box?.matches(':focus-within'))) return;
-        if (!force && this._searchInput()?.value) return;
-        if (!force && window.cadastralSearchUI?.isActive()) return;
-        this._setSearching(false);
+    /** Empties the field and drops its results and preview pins, keeping any selection. */
+    clear() {
+        const control = window.searchControl;
+        if (!control || !this.value) return;
+        // Emptied first: resetSearchState() redraws Find from the field's value
+        control.updateSearchBoxInput('', { silent: true });
+        control.resetSearchState();
+        control.removeSearchMarker();
+        control.directionsProvider?.cancel();
+        window.urlManager?.updateSearchParam('');
     }
 }

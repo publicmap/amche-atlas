@@ -1,42 +1,77 @@
+/**
+ * MapControlBar - the map console at the top-left of the map: one card for
+ * everything that used to be the header strip, the atlas button, the search
+ * box, the layer stack and the map browser panel.
+ *
+ * It has two modes:
+ * - explore: one bar row (home, atlas, Find, On map with its count, locale
+ *   settings) over a line naming the place at the map center.
+ * - find: the bar row becomes the search field and the console grows into
+ *   Find (js/console/find-panel.js) - one list of atlases, maps, features and
+ *   places, with a filter for what is on the map.
+ *
+ * Esc, the close button, a map click or picking a place/feature result return
+ * to explore. `window.mapConsole` is this instance.
+ *
+ * The bar row keeps the `.map-control-bar-head` / `.map-control-bar-main`
+ * classes: map-marker-manager.js docks marker panels beneath that row.
+ */
+import { FindPanel } from './console/find-panel.js';
+import { placeLine } from './map-search-toggle.js';
+
+const LOGO_SRC = 'assets/img/icon-192x192.png';
+
+function button(className, iconName, title) {
+    const node = document.createElement('button');
+    node.type = 'button';
+    node.className = className;
+    node.title = title;
+    node.setAttribute('aria-label', title);
+    if (iconName) {
+        const glyph = document.createElement('sl-icon');
+        glyph.name = iconName;
+        node.appendChild(glyph);
+    }
+    return node;
+}
+
 export class MapControlBar {
     constructor() {
         this._el = null;
-        this._iconEl = null;
-        this._nameEl = null;
-        this._countEl = null;
+        this._mode = 'explore';
         this._iconKey = null;
-        this._imageKey = null;
-        this._main = null;
-        this._trigger = null;
-        this._observer = null;
         this._layers = null;
         this._onAtlasChanged = () => this.update(this._layers);
+        this._onLocation = (e) => this._setPlace(placeLine(e.detail?.address));
+        this._onMapClick = () => { if (this._mode === 'find') this.setMode('explore'); };
+        this._onKeydown = (e) => {
+            if (e.key !== 'Escape' || this._mode !== 'find' || e.defaultPrevented) return;
+            if (document.querySelector('sl-dropdown[open]')) return;
+            this.escape();
+        };
     }
 
-    mount(hostEl, { triggerButton = null, onSummaryClick = null, onSummaryEnter = null, onSummaryLeave = null, onToggleHidden = null, searchEl = null } = {}) {
-        this._trigger = triggerButton;
+    mount(hostEl, { map = null, searchToggle = null, stripEl = null, getOnMapLayers = null, onModeChange = null, onToggleHidden = null } = {}) {
+        this._map = map || window.map;
+        this._searchToggle = searchToggle;
+        this._onModeChange = onModeChange;
+
         this._el = document.createElement('div');
-        this._el.className = 'map-control-bar';
+        this._el.className = 'map-control-bar map-console';
+        this._el.dataset.mode = 'explore';
 
-        this._el.addEventListener('pointerenter', () => onSummaryEnter?.());
-        this._el.addEventListener('pointerleave', () => onSummaryLeave?.());
+        const head = document.createElement('div');
+        head.className = 'map-control-bar-head';
 
-        this._main = document.createElement('button');
-        this._main.type = 'button';
-        this._main.className = 'map-control-bar-main';
-        this._main.title = 'Browse all maps';
-        this._main.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (searchEl?.classList.contains('searching')) {
-                searchEl.querySelector('.map-search-btn')?.click();
-                return;
-            }
-            this._trigger?.click();
-        });
-        this._main.addEventListener('pointerenter', () => {
-            this._trigger?.dispatchEvent(new Event('pointerenter'));
-        }, { once: true });
+        const home = button('console-home', null, 'amche.in menu');
+        const logo = document.createElement('img');
+        logo.src = LOGO_SRC;
+        logo.alt = '';
+        home.appendChild(logo);
+        if (window.amche?.isDevBuild) home.appendChild(Object.assign(document.createElement('span'), { className: 'console-home-dev', title: 'Development build' }));
+        home.addEventListener('click', () => window.amche?.openNavMenu?.());
 
+        this._main = button('map-control-bar-main when-explore', null, 'Switch atlas or browse maps');
         this._iconEl = document.createElement('span');
         this._iconEl.className = 'map-control-bar-icon';
         const iconWrap = document.createElement('span');
@@ -44,36 +79,125 @@ export class MapControlBar {
         const spinner = document.createElement('sl-spinner');
         spinner.className = 'map-control-bar-spinner';
         iconWrap.append(this._iconEl, spinner);
-
-        const text = document.createElement('span');
-        text.className = 'map-control-bar-text';
         this._nameEl = document.createElement('span');
         this._nameEl.className = 'map-control-bar-name';
-        this._countEl = document.createElement('span');
-        this._countEl.className = 'map-control-bar-count';
-        this._mountSummary({ onSummaryClick, onSummaryEnter, onSummaryLeave, onToggleHidden });
-        text.append(this._nameEl);
         const chevron = document.createElement('sl-icon');
-        chevron.className = 'map-control-bar-chevron';
         chevron.name = 'chevron-down';
-        this._main.append(iconWrap, text, chevron);
+        chevron.className = 'map-control-bar-chevron';
+        this._main.append(iconWrap, this._nameEl, chevron);
+        this._main.addEventListener('click', () => this.setMode('find', { filter: 'all' }));
 
-        const head = document.createElement('div');
-        head.className = 'map-control-bar-head';
-        head.append(this._main);
-        if (searchEl) head.append(searchEl);
-        this._el.append(head, this._countEl);
+        const searchEl = searchToggle?._el || null;
+        if (searchEl) searchEl.classList.add('when-find');
+
+        const findBtn = button('console-btn when-explore', 'search', 'Find atlases, maps and places ( / )');
+        findBtn.addEventListener('click', () => this.setMode('find', { filter: 'all' }));
+
+        this._layersBtn = button('console-btn console-layers-btn when-explore', 'layers', 'Maps on the map');
+        this._badge = document.createElement('span');
+        this._badge.className = 'console-badge';
+        this._badge.hidden = true;
+        this._layersBtn.appendChild(this._badge);
+        this._layersBtn.addEventListener('click', () => this.setMode('find', { filter: 'onmap' }));
+
+        this.menuSlot = document.createElement('span');
+        this.menuSlot.className = 'console-menu-slot when-explore';
+
+        const closeBtn = button('console-btn when-find', 'x-lg', 'Back to the map ( Esc )');
+        closeBtn.addEventListener('click', () => this.setMode('explore'));
+
+        head.append(home, this._main);
+        if (searchEl) head.appendChild(searchEl);
+        head.append(findBtn, this._layersBtn, this.menuSlot, closeBtn);
+
+        this.placeButton = button('map-console-place when-explore', 'geo-alt', 'Coordinates, address and share link for this view');
+        this._placeText = document.createElement('span');
+        this._placeText.textContent = 'Locating…';
+        this.placeButton.appendChild(this._placeText);
+
+        const body = document.createElement('div');
+        body.className = 'map-console-body when-find';
+        this.find = new FindPanel({
+            onSelect: (item) => {
+                window.searchControl?._selectSuggestion(item);
+                this.setMode('explore', { keepQuery: true });
+            },
+            onHover: (item, hovering) => window.searchControl?.handleSuggestionHover(item, hovering),
+            getOnMapLayers,
+            clearQuery: () => this._searchToggle?.clear(),
+            onDone: () => this.setMode('explore', { keepQuery: true })
+        });
+        this.find.mount(body, { stripEl, onToggleHidden, map: this._map });
+
+        this._el.append(head, this.placeButton, body);
         hostEl.appendChild(this._el);
         hostEl.classList.add('has-map-control-bar');
 
         window.addEventListener('atlasChanged', this._onAtlasChanged);
+        window.addEventListener('mapLocationChanged', this._onLocation);
+        document.addEventListener('keydown', this._onKeydown);
+        this._map?.on?.('click', this._onMapClick);
+        window.mapConsole = this;
+    }
 
-        if (this._trigger) {
-            const sync = () => this._el?.classList.toggle('active', this._trigger.classList.contains('active'));
-            this._observer = new MutationObserver(sync);
-            this._observer.observe(this._trigger, { attributes: true, attributeFilter: ['class'] });
-            sync();
+    get mode() {
+        return this._mode;
+    }
+
+    /**
+     * @param {'explore'|'find'} mode
+     * @param {{filter?: string, focus?: boolean, keepQuery?: boolean}} [options]
+     *   filter - Find's type filter to open on; focus - move focus to the field;
+     *   keepQuery - leave a picked result's name in the field when closing
+     */
+    setMode(mode, { filter = null, focus = true, keepQuery = false } = {}) {
+        if (!this._el) return;
+        if (mode === 'find') {
+            // Reopening starts from All unless a filter was asked for
+            if (filter || this._mode !== 'find') this.find.setFilter(filter || 'all');
+            if (this._mode !== 'find') {
+                this._mode = 'find';
+                this._apply();
+                this.find.setVisible(true);
+            }
+            if (focus) this._searchToggle?.focus();
+            return;
         }
+        if (this._mode === 'explore') return;
+        this._mode = 'explore';
+        if (!keepQuery) this._searchToggle?.clear();
+        this.find.setQuery('');
+        this.find.setVisible(false);
+        this._apply();
+        if (this._el.contains(document.activeElement)) document.activeElement.blur();
+    }
+
+    /** Esc: from a map's details back to the list, otherwise back to the map. */
+    escape() {
+        if (this._mode !== 'find') return;
+        if (this.find.detailsOpen) this.find.closeDetails();
+        else this.setMode('explore');
+    }
+
+    /** Open a map's details page in Find. */
+    showLayer(layer) {
+        if (!layer) return;
+        this.setMode('find', { focus: false });
+        this.find.showLayer(layer);
+    }
+
+    toggleFind(filter = 'all') {
+        if (this._mode === 'find' && this.find.filter === filter) this.setMode('explore');
+        else this.setMode('find', { filter });
+    }
+
+    _apply() {
+        const find = this._mode === 'find';
+        this._el.dataset.mode = this._mode;
+        document.body.classList.toggle('console-find', find);
+        this._searchToggle?.setSearching(find);
+        this._onModeChange?.(this._mode);
+        window.dispatchEvent(new CustomEvent('mapConsoleModeChanged', { detail: { mode: this._mode } }));
     }
 
     setVisible(visible) {
@@ -83,143 +207,34 @@ export class MapControlBar {
     update(layers) {
         if (!this._el) return;
         this._layers = layers;
-        this._syncClearMode();
         const registry = window.layerRegistry;
-        const resolved = registry?._currentAtlasSet;
-        const atlasId = resolved ? registry.getCurrentAtlas() : null;
+        const atlasId = registry?._currentAtlasSet ? registry.getCurrentAtlas() : null;
         const metadata = atlasId ? registry.getAtlasMetadata(atlasId) : null;
         const name = metadata ? (metadata.name || atlasId) : '';
 
-        this._nameEl.textContent = name || 'Loading Atlas';
+        this._nameEl.textContent = name || 'Loading atlas';
         this._nameEl.classList.toggle('placeholder', !name);
-        this._main.title = name ? `${name} - browse all maps` : 'Browse all maps';
+        this._main.title = name ? `${name}: switch atlas or browse maps` : 'Switch atlas or browse maps';
         this._setIcon(metadata?.icon || null);
-        this._setBackground(metadata?.headerImage || null);
-    }
 
-    _mountSummary({ onToggleHidden }) {
-        this._mountHiddenToggle(onToggleHidden);
-        this._clearBtn = this._createAction('', 'trash', '', () => this._onClearClick());
-        this._clearIcon = this._clearBtn.querySelector('sl-icon');
-        this._undoStack = [];
-        this._undoTimer = null;
-        this._undoActive = false;
-        this._undoExpired = false;
-        this._setClearMode('remove');
-        this._countEl.append(
-            this._hiddenEl,
-            this._clearBtn
-        );
-    }
-
-    _setClearMode(mode) {
-        this._clearMode = mode;
-        const undo = mode === 'undo';
-        this._clearIcon.name = undo ? 'arrow-counterclockwise' : 'trash';
-        const title = undo ? 'Restore removed maps' : 'Remove all maps (basemaps go once nothing else is left)';
-        this._clearBtn.title = title;
-        this._clearBtn.setAttribute('aria-label', title);
-    }
-
-    _armUndoTimer() {
-        this._undoActive = true;
-        clearTimeout(this._undoTimer);
-        this._undoTimer = setTimeout(() => {
-            this._undoStack = [];
-            this._undoActive = false;
-            this._undoExpired = true;
-            this._syncClearMode();
-        }, 5000);
-    }
-
-    _syncClearMode() {
-        const empty = Array.isArray(this._layers) && this._layers.every(l => l.id === 'selection');
-        if (!empty) this._undoExpired = false;
-        this._setClearMode(this._undoActive || (empty && !this._undoExpired) ? 'undo' : 'remove');
-    }
-
-    _onClearClick() {
-        const control = window.browserControl;
-        if (!control) return;
-        if (this._clearMode === 'undo') {
-            const batch = this._undoStack.pop();
-            if (batch) batch.forEach(layerId => control._handleLayerToggle(layerId, true));
-            else control.restoreDefaultLayers();
-            if (this._undoStack.length) this._armUndoTimer();
-            else {
-                clearTimeout(this._undoTimer);
-                this._undoActive = false;
-                this._undoExpired = false;
-            }
-            this._syncClearMode();
-            return;
-        }
-        const { removed, exhausted } = control.hideAllLayers({ basemapsWhenEmpty: true });
-        if (removed.length) this._undoStack.push(removed);
-        if (exhausted && this._undoStack.length) this._armUndoTimer();
-        this._setClearMode(exhausted ? 'undo' : 'remove');
-    }
-
-    _mountHiddenToggle(onToggleHidden) {
-        const toggle = document.createElement('button');
-        toggle.type = 'button';
-        toggle.className = 'map-control-bar-hidden-toggle';
-        toggle.hidden = true;
-        toggle.addEventListener('click', (e) => {
-            e.stopPropagation();
-            onToggleHidden?.(!this._hiddenShown);
-        });
-        this._hiddenEl = toggle;
-        this._hiddenShown = false;
+        const count = Array.isArray(layers) ? layers.filter(l => l.id !== 'selection').length : 0;
+        this._badge.hidden = !count;
+        this._badge.textContent = String(count);
+        this._layersBtn.title = count ? `${count} maps on the map ( Ctrl+L )` : 'Maps on the map';
+        this.find.onMapActions.update(layers);
+        this.find.refresh();
     }
 
     setHidden(count, shown) {
-        if (!this._hiddenEl) return;
-        this._hiddenShown = !!shown;
-        this._hiddenEl.hidden = !count;
-        this._hiddenEl.textContent = `${count} hidden`;
-        this._hiddenEl.classList.toggle('active', !!shown);
-        this._hiddenEl.title = shown ? 'Hide maps with no features in view' : 'Show maps with no features in view';
-    }
-
-    _createAction(text, iconName, title, onClick) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'map-control-bar-action';
-        button.title = title;
-        button.setAttribute('aria-label', title);
-        const icon = document.createElement('sl-icon');
-        icon.name = iconName;
-        button.appendChild(icon);
-        if (text) button.append(text);
-        button.addEventListener('click', (e) => {
-            e.stopPropagation();
-            onClick();
-        });
-        return button;
-    }
-
-    get el() {
-        return this._el;
-    }
-
-    setSummaryActive(active, sticky = false) {
-        this._countEl?.classList.toggle('sticky', !!active && sticky);
-    }
-
-    setMinWidth(px) {
-        if (this._el) this._el.style.minWidth = px ? `${px}px` : '';
+        this.find?.onMapActions.setHidden(count, shown);
     }
 
     setLoading(loading) {
         this._el?.classList.toggle('loading', !!loading);
     }
 
-    _setBackground(src) {
-        if (src === this._imageKey) return;
-        this._imageKey = src;
-        if (src) this._el.style.setProperty('--bar-image', `url("${src.replace(/"/g, '%22')}")`);
-        else this._el.style.removeProperty('--bar-image');
+    _setPlace(text) {
+        this._placeText.textContent = text || 'This view';
     }
 
     _setIcon(src) {
@@ -236,12 +251,20 @@ export class MapControlBar {
         }
     }
 
+    get el() {
+        return this._el;
+    }
+
     destroy() {
         window.removeEventListener('atlasChanged', this._onAtlasChanged);
-        this._observer?.disconnect();
-        clearTimeout(this._undoTimer);
+        window.removeEventListener('mapLocationChanged', this._onLocation);
+        document.removeEventListener('keydown', this._onKeydown);
+        this._map?.off?.('click', this._onMapClick);
+        this.find?.destroy();
+        document.body.classList.remove('console-find');
         this._el?.parentNode?.classList.remove('has-map-control-bar');
         this._el?.remove();
         this._el = null;
+        if (window.mapConsole === this) window.mapConsole = null;
     }
 }

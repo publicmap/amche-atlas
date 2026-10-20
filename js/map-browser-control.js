@@ -1,8 +1,9 @@
 /**
- * MapBrowserControl - Mapbox GL JS control for opening the map browser
- *
- * A compact control button that shows the current atlas name and opens
- * a full-screen map browser overlay when clicked.
+ * MapBrowserControl - hosts the map console (via LayerStackStrip, which mounts
+ * js/map-control-bar.js) and the side panel that holds the layer editor and
+ * creator (map-creator.html). Browsing maps and atlases happens in the
+ * console's Find mode; this control keeps the layer/atlas actions Find calls
+ * (_handleLayerToggle, switchAtlasLive, previews) and the panel.
  */
 import { MapContextMessagesControl } from './map-context-messages-control.js';
 import { ZoomToParam } from './zoom-to-param.js';
@@ -112,7 +113,7 @@ export class MapBrowserControl {
     onAdd(map) {
         this._map = map;
         this._container = document.createElement('div');
-        this._container.className = 'map-browser-control mapboxgl-ctrl';
+        this._container.className = 'map-browser-control';
 
         this._button = document.createElement('button');
         this._button.className = 'map-browser-btn flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white rounded transition-colors border border-gray-700 text-sm font-medium';
@@ -126,19 +127,10 @@ export class MapBrowserControl {
             this.toggleBrowser();
         });
 
-        // First sign the user is heading for this panel - start its document
-        // then rather than waiting for the click, and well before the idle
-        // preload below would have got to it.
-        this._button.addEventListener('pointerenter', this._preloadBrowser, { once: true });
-        this._button.addEventListener('focus', this._preloadBrowser, { once: true });
-
-        // The vertical control column: this button, the active atlas, then a
-        // thumbnail per visible layer in the map's own visual order. The strip
-        // adopts the button as its first item, so it is not appended here.
-        // Repainted on every 'idle' as well as on layer/URL changes: the layer
-        // control builds its groups well after this control is added, and 'idle'
-        // is the one signal guaranteed to fire after it. render() no-ops unless
-        // the visible set changed.
+        // The console (bar, Find and the on-map list) is mounted by the layer
+        // stack, which repaints on every 'idle' as well as on layer/URL
+        // changes: the layer control builds its groups well after this control
+        // is added, and 'idle' is the one signal guaranteed to fire after it.
         this._layerStack.mount(this._container, { browserButton: this._button, map });
         map.on('idle', () => this._layerStack.render());
 
@@ -287,7 +279,7 @@ export class MapBrowserControl {
         if (this._iframe) return;
 
         this._iframe = document.createElement('iframe');
-        this._iframe.src = 'map-browser.html';
+        this._iframe.src = 'about:blank';
         this._iframe.style.cssText = `
             width: 100%;
             height: 100%;
@@ -295,40 +287,6 @@ export class MapBrowserControl {
         `;
 
         this._browserContainer.appendChild(this._iframe);
-    }
-
-    // Arrow-bound so it can be handed straight to addEventListener.
-    _preloadBrowser = () => {
-        this._ensureIframe();
-    }
-
-    preload() {
-        this._ensureIframe();
-    }
-
-    /**
-     * Preload the panel's document once the map has stopped working, not the
-     * moment the inspector reports ready.
-     *
-     * map-browser.html is a page of its own: its own jQuery, Tailwind and
-     * Shoelace, none of it shared with the parent. Starting it while the map is
-     * still fetching tiles and compiling layers put ~90 extra requests on the
-     * critical path for a panel most visitors never open.
-     */
-    _schedulePreload() {
-        if (this._preloadScheduled) return;
-        this._preloadScheduled = true;
-
-        const start = () => {
-            if (typeof requestIdleCallback === 'function') {
-                requestIdleCallback(this._preloadBrowser, { timeout: 10000 });
-            } else {
-                setTimeout(this._preloadBrowser, 3000);
-            }
-        };
-
-        if (this._map && !this._map.loaded()) this._map.once('idle', start);
-        else start();
     }
 
     _setupMessageListener() {
@@ -339,15 +297,6 @@ export class MapBrowserControl {
                 } else {
                     this._sendLayerData();
                 }
-            }
-
-            if (event.data.type === 'browser-ready') {
-                // Hide loading overlay when iframe has finished rendering
-                this._hideLoadingOverlay();
-            }
-
-            if (event.data.type === 'inspector-ready') {
-                this._schedulePreload();
             }
 
             if (event.data.type === 'layer-toggle') {
@@ -541,8 +490,13 @@ export class MapBrowserControl {
         this._switchToCreator('?mode=layer');
     }
 
-    // "Layer info" is the editor's Overview tab; "edit" is its Edit tab.
+    // "Layer info" is the map console's details page (js/console/layer-details.js);
+    // "edit" opens the editor on its Edit tab.
     _openLayerInfo(layer, options = {}) {
+        if (!options.edit && window.mapConsole) {
+            window.mapConsole.showLayer(layer);
+            return;
+        }
         this.openLayerEditor(layer, { tab: options.edit ? 'edit' : 'view', feature: options.feature || null });
     }
 
@@ -935,8 +889,7 @@ export class MapBrowserControl {
     }
 
     // Base id of a possibly atlas-prefixed layer id (goa-local-body -> local-body),
-    // mirroring baseLayerId() in map-browser.html, so prefixed/unprefixed forms of
-    // the same layer compare equal.
+    // so prefixed/unprefixed forms of the same layer compare equal.
     _baseLayerId(id) {
         const prefix = id.split('-')[0];
         return window.layerRegistry?._atlasMetadata?.has(prefix) ? id.slice(prefix.length + 1) : id;
@@ -975,7 +928,6 @@ export class MapBrowserControl {
     // Default visible layers for an atlas: its own initiallyChecked layers,
     // followed by the index atlas's initiallyChecked layers (shared base layers
     // like selection / admin lines / satellite), de-duplicated and atlas-first.
-    // Mirrors getAtlasDefaultLayers() in map-browser.html.
     _getAtlasDefaultLayerIds(atlasId) {
         const atlasLayers = this._getAtlasInitiallyCheckedIds(atlasId);
         if (atlasId === 'index') return atlasLayers;
@@ -998,9 +950,8 @@ export class MapBrowserControl {
     }
 
     // Switches the active atlas live (layer visibility only, no page reload) -
-    // the same outcome as map-browser.html's atlas dropdown/[Select] buttons,
-    // but usable from contexts with no browser iframe open (e.g. the "you've
-    // panned outside this atlas" suggestion in map-init.js). Hides the previous
+    // used by Find's atlas picks (js/console/find-browse.js) and the "you've
+    // panned outside this atlas" suggestion in map-init.js. Hides the previous
     // atlas's own layers that aren't part of the new atlas's defaults, or that
     // are out of view even if they are (e.g. a shared base layer scoped to the
     // old atlas's extent), shows the new atlas's defaults, then hands off to
@@ -1031,10 +982,9 @@ export class MapBrowserControl {
     }
 
     // Turns off every active layer except the index atlas's own base layers
-    // (selection / admin lines / satellite etc.) — the same layers the "Hide all
-    // maps" button in the map browser's atlas header (map-browser.html
-    // #reset-toggle-btn / getAtlasToggleScope) always leaves untouched. Unlike
-    // that button this isn't scoped to a single atlas — there's no selected-atlas
+    // (selection / admin lines / satellite etc.), which Clear all in the
+    // console's On the map list (js/console/on-map-actions.js) leaves for a
+    // second press. It isn't scoped to a single atlas — there's no selected-atlas
     // context here (e.g. the shortcut menu) — it just protects the shared base
     // layers and clears everything else.
     hideAllLayers({ basemapsWhenEmpty = false } = {}) {
@@ -1063,12 +1013,11 @@ export class MapBrowserControl {
         return { removed, exhausted };
     }
 
+    // Browsing is the console's Find mode; the side panel only opens for the
+    // layer editor and the creator.
     toggleBrowser() {
-        if (this._isOpen) {
-            this.closeBrowser();
-        } else {
-            this.openBrowser();
-        }
+        if (this._isOpen) this.closeBrowser();
+        window.mapConsole?.toggleFind('all');
     }
 
     restoreDefaultLayers() {
@@ -1089,9 +1038,7 @@ export class MapBrowserControl {
         this._showLoadingOverlay();
 
         this._ensureIframe();
-        if (!/map-browser\.html/.test(this._iframe.getAttribute('src') || '')) {
-            this._iframe.src = 'map-browser.html';
-        }
+        window.mapConsole?.setMode('explore', { keepQuery: true });
         this._overlay.style.display = 'block';
         this._isOpen = true;
         this._updateButtonState(true);
@@ -1108,10 +1055,6 @@ export class MapBrowserControl {
 
             this._sendLayerData();
 
-            // Focus search input in browser
-            if (this._iframe && this._iframe.contentWindow) {
-                this._iframe.contentWindow.postMessage({ type: 'focus-search' }, '*');
-            }
         }, 100);
 
         if (this._map) {
@@ -1169,9 +1112,8 @@ export class MapBrowserControl {
             this._map.off('moveend', this._onMapMove);
         }
 
-        // Return focus to the button that opened this panel, not the main
-        // search box - closing this panel isn't the same as wanting to search.
-        this._button?.focus();
+        // Back to the console, where the panel was opened from
+        window.mapConsole?.el?.querySelector('.map-control-bar-main')?.focus({ preventScroll: true });
     }
 
     _onMapMove = () => {
@@ -1226,12 +1168,10 @@ export class MapBrowserControl {
         this._hideLoadingOverlay();
     }
 
+    // The creator's "back" returns to browsing, which is now Find
     _switchToBrowser() {
-        this._ensureIframe();
-        this._iframe.src = 'map-browser.html';
-        setTimeout(() => {
-            this._sendLayerData();
-        }, 100);
+        this.closeBrowser();
+        window.mapConsole?.setMode('find', { filter: 'all' });
     }
 
     /**
@@ -1982,7 +1922,7 @@ export class MapBrowserControl {
         const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash;
         window.history.replaceState(null, '', newUrl);
 
-        // map-browser.html's atlas switch is live (layer visibility only, no
+        // Find's atlas switch is live (layer visibility only, no
         // reload) - without this, layerRegistry._currentAtlas stays on the
         // previous atlas, so map-init.js's "you've panned outside this atlas"
         // bounds check keeps comparing against the atlas we just left and

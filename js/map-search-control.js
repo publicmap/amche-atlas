@@ -1,4 +1,3 @@
-import { reverseGeocodeNominatim } from './nominatim-search.js'
 import { trackEvent } from './analytics.js'
 import { parseCoordinateInput } from './search/coordinate-parser.js'
 import { createNominatimProvider } from './search/providers/nominatim-provider.js'
@@ -71,7 +70,6 @@ export class MapSearchControl {
         this.countryProvider = createCountryProvider();
         this.directionsProvider = createDirectionsProvider();
         this.directionsLayer = new DirectionsLayer(this.map);
-        this._fetchingCurrentLocation = false;
 
         // Feature state manager reference (will be set externally)
         this.featureStateManager = null;
@@ -96,7 +94,7 @@ export class MapSearchControl {
         this.searchBox.setAttribute('proximity', this._getMapProximity());
         this.searchBox.setAttribute('types', this._getSearchTypes());
         this.searchBox.setAttribute('language', this.options.language);
-        this.searchBox.setAttribute('placeholder', 'Search place name or location..');
+        this.searchBox.setAttribute('placeholder', 'Atlases, maps, places');
         this.searchBox.addEventListener('suggest', this.handleSuggest.bind(this));
         this.searchBox.addEventListener('retrieve', this.handleRetrieve.bind(this));
         this.searchBox.addEventListener('input', this.handleInput.bind(this));
@@ -578,23 +576,11 @@ export class MapSearchControl {
     }
 
     /**
-     * When the (empty) search box gains focus, offer the current map center's
-     * reverse-geocoded address as a one-click default suggestion.
+     * Focusing the empty box shows nothing extra: the console's Find list
+     * (js/console/find-panel.js) already browses what's on the map, the
+     * atlases and their maps until something is typed.
      */
-    handleSearchBoxFocus() {
-        if (this.currentQuery || this.isCoordinateInput) return;
-        // The cadastral village/survey picker (js/cadastral-search-ui.js) owns
-        // the dropdown when it's active - don't also show our own suggestion
-        // underneath/behind it.
-        if (window.cadastralSearchUI?.isActive()) return;
-
-        // Show "what's on the map right now" immediately (synchronous, no
-        // network) - the current-location suggestion joins it once its
-        // reverse-geocode call resolves.
-        this.mapSuggestions = this.atlasLayerProvider.getActiveLayers();
-        this._renderSuggestions();
-        this.showCurrentLocationSuggestion();
-    }
+    handleSearchBoxFocus() {}
 
     /**
      * On blur, drop the focus-triggered suggestions (current-location default
@@ -616,35 +602,6 @@ export class MapSearchControl {
             this.countrySuggestions = [];
             this.directionsSuggestions = [];
         }, 200);
-    }
-
-    /**
-     * Reverse-geocode the current map center (single request per focus, not
-     * tied to typing — see startNominatimSearch for why that distinction
-     * matters for Nominatim's usage policy) and show it as a selectable
-     * "Current location" suggestion.
-     */
-    async showCurrentLocationSuggestion() {
-        if (this._fetchingCurrentLocation) return;
-        this._fetchingCurrentLocation = true;
-
-        try {
-            const center = this.map.getCenter();
-            const feature = await reverseGeocodeNominatim(center.lat, center.lng, this.map.getZoom());
-
-            // Bail if the user started typing or moved on while this was in flight.
-            if (!feature || this.currentQuery || this.isCoordinateInput) return;
-
-            feature.properties.name = `Current location: ${feature.properties.name}`;
-            feature.properties._isCurrentLocation = true;
-
-            this.localSuggestions = [feature];
-            this._renderSuggestions();
-        } catch (error) {
-            // Best-effort only; a failed/backed-off reverse geocode just means no default entry.
-        } finally {
-            this._fetchingCurrentLocation = false;
-        }
     }
 
     /**

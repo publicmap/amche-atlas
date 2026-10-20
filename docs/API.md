@@ -110,7 +110,7 @@ Instead of pasting a full external URL into the map creator to build a complete 
 
 **Waypoints are marker ids, not coordinates**, comma-separated like every other shorthand argument list (see `js/shorthand-id-utils.js`) — no pair-separator needed, since each argument is a single id. Each referenced id must have a matching `<id>(...)` entry in `?markers=` (which is parsed first, before any `route-<rid>:` entry is resolved — see `js/map-init.js`); an id with no match drops the whole route, logged the same way an unresolvable `allmaps:`/`mapwarper:` id is. The first id is the start, the last the destination, any in between are stops. The engine-profile token may be omitted — `route-1:(1,2)` uses the default service and the profile last picked in the *Navigation options* row of the Visible Features menu (`js/search/directions-profile.js`). A route drawn in the app — from an "X to Y" search, or a **Navigate** action in that menu — writes itself into the `directions` layer and stamps this same shorthand onto the URL, so sharing a drawn route hands over a short link rather than an inlined FeatureCollection of every coordinate. The markers it references are recolored/labeled as route waypoints (matching a drawn route's look) once both `?markers=` and this layer have resolved.
 
-**The `directions` layer follows its routes.** Like [`mask`](#mask), it is a system layer present in every atlas (`index.atlas.json` defines it; it is injected into any atlas that doesn't — see `SYSTEM_LAYERS` in `js/map-init.js`) and it is only on the map while it holds something: the first route drawn switches it on, and the last one removed switches it off again, so it never sits empty in the layer stack or in a shared URL. Switching it off — its toggle in the layer drawer, or **Remove** in the layer stack strip — discards the routes drawn in it rather than hiding them, along with the waypoint pins the routing placed itself; a pin that was already on the map when a route adopted it stays behind as an ordinary marker. Routes restored from a `route-<rid>:` link have a layer each and behave the same way.
+**The `directions` layer follows its routes.** Like [`mask`](#mask), it is a system layer present in every atlas (`index.atlas.json` defines it; it is injected into any atlas that doesn't — see `SYSTEM_LAYERS` in `js/map-init.js`) and it is only on the map while it holds something: the first route drawn switches it on, and the last one removed switches it off again, so it never sits empty in the layer stack or in a shared URL. Switching it off — its toggle in the layer drawer, or **Remove** in the console's On the map list — discards the routes drawn in it rather than hiding them, along with the waypoint pins the routing placed itself; a pin that was already on the map when a route adopted it stays behind as an ordinary marker. Routes restored from a `route-<rid>:` link have a layer each and behave the same way.
 
 **Breaking change:** the previous `route:<engine>-<profile>(<lng>/<lat>|<lng>/<lat>[|…])` form (raw coordinates, no route id) is no longer parsed.
 
@@ -240,7 +240,7 @@ The cutout is generated at runtime by `js/map-mask-manager.js` and written into 
 - The layer must be loaded (via `?layers=` or the atlas config) for the mask to appear; `?mask=` waits for it, then gives up after ~6s.
 - The atlas must define a layer with the id `mask` (`index.atlas.json` does, and it is injected into any atlas that doesn't — see `SYSTEM_LAYERS` in `js/map-init.js`). Style the cutout by styling that layer.
 - When no polygons are loaded for the target layer, nothing is masked rather than everything — a full-world mask would just blank the map.
-- Toggle it from the UI with **Toggle Mask** in a layer's info panel, or switch it off from the mask cell that replaces the layer's thumbnail in the layer-stack strip.
+- Toggle it from the UI with **Toggle Mask** in a layer's info panel, or switch it off from the mask cell beside the layer's thumbnail in the console's On the map list.
 
 ### `terrain`
 
@@ -435,13 +435,15 @@ A marker dropped by clicking the map is numbered serially ("1", "2", ...); one c
 
 **Breaking change:** the previous `?markers=<lng>,<lat>|<next marker>...` format (and its `:<layerId>~<featureId>,...` legacy suffix) is no longer parsed. The call token is the id on its own — an earlier revision prefixed every call with `marker-`, redundant with the param name it always sat inside; those links still parse (no valid id contains a `-`, so the prefix is unambiguous) but are no longer written. A route referencing one of these markers as a waypoint (see [`route`](#dynamic-layer-shortcuts) below) needs its id present here to resolve.
 
+**In an atlas config:** the same markers, and the routes between them, can be written into an atlas file so they show for everyone who opens that atlas. See [Atlas-level `markers` and `routes`](#atlas-level-markers-and-routes).
+
 ### `zoomTo`
 
 Zoom to a layer's bounding box on load. Overrides any map location in the URL (the `#zoom/lat/lng` hash, GPS/GeoIP position and the atlas default view). The layer's `bbox` is used, falling back to its atlas's bbox. If the layer id is unknown or has no bbox, the parameter is ignored and the normal starting view applies.
 
 The parameter stays in the URL until the map location changes (any pan, zoom, rotate or programmatic move after the zoom has settled), then it is removed.
 
-The zoom buttons in the map browser (`map-browser.html`) and the layer information panel (`map-information.html`) are real links to `?zoomTo=<layer-id>`, so right-click → "Copy link address" gives a shareable link that frames that layer. Zooming to a layer from the layer-stack strip or the browser also adds the parameter to the current URL.
+The zoom buttons in the layer editor's Overview (`map-creator.html`) are real links to `?zoomTo=<layer-id>`, so right-click → "Copy link address" gives a shareable link that frames that layer. Zooming to a layer from the console's On the map list also adds the parameter to the current URL.
 
 **Format:** `?zoomTo=<layer-id>`
 
@@ -743,6 +745,65 @@ The strings `"blank"`, `"none"` and `"empty"` do the same thing as `null`. Prefe
 Layer ordering is unaffected — the `bottom`/`middle`/`top` anchors come from `MapUtils.initializeSlotLayers`, not from the style.
 
 **Caveat:** `style` and `raster-style-layer` layers only toggle layers a base style already defines, so they do nothing over a blank one. Toggling such a layer logs a warning naming the missing `source-layer`. Everything else — `vector`, `tms`, `geojson`, … — brings its own source and is unaffected.
+
+#### Atlas-level `markers` and `routes`
+
+> **Status:** planned with the map console redesign. The loader does not read these keys yet.
+
+An atlas can ship its own pins and the routes between them, such as a heritage walk, the stops on a field survey, or the offices a guide refers to. They open in the console's Explore view as the atlas's own list, next to any pins the visitor adds.
+
+Both keys are the JSON form of the URL shorthand. A config entry and a [`?markers=`](#markers) / [`route-<rid>:`](#dynamic-layer-shortcuts) entry carry the same fields, so the app can write either one from the same pins.
+
+```json
+{
+  "name": "Panjim Heritage Walk",
+  "markers": [
+    { "id": "church", "coordinates": [73.8301, 15.4986], "name": "Our Lady of the Immaculate Conception", "pinned": true },
+    { "id": "fontainhas", "coordinates": [73.8341, 15.4971], "name": "Fontainhas", "description": "Latin quarter of old Panjim" },
+    { "id": "market", "coordinates": [73.8278, 15.4989], "name": "Panjim Market" }
+  ],
+  "routes": [
+    { "id": "walk", "waypoints": ["church", "fontainhas", "market"], "service": "mapbox", "profile": "walking", "color": "#f59e0b" }
+  ],
+  "layers": [ … ]
+}
+```
+
+**`markers`**
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | Required. Same rules as a [`markers`](#markers) id, and unique within the atlas. Routes refer to the marker by this id. |
+| `coordinates` | `[lng, lat]` | Required. The point the marker describes. On load it is re-queried as if clicked, the same as a URL marker, so the panel shows whatever features sit there. |
+| `name` | string | Optional. The panel title. No escaping is needed here, but avoid `,` `(` `)`: a pin written back to the URL can't carry them (see [`markers`](#markers)). |
+| `description` | string | Optional. A line of text under the name. Same character limits as `name`. |
+| `pinned` | boolean | Optional. Opens the panel expanded. Same as `@pin`. |
+| `offset` | `[dx, dy]` | Optional. The panel's pixel offset from its point. Same as `@<dx>x<dy>`. |
+
+**`routes`**
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | Required. The route id, the `<rid>` in `route-<rid>:`. |
+| `waypoints` | string[] | Required. Two or more marker ids, start first and destination last. Each id must be in this atlas's `markers`. If one is missing, the route is dropped with a console warning, the same as in the URL. |
+| `service` | string | Optional. A key of `ROUTING_ENGINES` in `js/search/directions-router.js`. Defaults to `mapbox`. |
+| `profile` | string | Optional. A profile the service offers, such as `driving`, `walking` or `cycling`. Falls back to the service default. |
+| `color` | string | Optional. A hex color for the route line and its waypoint badges. |
+
+The example above is equivalent to this URL:
+
+```
+?markers=church(73.8301,15.4986,Our%20Lady%20of%20the%20Immaculate%20Conception,@pin),fontainhas(73.8341,15.4971,Fontainhas,Latin%20quarter%20of%20old%20Panjim),market(73.8278,15.4989,Panjim%20Market)&layers=route-walk:mapbox-walking(church,fontainhas,market,%23f59e0b)
+```
+
+**Precedence.** These keys work like `initiallyChecked`: they set what the atlas opens with.
+- A `?markers=` param replaces the atlas's `markers` for that visit.
+- A `?layers=` param replaces its `routes` along with the rest of the layer list.
+- Without either param the atlas's own pins and routes load. They are not written back into the URL unless the visitor moves, renames or removes one, so a plain atlas link stays short.
+
+**Saving pins.** When you save a pin in the console, the app offers two places to keep it:
+- **Share link.** The pin goes into `?markers=` and any route into `?layers=`, as today. Copy the link to share it. Nothing outside the browser changes.
+- **Atlas config.** The app shows the `markers` and `routes` JSON for every pin and route currently on the map, with a **Copy** button. Paste it at the top level of the atlas file, such as `config/goa.atlas.json`, merging with any `markers`/`routes` already there, and open a pull request. Once merged, the pins show for everyone who opens that atlas.
 
 #### Inspect Configuration
 

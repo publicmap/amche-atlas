@@ -1,0 +1,1493 @@
+/* Map console (js/map-control-bar.js): the one card at the top-left of the
+   map. Explore is the bar row and a place line; Find grows it into a full
+   height list (js/console/find-panel.js). Every list inside uses the same row
+   (js/console/find-rows.js), and amber only ever means "on", "selected" or
+   "current". Blue is for links and focus. */
+:root {
+    --console-surface: #111827;
+    --console-raised: #1a2332;
+    --console-hover: #243044;
+    --console-line: rgba(255, 255, 255, 0.11);
+    --console-line-strong: rgba(255, 255, 255, 0.26);
+    --console-ink: #f3f4f6;
+    --console-ink-2: rgba(243, 244, 246, 0.68);
+    --console-ink-3: rgba(243, 244, 246, 0.44);
+    --console-amber: var(--primary-color, #ffbf00);
+    --console-amber-ink: #1a1405;
+    --console-amber-soft: rgba(255, 191, 0, 0.14);
+    --console-blue: #7cb4ff;
+    --console-radius: 12px;
+    --console-radius-sm: 8px;
+    --console-shadow: 0 6px 22px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    --console-gap: 12px;
+}
+
+/* ---------- Host and shell ---------- */
+
+.mapboxgl-ctrl-top-left .map-console-host,
+.maplibregl-ctrl-top-left .map-console-host {
+    margin: var(--console-gap) 0 0 var(--console-gap);
+    pointer-events: auto;
+    position: relative;
+    z-index: 10000;
+    float: left;
+    clear: both;
+}
+
+.map-browser-control {
+    position: relative;
+}
+
+.layer-stack-browser-proxy {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.map-console {
+    width: 320px;
+    max-width: calc(100vw - 2 * var(--console-gap) - 52px);
+    max-height: calc(100dvh - 2 * var(--console-gap));
+    display: flex;
+    flex-direction: column;
+    background: var(--console-surface);
+    border: 1px solid var(--console-line-strong);
+    border-radius: var(--console-radius);
+    box-shadow: var(--console-shadow);
+    color: var(--console-ink);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    overflow: hidden;
+    text-align: left;
+}
+
+.map-console[data-mode="find"] {
+    width: 392px;
+    height: calc(100dvh - 2 * var(--console-gap));
+}
+
+.map-console[data-mode="explore"] .when-find,
+.map-console[data-mode="find"] .when-explore {
+    display: none !important;
+}
+
+.map-console button {
+    font: inherit;
+    color: inherit;
+}
+
+.map-console button:focus-visible,
+.map-console [role="button"]:focus-visible {
+    outline: 2px solid var(--console-blue);
+    outline-offset: -2px;
+}
+
+/* The search field's own border marks its focus */
+.map-console .map-search-control input:focus,
+.map-console .map-search-control input:focus-visible {
+    outline: none !important;
+}
+
+/* ---------- Bar row ---------- */
+
+.map-control-bar-head {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 6px;
+    min-height: 52px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+
+.console-home,
+.console-btn {
+    position: relative;
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--console-radius-sm);
+    background: transparent;
+    color: var(--console-ink-2);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+}
+
+.console-home:hover,
+.console-btn:hover,
+.console-btn.active {
+    background: var(--console-raised);
+    color: var(--console-ink);
+}
+
+.console-btn sl-icon {
+    font-size: 18px;
+}
+
+.console-home img {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    object-fit: contain;
+}
+
+.console-home-dev {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #f97316;
+    border: 2px solid var(--console-surface);
+}
+
+.console-badge {
+    position: absolute;
+    top: 3px;
+    right: 1px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 8px;
+    background: var(--console-amber);
+    color: var(--console-amber-ink);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.console-badge[hidden] {
+    display: none;
+}
+
+.map-control-bar-main {
+    flex: 1;
+    min-width: 0;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: var(--console-radius-sm);
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+
+.map-control-bar-main:hover {
+    background: var(--console-raised);
+}
+
+.map-control-bar-icon-wrap {
+    position: relative;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+}
+
+.map-control-bar-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--console-surface);
+    font-size: 15px;
+    overflow: hidden;
+}
+
+.map-control-bar-icon img {
+    width: 100%;
+    height: 100%;
+    padding: 2px;
+    box-sizing: border-box;
+    object-fit: contain;
+}
+
+.map-control-bar-spinner {
+    display: none;
+    position: absolute;
+    inset: 0;
+    font-size: 24px;
+    --indicator-color: var(--console-amber);
+    --track-color: rgba(0, 0, 0, 0.25);
+    --track-width: 3px;
+    border-radius: 6px;
+    background: rgba(8, 12, 20, 0.45);
+    pointer-events: none;
+}
+
+.map-console.loading .map-control-bar-spinner {
+    display: block;
+}
+
+.map-control-bar-name {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.map-control-bar-name.placeholder {
+    color: var(--console-ink-2);
+    font-weight: 600;
+}
+
+.map-control-bar-chevron {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--console-ink-3);
+}
+
+/* Locale settings (js/settings-menu-control.js) sit at the end of the bar */
+.console-menu-slot {
+    display: inline-flex;
+    flex-shrink: 0;
+}
+
+.map-console .settings-menu-btn {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: var(--console-radius-sm);
+    color: var(--console-ink-2);
+}
+
+.map-console .settings-menu-btn:hover,
+.map-console button.settings-menu-btn.active {
+    background: var(--console-raised);
+    color: var(--console-ink);
+}
+
+.map-console .settings-menu-btn .locale-icon {
+    margin: 0 auto;
+}
+
+.map-console .settings-menu-panel {
+    position: fixed;
+    top: calc(var(--console-gap) + 58px);
+    left: var(--console-gap);
+    max-height: calc(100dvh - 2 * var(--console-gap) - 70px);
+}
+
+/* ---------- Search field (Find only) ---------- */
+
+.map-search-control {
+    flex: 1;
+    min-width: 0;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 2px 0 10px;
+    box-sizing: border-box;
+    border: 1px solid var(--console-line-strong);
+    border-radius: var(--console-radius-sm);
+    background: var(--console-raised);
+}
+
+.map-search-control:focus-within {
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.map-search-glyph {
+    flex-shrink: 0;
+    font-size: 15px;
+    color: var(--console-ink-3);
+}
+
+.map-search-control #mapbox-search-box {
+    order: 1;
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    height: 36px;
+    box-sizing: border-box;
+}
+
+.map-search-sources {
+    order: 2;
+    flex-shrink: 0;
+}
+
+.map-search-sources .map-search-sources-btn {
+    width: 30px;
+    height: 30px;
+}
+
+.map-search-sources .map-search-sources-btn sl-icon {
+    font-size: 15px;
+}
+
+.map-search-control mapbox-search-box [class$='--SearchIcon'] {
+    display: none !important;
+}
+
+.map-search-control mapbox-search-box [class$='--Input'],
+.map-search-control mapbox-search-box input {
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 28px 0 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    color: var(--console-ink) !important;
+    font-size: 15px !important;
+}
+
+.map-search-control mapbox-search-box input::placeholder {
+    color: var(--console-ink-3) !important;
+}
+
+.map-search-control mapbox-search-box::part(input) {
+    height: 36px !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: var(--console-ink) !important;
+}
+
+mapbox-search-box [class$='--SearchBox'],
+mapbox-search-box [class$='--Container'] {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: 0 !important;
+}
+
+/* ---------- Place line (Explore only) ---------- */
+
+.map-console-place {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    margin-top: -4px;
+    padding: 0 12px 9px 52px;
+    border: 0;
+    background: transparent;
+    color: var(--console-ink-2);
+    font-size: 12px !important;
+    text-align: left;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.map-console-place:hover,
+.map-console .map-console-place.active {
+    background: transparent;
+    color: var(--console-ink);
+}
+
+.map-console-place sl-icon {
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--console-ink-3);
+}
+
+.map-console-place span {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* ---------- Find ---------- */
+
+.map-console-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--console-line);
+}
+
+.console-find {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.console-filters {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--console-line);
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-shrink: 0;
+}
+
+.console-filters::-webkit-scrollbar {
+    display: none;
+}
+
+.console-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border: 1px solid var(--console-line);
+    border-radius: 999px;
+    background: var(--console-raised);
+    color: var(--console-ink-2);
+    font-size: 12px !important;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.console-chip:hover:not(:disabled) {
+    border-color: var(--console-line-strong);
+    color: var(--console-ink);
+}
+
+.console-chip.selected {
+    border-color: rgba(255, 191, 0, 0.55);
+    background: var(--console-amber-soft);
+    color: var(--console-ink);
+}
+
+.console-chip-count {
+    color: var(--console-ink-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.console-chip-count:empty {
+    display: none;
+}
+
+.console-chip.selected .console-chip-count {
+    color: var(--console-amber);
+}
+
+.console-chip:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.console-find-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    padding-bottom: 8px;
+}
+
+.console-section[hidden] {
+    display: none;
+}
+
+.console-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 12px 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--console-ink-3);
+}
+
+.console-label-side {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.console-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--console-blue) !important;
+    font-size: 11.5px !important;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.console-link:hover {
+    text-decoration: underline;
+}
+
+.console-link sl-icon {
+    font-size: 12px;
+}
+
+.console-link[hidden] {
+    display: none;
+}
+
+/* The shared row */
+.console-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 48px;
+    padding: 6px 8px 6px 12px;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+.console-row:hover,
+.console-row.highlighted {
+    background: var(--console-raised);
+}
+
+.console-row.current {
+    box-shadow: inset 2px 0 0 var(--console-amber);
+}
+
+.console-thumb {
+    width: 32px !important;
+    height: 32px !important;
+    flex-shrink: 0;
+    border-radius: 6px !important;
+    overflow: hidden;
+}
+
+.console-thumb-icon {
+    display: grid;
+    place-items: center;
+    background: var(--console-raised);
+    border: 1px solid var(--console-line);
+    box-sizing: border-box;
+    color: var(--console-ink-2);
+    font-size: 16px;
+}
+
+.console-thumb-image {
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.92);
+}
+
+.console-thumb-image img {
+    width: 100%;
+    height: 100%;
+    padding: 3px;
+    box-sizing: border-box;
+    object-fit: contain;
+}
+
+.console-row-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.console-row-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.console-row-meta {
+    margin-top: 2px;
+    font-size: 11.5px;
+    line-height: 1.3;
+    color: var(--console-ink-3);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.console-row-go {
+    flex-shrink: 0;
+    font-size: 14px;
+    color: var(--console-ink-3);
+}
+
+.console-row:hover .console-row-go {
+    color: var(--console-ink);
+}
+
+.console-eye {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--console-line-strong);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--console-ink-3) !important;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.console-eye:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+    color: var(--console-ink) !important;
+}
+
+.console-eye.on {
+    background: var(--console-amber);
+    border-color: var(--console-amber);
+    color: var(--console-amber-ink) !important;
+}
+
+.console-eye.on:hover {
+    filter: brightness(1.08);
+    color: var(--console-amber-ink) !important;
+}
+
+.console-eye.part {
+    background: var(--console-amber-soft);
+    border-color: var(--console-amber);
+    color: var(--console-amber) !important;
+}
+
+.console-tag {
+    flex-shrink: 0;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: var(--console-amber);
+    color: var(--console-amber-ink);
+    font-size: 10.5px;
+    font-weight: 700;
+}
+
+.console-count {
+    margin-left: 8px;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--console-ink-3);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.console-more {
+    display: block;
+    width: 100%;
+    padding: 9px 12px 9px 54px;
+    border: 0;
+    background: transparent;
+    color: var(--console-blue) !important;
+    font-size: 12.5px !important;
+    text-align: left;
+    cursor: pointer;
+}
+
+.console-more:hover {
+    background: var(--console-raised);
+}
+
+.console-hint {
+    margin: 10px 12px;
+    padding: 10px 12px;
+    border: 1px dashed var(--console-line-strong);
+    border-radius: var(--console-radius-sm);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--console-ink-3);
+}
+
+/* Theme tree */
+.console-tree-node,
+.console-tree-leaf {
+    padding-left: calc(12px + var(--depth, 0) * 16px);
+}
+
+.console-tree-node {
+    min-height: 40px;
+}
+
+.console-tree-node .console-row-text {
+    display: flex;
+    align-items: baseline;
+}
+
+.console-tree-node .console-row-title {
+    min-width: 0;
+}
+
+.console-tree-chevron {
+    flex-shrink: 0;
+    width: 32px;
+    font-size: 13px;
+    color: var(--console-ink-3);
+    transition: transform 0.15s;
+}
+
+.console-tree-chevron.open {
+    transform: rotate(90deg);
+}
+
+/* Atlas cards */
+.console-atlas-cards {
+    display: flex;
+    gap: 8px;
+    padding: 2px 12px 8px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.console-atlas-card {
+    position: relative;
+    flex: 0 0 136px;
+    height: 96px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 8px;
+    box-sizing: border-box;
+    overflow: hidden;
+    border: 1px solid var(--console-line);
+    border-radius: 10px;
+    background-color: var(--console-raised);
+    background-image: linear-gradient(180deg, rgba(10, 14, 21, 0.1) 10%, rgba(10, 14, 21, 0.92)), var(--card-image, none);
+    background-size: cover;
+    background-position: center;
+    text-align: left;
+    cursor: pointer;
+}
+
+.console-atlas-card:hover {
+    border-color: var(--console-line-strong);
+}
+
+.console-atlas-card.current {
+    border-color: var(--console-amber);
+}
+
+.console-atlas-card .console-thumb {
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 5px !important;
+    margin-bottom: auto;
+}
+
+.console-atlas-card-tag {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--console-amber);
+    color: var(--console-amber-ink);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.console-atlas-card-name {
+    max-width: 100%;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.25;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.console-atlas-card-meta {
+    font-size: 11px;
+    color: var(--console-ink-2);
+}
+
+/* ---------- On the map (js/layer-stack-strip.js) ---------- */
+
+.console-onmap-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.console-onmap-hidden {
+    color: var(--console-ink-3) !important;
+}
+
+.layer-stack-strip {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.layer-stack-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 6px 8px 6px 12px;
+    box-sizing: border-box;
+    transition: opacity 0.15s ease;
+    touch-action: pan-y;
+}
+
+.layer-stack-item:hover {
+    background: var(--console-raised);
+}
+
+.layer-stack-strip:has(.layer-stack-item[data-layer-item]:hover) .layer-stack-item[data-layer-item]:not(:hover) {
+    opacity: 0.45;
+}
+
+.layer-stack-cell {
+    width: 32px !important;
+    height: 32px !important;
+    flex-shrink: 0;
+    border-radius: 6px !important;
+    border: 1px solid rgba(0, 0, 0, 0.55) !important;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+.layer-stack-basemap-start {
+    margin-top: 5px;
+}
+
+.layer-stack-basemap-start::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: 12px;
+    right: 12px;
+    height: 1px;
+    background: var(--console-line);
+}
+
+.layer-stack-row-text {
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+}
+
+.layer-stack-row-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.layer-stack-row-meta {
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: var(--console-ink-3);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.layer-stack-empty .layer-stack-row-name {
+    color: var(--console-ink-2);
+}
+
+/* Row actions (zoom, remove) appear over the end of the row on hover. The
+   row text already opens the layer's details, so the flyout's own title is
+   not shown. */
+.layer-stack-label {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    border-radius: var(--console-radius-sm);
+    background: var(--console-raised);
+    box-shadow: -8px 0 10px var(--console-raised);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+}
+
+.layer-stack-item:hover .layer-stack-label,
+.layer-stack-item:focus-within .layer-stack-label {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.layer-stack-label-head {
+    display: none;
+}
+
+.layer-stack-label-meta {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.layer-stack-label-action {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--console-ink-2) !important;
+    cursor: pointer;
+}
+
+.layer-stack-label-action sl-icon {
+    font-size: 15px;
+}
+
+.layer-stack-label-action:hover {
+    background: var(--console-hover);
+    color: var(--console-ink) !important;
+}
+
+.layer-stack-label-action-danger:hover {
+    background: #dc2626;
+    color: #fff !important;
+}
+
+.layer-stack-label-action:disabled {
+    color: var(--console-ink-3) !important;
+    cursor: default;
+}
+
+.layer-stack-thumb-spinner {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    width: 32px;
+    height: 32px;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.6);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* The layer cutting the mask: a mask cell stands beside its thumbnail */
+.layer-stack-mask-cell {
+    display: grid !important;
+    place-items: center;
+    padding: 0;
+    background: #6d28d9;
+    color: #fff;
+}
+
+.layer-stack-mask-cell:hover {
+    background: #7c3aed;
+}
+
+.layer-stack-mask-cell sl-icon {
+    font-size: 16px;
+}
+
+/* Drag to reorder */
+.layer-stack-item.dragging {
+    opacity: 0.4;
+}
+
+.layer-stack-item.drag-over-top::after,
+.layer-stack-item.drag-over-bottom::after {
+    content: '';
+    position: absolute;
+    left: 12px;
+    right: 8px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--console-amber);
+    pointer-events: none;
+    z-index: 3;
+}
+
+.layer-stack-item.drag-over-top::after {
+    top: -1px;
+}
+
+.layer-stack-item.drag-over-bottom::after {
+    bottom: -1px;
+}
+
+.layer-stack-strip.dragging .layer-stack-label {
+    display: none;
+}
+
+/* Swipe to remove (js/layer-swipe-delete.js) */
+.layer-stack-item.swiping {
+    user-select: none;
+    cursor: grabbing;
+}
+
+.layer-stack-item.layer-stack-leaving {
+    pointer-events: none;
+    overflow: hidden;
+    animation: layer-stack-leave 0.35s ease-in forwards;
+}
+
+.layer-stack-spacer {
+    flex: none;
+    overflow: hidden;
+    transition: height 0.25s ease;
+}
+
+@keyframes layer-stack-leave {
+    0% { transform: translateX(var(--leave-x, 0)); opacity: 1; height: var(--leave-height); }
+    60% { transform: translateX(-110%); opacity: 0; height: var(--leave-height); }
+    100% { transform: translateX(-110%); opacity: 0; height: 0; }
+}
+
+/* Footer: hover tooltips, comments, zoom, export and the options menu */
+.layer-stack-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin: 6px 0 4px;
+    padding: 6px 8px 0;
+    border-top: 1px solid var(--console-line);
+}
+
+.layer-stack-footer-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.layer-stack-strip.dragging .layer-stack-footer {
+    display: none;
+}
+
+.layer-stack-footer-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 30px;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: var(--console-radius-sm);
+    background: transparent;
+    color: var(--console-ink-2) !important;
+    font-size: 12px !important;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.layer-stack-footer-btn sl-icon {
+    font-size: 15px;
+}
+
+.layer-stack-footer-btn:hover,
+.layer-stack-footer-btn.active {
+    background: var(--console-raised);
+    color: var(--console-ink) !important;
+}
+
+.layer-stack-footer-btn.on {
+    color: var(--console-amber) !important;
+}
+
+/* ---------- Other map chrome while Find is open ---------- */
+
+/* Docked marker panels share the console's column (map-marker-manager.js);
+   Find covers it, so they step aside until it closes. */
+body.console-find .marker-docked,
+body.console-find .marker-dock-leaders,
+body.console-find .marker-dock-links,
+body.console-find .marker-dock-routes {
+    visibility: hidden !important;
+}
+
+@media (max-width: 480px) {
+    .map-console,
+    .map-console[data-mode="find"] {
+        width: calc(100vw - 2 * var(--console-gap));
+        max-width: none;
+    }
+
+    .map-console[data-mode="explore"] {
+        width: calc(100vw - 2 * var(--console-gap) - 52px);
+    }
+
+    .map-console .settings-menu-panel {
+        left: var(--console-gap);
+        right: var(--console-gap);
+        width: auto;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .console-tree-chevron,
+    .layer-stack-item,
+    .layer-stack-label {
+        transition: none;
+    }
+}
+
+/* Survey-number picker (js/cadastral-search-ui.js), in Find's flow above the filters */
+.cadastral-dropdown.cadastral-dropdown--inline {
+    position: static;
+    flex-shrink: 0;
+    padding: 8px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--console-line);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+/* The console's corner sits above the other corners, so Find covers the
+   bottom-left scale and measure tools rather than running under them. */
+.mapboxgl-ctrl-top-left:has(.map-console-host),
+.maplibregl-ctrl-top-left:has(.map-console-host) {
+    z-index: 3;
+}
+
+/* The current atlas at the head of Find */
+.console-atlas-header {
+    margin: 10px 12px 0;
+    padding: 12px;
+    border: 1px solid var(--console-line);
+    border-radius: 10px;
+    background-color: var(--console-raised);
+    background-image: linear-gradient(180deg, rgba(17, 24, 39, 0.55), rgba(17, 24, 39, 0.94)), var(--card-image, none);
+    background-size: cover;
+    background-position: center;
+}
+
+.console-atlas-header-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.console-atlas-header-name {
+    min-width: 0;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.console-atlas-header-desc {
+    margin-top: 8px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--console-ink-2);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.console-atlas-header-meta {
+    margin-top: 8px;
+    font-size: 11.5px;
+    color: var(--console-ink-3);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Layer details (js/console/layer-details.js) ---------- */
+
+.console-find.showing-details > .console-filters,
+.console-find.showing-details > .console-find-body {
+    display: none;
+}
+
+.console-details {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    padding-bottom: 12px;
+}
+
+.console-details[hidden] {
+    display: none;
+}
+
+.console-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 8px 8px 0;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: var(--console-radius-sm);
+    background: transparent;
+    color: var(--console-ink-2) !important;
+    font-size: 12.5px !important;
+    cursor: pointer;
+}
+
+.console-back:hover {
+    background: var(--console-raised);
+    color: var(--console-ink) !important;
+}
+
+.console-details-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 8px 12px 0;
+}
+
+.console-details-thumb {
+    border-radius: 8px !important;
+    flex-shrink: 0;
+}
+
+.console-details-titles {
+    min-width: 0;
+    padding-top: 2px;
+}
+
+.console-details-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+}
+
+.console-details-path {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--console-ink-3);
+}
+
+.console-details-desc {
+    margin: 10px 12px 0;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--console-ink-2);
+    display: -webkit-box;
+    -webkit-line-clamp: 5;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.console-visibility {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--console-line);
+    border-radius: 10px;
+    background: var(--console-raised);
+}
+
+.console-switch {
+    position: relative;
+    flex-shrink: 0;
+    width: 38px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--console-line-strong);
+    border-radius: 11px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.console-switch::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--console-ink-3);
+    transition: left 0.15s;
+}
+
+.console-switch.on {
+    background: var(--console-amber);
+    border-color: var(--console-amber);
+}
+
+.console-switch.on::after {
+    left: 19px;
+    background: var(--console-amber-ink);
+}
+
+.console-visibility-label {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.console-opacity {
+    flex: 1;
+    min-width: 0;
+    accent-color: var(--console-amber);
+}
+
+.console-opacity-value {
+    width: 36px;
+    text-align: right;
+    font-size: 11.5px;
+    color: var(--console-ink-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.console-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 0 12px;
+}
+
+.console-action-link,
+.console-action-menu {
+    display: block;
+    min-width: 0;
+    text-decoration: none;
+}
+
+.console-action-menu::part(base) {
+    display: block;
+}
+
+.console-action {
+    width: 100%;
+    min-height: 54px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 4px;
+    border: 1px solid var(--console-line);
+    border-radius: var(--console-radius-sm);
+    background: transparent;
+    color: var(--console-ink-2) !important;
+    font-size: 11.5px !important;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.console-action span {
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.console-action sl-icon {
+    font-size: 17px;
+}
+
+.console-action:hover:not(:disabled) {
+    background: var(--console-raised);
+    color: var(--console-ink) !important;
+}
+
+.console-action.pressed {
+    border-color: rgba(255, 191, 0, 0.55);
+    background: var(--console-amber-soft);
+    color: var(--console-amber) !important;
+}
+
+.console-action:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.console-legend {
+    padding: 0 12px;
+    font-size: 12.5px;
+}
+
+.console-about {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 6px 14px;
+    margin: 0;
+    padding: 0 12px 4px;
+    font-size: 12.5px;
+}
+
+.console-about dt {
+    color: var(--console-ink-3);
+}
+
+.console-about dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.console-mono {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 11.5px;
+}
+
+.console-stack {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.console-stack span {
+    margin-right: 4px;
+}
+
+.console-btn.console-btn-sm {
+    width: 26px;
+    height: 26px;
+}
+
+.console-btn.console-btn-sm sl-icon {
+    font-size: 13px;
+}
+
+.console-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+    background: transparent;
+}
+
+.console-details-desc {
+    cursor: pointer;
+}
+
+.console-details-desc.open {
+    display: block;
+    -webkit-line-clamp: unset;
+}

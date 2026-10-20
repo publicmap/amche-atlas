@@ -1,34 +1,37 @@
 const PANEL_ID = 'amche-search-suggestions'
 
 /**
- * The single, shared fixed-position suggestions dropdown for the map search
- * box. Owns the DOM, positioning, ARIA (role="listbox" > role="group" per
- * section > role="option" per item, aria-activedescendant, aria-expanded),
- * and keyboard highlighting. Callers provide data (GeoJSON-feature-like items,
- * grouped into labeled sections; an optional top-level `icon` string overrides
- * the default 📍) and get the selected/hovered item (plus its flat index)
- * back - marker/camera/layer-toggle behavior stays in map-search-control.js.
+ * The bridge between MapSearchControl's results and the map console's Find
+ * list (js/console/find-panel.js). Callers hand it labeled sections of
+ * GeoJSON-feature-like items; Find groups and draws them inside the console,
+ * and this keeps the combobox side: ARIA (aria-activedescendant,
+ * aria-expanded) and arrow/Enter keyboard highlighting across whatever rows
+ * Find is currently showing.
  *
- * Being the one owner of this DOM node (rather than each suggestion source
- * injecting its own independently-positioned panel) is what prevents two
- * suggestion sources from ever visually overlapping.
+ * Marker/camera/layer-toggle behavior stays in map-search-control.js; a row's
+ * own click handler (Find's) is what Enter triggers, so keyboard and pointer
+ * always do the same thing.
  */
 export class SearchSuggestionsPanel {
     constructor(searchBoxEl, { onSelect, onHover } = {}) {
         this.searchBoxEl = searchBoxEl
         this.onSelect = onSelect || (() => {})
         this.onHover = onHover || (() => {})
-        this.$panel = null
-        this.flatItems = [] // [{ item, id }], index-aligned across all sections
+        this.flatItems = [] // [{ item, el, id }] in display order
         this.highlightedIndex = -1
+        this._wiredFind = null
     }
 
     get id() {
         return PANEL_ID
     }
 
+    get _find() {
+        return window.mapConsole?.find || null
+    }
+
     isVisible() {
-        return !!this.$panel && this.$panel.length > 0
+        return this.flatItems.length > 0
     }
 
     _getComboboxInput() {
@@ -38,226 +41,77 @@ export class SearchSuggestionsPanel {
             this.searchBoxEl.querySelector('input')
     }
 
-    /**
-     * Where our panel should start: below Mapbox's own native suggestions
-     * dropdown when it's currently showing something (it can run
-     * concurrently with ours - see map-search-control.js's
-     * shouldBypassSearchSuggest), so the two stack instead of ours covering
-     * it. Never touches that dropdown itself, only reads its position - same
-     * "don't mutate Mapbox's own listbox" rule as _getMapboxListbox() in
-     * map-search-control.js, and the same substring-matched selector (this
-     * widget doesn't set role="listbox"; its classes are per-build-hashed,
-     * e.g. "mbx0cedb16f--Results").
-     */
-    _getAnchorBottom(searchBoxRect) {
-        const mapboxResults = this.searchBoxEl.shadowRoot?.querySelector('[class*="Results"]') ||
-            this.searchBoxEl.querySelector('[class*="Results"]')
-        if (mapboxResults) {
-            const resultsRect = mapboxResults.getBoundingClientRect()
-            if (resultsRect.height > 0) {
-                return Math.max(searchBoxRect.bottom, resultsRect.bottom)
-            }
-        }
-        return searchBoxRect.bottom
+    _currentQuery() {
+        return this._getComboboxInput()?.value || ''
     }
 
-    _escapeHtml(text) {
-        return String(text ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
+    _wire(find) {
+        if (this._wiredFind === find) return
+        this._wiredFind = find
+        // Find also redraws on its own (a filter chip, a layer toggled on the
+        // map), so the keyboard list follows every redraw, not just ours.
+        find.onEntriesChanged = (entries) => this._sync(entries)
     }
 
     /**
-     * @param {Array<{ ariaLabel: string, items: object[], sourceLabel?: string, sourceUrl?: string }>} sections
+     * @param {Array<{ ariaLabel: string, items: object[] }>} sections
      *   Each item is a GeoJSON-like feature (properties.name / properties.place_name).
-     *   Sections with no items are dropped. `sourceLabel`/`sourceUrl` render a
-     *   visible header naming where that section's results come from, with an
-     *   optional link (opened in a new tab) to that source for more detail.
+     *   Find maps each section's ariaLabel to a type filter.
      */
     render(sections) {
-        const nonEmptySections = (sections || []).filter(s => s.items && s.items.length)
+        const find = this._find
+        if (!find) return
+        this._wire(find)
+        find.setQuery(this._currentQuery())
+        find.renderResults((sections || []).filter(s => s.items && s.items.length))
+        this._updateComboboxAria(this.isVisible())
+    }
 
-        if (!nonEmptySections.length) {
-            this.clear()
-            return
-        }
-
-        // Rebuilds happen often and asynchronously (debounced place results
-        // arriving, the staggered re-render retries in
-        // map-search-control.js's scheduleSuggestionInjection) while the user
-        // may be mid-keyboard-navigation. Losing the highlight on every
-        // rebuild would make Enter silently do nothing (or fall through to
-        // Mapbox's own native suggest handling) - so carry it forward by
-        // object identity if that item is still present in the new content.
-        const previouslyHighlighted = this.highlightedIndex >= 0
-            ? this.flatItems[this.highlightedIndex]?.item
-            : null
-
-        this._teardownDom()
-        this.flatItems = []
-
-        const sectionsHtml = nonEmptySections.map((section) => {
-            const itemsHtml = section.items.map((feature, indexInSection) => {
-                const flatIndex = this.flatItems.length
-                const optionId = `${PANEL_ID}-option-${flatIndex}`
-                this.flatItems.push({ item: feature, id: optionId })
-
-                const name = this._escapeHtml(feature.properties?.name)
-                const desc = this._escapeHtml(feature.properties?.place_name)
-                const icon = this._escapeHtml(feature.icon || '📍')
-                const isCadastralPlot = !!feature.properties?._isCadastralParquet
-
-                return `
-                    <div class="mbx09bc48e7--Suggestion local-suggestion${isCadastralPlot ? ' cadastral-plot-suggestion' : ''}"
-                         role="option"
-                         tabindex="-1"
-                         id="${optionId}"
-                         data-flat-index="${flatIndex}"
-                         aria-posinset="${indexInSection + 1}"
-                         aria-setsize="${section.items.length}"
-                         style="
-                             display: flex !important;
-                             align-items: center;
-                             padding: 8px 12px;
-                             cursor: pointer;
-                             background: #1f2937;
-                             border-bottom: 1px solid #374151;
-                             min-height: 40px;
-                             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                         ">
-                        <div class="mbx09bc48e7--SuggestionIcon" aria-hidden="true" style="margin-right: 8px; font-size: 16px;">${icon}</div>
-                        <div class="mbx09bc48e7--SuggestionText" style="flex: 1; overflow: hidden;">
-                            <div class="mbx09bc48e7--SuggestionName" style="font-weight: 500; color: #f3f4f6; font-size: 14px; line-height: 1.2;">${name}</div>
-                            <div class="mbx09bc48e7--SuggestionDesc" style="color: #9ca3af; font-size: 12px; line-height: 1.2; margin-top: 2px;">${desc}</div>
-                        </div>
-                    </div>
-                `
-            }).join('')
-
-            const label = this._escapeHtml(section.ariaLabel || 'Suggestions')
-            const sourceLinkHtml = section.sourceUrl ? `
-                <a href="${this._escapeHtml(section.sourceUrl)}" target="_blank" rel="noopener noreferrer"
-                   class="local-suggestion-source-link"
-                   style="color: #60a5fa; text-decoration: none; font-weight: 400;"
-                >${this._escapeHtml(section.sourceLabel || 'Source')} ↗</a>
-            ` : ''
-
-            const headerHtml = `
-                <div class="local-suggestion-section-header" style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    gap: 8px;
-                    padding: 6px 12px;
-                    font-size: 11px;
-                    font-weight: 600;
-                    letter-spacing: 0.04em;
-                    text-transform: uppercase;
-                    color: #9ca3af;
-                    background: #111827;
-                    border-bottom: 1px solid #374151;
-                    position: sticky;
-                    top: 0;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                "><span>${label}</span>${sourceLinkHtml}</div>
-            `
-
-            return `<div role="group" aria-label="${label}">${headerHtml}${itemsHtml}</div>`
-        }).join('')
-
-        // Inside the map control bar the dropdown hangs off the bar itself, so it
-        // lines up with the bar's edges instead of the narrower search box.
-        const bar = this.searchBoxEl.closest('.map-control-bar')
-        const rect = (bar || this.searchBoxEl).getBoundingClientRect()
-        const top = this._getAnchorBottom(rect)
-        const $panel = $(`<div id="${PANEL_ID}" role="listbox" aria-label="Search suggestions"></div>`)
-        $panel.css({
-            position: 'fixed',
-            top: `${top}px`,
-            left: `${rect.left}px`,
-            width: `${rect.width}px`,
-            // Long result lists (many sections, each up to 5 items) would
-            // otherwise run off the bottom of the viewport - cap the panel to
-            // the space actually available below it and let it scroll
-            // internally instead.
-            maxHeight: `${Math.max(160, window.innerHeight - top - 16)}px`,
-            overflowY: 'auto',
-            overscrollBehavior: 'contain',
-            // The control corner it now lives in does not take pointer events
-            pointerEvents: 'auto',
-            // Above the control bar (10000, see .search-box-row > .map-browser-control)
-            zIndex: 10001
+    _sync(entries) {
+        const previouslyHighlighted = this.flatItems[this.highlightedIndex]?.item || null
+        this.flatItems = (entries || []).map((entry, index) => {
+            const id = `${PANEL_ID}-option-${index}`
+            entry.el.id = id
+            entry.el.setAttribute('role', 'option')
+            return { item: entry.item, el: entry.el, id }
         })
-        $panel.html(sectionsHtml)
-        // Into the map's top-left control corner rather than <body>: that corner
-        // is a stacking context of its own (Mapbox gives it position:absolute
-        // with z-index:2, inside #map's own z-index:1), so a body-level panel
-        // outranks every control in it no matter what z-index they carry - which
-        // put this dropdown over the layer stack's hover flyouts
-        // (js/layer-stack-strip.js). Sharing the corner, the two order by
-        // z-index as intended. It stays position:fixed - no ancestor here sets a
-        // transform - so the viewport coordinates above are unaffected, and it
-        // contributes nothing to the corner's layout.
-        const $host = $(this.searchBoxEl.closest('.mapboxgl-ctrl-top-left') ||
-            this.searchBoxEl.closest('.mapboxgl-map') || document.body)
-        $host.append($panel)
-        this.$panel = $panel
-
-        $panel.find('[role="option"]')
-            .on('click', (event) => {
-                this._select(parseInt($(event.currentTarget).data('flat-index'), 10))
-            })
-            .on('mouseenter', (event) => {
-                $(event.currentTarget).css('background-color', '#374151')
-                this._setHighlight(parseInt($(event.currentTarget).data('flat-index'), 10))
-            })
-            .on('mouseleave', (event) => {
-                $(event.currentTarget).css('background-color', '#1f2937')
-                const index = parseInt($(event.currentTarget).data('flat-index'), 10)
-                this.onHover(this.flatItems[index]?.item, index, false)
-            })
-
-        // Restore the previous highlight if that item is still here (by
-        // reference - see the comment above). Set directly rather than via
-        // _setHighlight() so a silent background rebuild doesn't re-fire
-        // onHover() (which would spuriously move the map/toggle a marker
-        // popup the user never asked to hover again).
+        // Carried over by object identity, so a background redraw (debounced
+        // place results arriving) doesn't drop the row the keyboard is on.
         this.highlightedIndex = previouslyHighlighted
             ? this.flatItems.findIndex(entry => entry.item === previouslyHighlighted)
             : -1
-        if (this.highlightedIndex >= 0) {
-            const input = this._getComboboxInput()
-            if (input) input.setAttribute('aria-activedescendant', this.flatItems[this.highlightedIndex].id)
-        }
-
-        this._updateComboboxAria(true)
-    }
-
-    _select(index) {
-        const entry = this.flatItems[index]
-        if (!entry) return
-        this.onSelect(entry.item, index)
+        this._paintHighlight()
     }
 
     _setHighlight(index) {
         const entry = this.flatItems[index]
         if (!entry) return
+        const previous = this.flatItems[this.highlightedIndex]
+        if (previous && previous !== entry) this.onHover(previous.item, this.highlightedIndex, false)
         this.highlightedIndex = index
-        const input = this._getComboboxInput()
-        if (input) {
-            input.setAttribute('aria-activedescendant', entry.id)
-        }
+        this._paintHighlight()
+        entry.el.scrollIntoView({ block: 'nearest' })
         this.onHover(entry.item, index, true)
+    }
+
+    _paintHighlight() {
+        this.flatItems.forEach((entry, index) => {
+            entry.el.classList.toggle('highlighted', index === this.highlightedIndex)
+        })
+        const input = this._getComboboxInput()
+        if (!input) return
+        const entry = this.flatItems[this.highlightedIndex]
+        if (entry) input.setAttribute('aria-activedescendant', entry.id)
+        else input.removeAttribute('aria-activedescendant')
     }
 
     /**
      * Called from the host's keydown handler. Returns true if the key was
      * handled (host should preventDefault and stop further processing).
+     * Escape is left to the console, which closes Find.
      */
     handleKeydown(event) {
-        if (!this.isVisible() || this.flatItems.length === 0) return false
+        if (!this.isVisible()) return false
 
         // Home/End are deliberately NOT handled here even though they're part
         // of the listbox pattern - this is a text input, and users expect
@@ -271,13 +125,10 @@ export class SearchSuggestionsPanel {
                 return true
             case 'Enter':
                 if (this.highlightedIndex >= 0) {
-                    this._select(this.highlightedIndex)
+                    this.flatItems[this.highlightedIndex].el.click()
                     return true
                 }
                 return false
-            case 'Escape':
-                this.clear()
-                return true
             default:
                 return false
         }
@@ -294,18 +145,16 @@ export class SearchSuggestionsPanel {
         }
     }
 
-    _teardownDom() {
-        if (this.$panel) {
-            this.$panel.remove()
-            this.$panel = null
-        }
-    }
-
     clear() {
         const wasVisible = this.isVisible()
-        this._teardownDom()
         this.flatItems = []
         this.highlightedIndex = -1
+        const find = this._find
+        if (find) {
+            this._wire(find)
+            find.setQuery(this._currentQuery())
+            find.renderResults([])
+        }
         if (wasVisible) this._updateComboboxAria(false)
     }
 }

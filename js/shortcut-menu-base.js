@@ -919,7 +919,7 @@ export class ShortcutMenuBase {
 
     /**
      * Routed through MapBrowserControl._handleLayerToggle — the same handler
-     * map-browser.html's own layer toggles call via postMessage — rather than
+     * the console's Find eye toggles call — rather than
      * driving the <sl-details> show()/hide() directly. That handler is what
      * actually adds/removes the Mapbox layer, fires the URL sync, and (via its
      * layer-registry fallback) adds the group to _state.groups on the fly if

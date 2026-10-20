@@ -9,12 +9,6 @@ export class KeyboardController {
     setupEventListeners() {
         document.addEventListener('keydown', (e) => this.handleGlobalKeydown(e));
 
-        window.addEventListener('message', (event) => {
-            if (event.data.type === 'browser-ready') {
-                this.setupIframeFocus('map-browser');
-            }
-        });
-
         document.addEventListener('focusin', (e) => {
             if (e.target.closest('.mapboxgl-ctrl-geocoder')) {
                 e.target.setAttribute('aria-label', 'Search for locations');
@@ -63,11 +57,11 @@ export class KeyboardController {
 
             await waitForLoadingOverlayRemoval();
 
-            // A plain button (created by MapBrowserControl.onAdd() in
-            // map-init.js), not a custom element, so no whenDefined() wait -
-            // just retry in case it isn't mounted yet at this exact instant.
+            // The map console's atlas button (js/map-control-bar.js) - a plain
+            // button, not a custom element, so no whenDefined() wait - just
+            // retry in case it isn't mounted yet at this exact instant.
             const tryFocus = (attempt = 1) => {
-                const trigger = document.querySelector('.map-browser-btn');
+                const trigger = document.querySelector('.map-control-bar-main');
                 trigger?.focus();
 
                 setTimeout(() => {
@@ -106,7 +100,7 @@ export class KeyboardController {
 
         if (e.key === 'l' && e.ctrlKey && !this.isInputActive()) {
             e.preventDefault();
-            this.focusLayerControls();
+            window.mapConsole?.toggleFind('onmap');
         }
 
         if (e.key === ' ' && !this.isInputActive()) {
@@ -155,18 +149,8 @@ export class KeyboardController {
             return;
         }
 
-        const mapBrowser = document.querySelector('iframe[src*="map-browser.html"]');
-        if (mapBrowser && mapBrowser.offsetParent !== null) {
-            const closeBtn = mapBrowser.contentWindow?.document?.getElementById('close-browser-btn');
-            if (closeBtn) {
-                closeBtn.click();
-            } else {
-                window.postMessage({ type: 'close-browser' }, '*');
-            }
-            // No focusMap() here - MapBrowserControl.closeBrowser() already
-            // returns focus to the trigger button that opened this panel.
-            return;
-        }
+        // The map console closes Find itself (js/map-control-bar.js)
+        if (window.mapConsole?.mode === 'find') return;
 
         const exportIframe = document.querySelector('iframe[src*="map-export.html"]');
         if (exportIframe && exportIframe.offsetParent !== null) {
@@ -209,6 +193,11 @@ export class KeyboardController {
     }
 
     focusSearch() {
+        if (window.mapConsole) {
+            window.mapConsole.setMode('find');
+            return true;
+        }
+
         const searchBox = document.querySelector('mapbox-search-box');
 
         if (searchBox) {
@@ -258,20 +247,7 @@ export class KeyboardController {
     }
 
     toggleMapBrowser() {
-        const trigger = document.querySelector('.map-browser-btn');
-        if (trigger) {
-            trigger.click();
-        }
-    }
-
-    focusLayerControls() {
-        const layerControl = document.querySelector('.map-layer-controls');
-        if (layerControl) {
-            const firstCheckbox = layerControl.querySelector('sl-checkbox, input[type="checkbox"]');
-            if (firstCheckbox) {
-                firstCheckbox.focus();
-            }
-        }
+        window.mapConsole?.toggleFind('all');
     }
 
     triggerCenterSelection() {
@@ -288,43 +264,6 @@ export class KeyboardController {
 
     openWelcomeScreen() {
         window.location.href = './docs/index.html';
-    }
-
-    setupIframeFocus(iframeId) {
-        const iframe = document.querySelector(`iframe[src*="${iframeId}"]`);
-        if (!iframe) return;
-
-        const observer = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                if (mutation.attributeName === 'style' || mutation.attributeName === 'class') {
-                    const isVisible = iframe.offsetParent !== null;
-                    if (isVisible) {
-                        this.focusIframe(iframe);
-                    }
-                }
-            }
-        });
-
-        observer.observe(iframe.parentElement || iframe, {
-            attributes: true,
-            attributeFilter: ['style', 'class']
-        });
-    }
-
-    focusIframe(iframe) {
-        setTimeout(() => {
-            try {
-                iframe.contentWindow?.focus();
-
-                const searchInput = iframe.contentWindow?.document?.getElementById('search-input');
-                if (searchInput) {
-                    searchInput.focus();
-                    searchInput.setAttribute('aria-label', 'Search maps in browser');
-                }
-            } catch (e) {
-                console.warn('Could not focus iframe:', e);
-            }
-        }, 100);
     }
 
     handleModalTabbing(e) {

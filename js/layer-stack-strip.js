@@ -1,12 +1,8 @@
 /**
- * LayerStackStrip - the vertical control column at the top-left of the map:
- * the map control bar that toggles the map browser, whose "Loaded N Maps"
- * summary reveals and edits this strip - one thumbnail per layer currently
- * visible on the map.
- *
- * The toggle is fixed and built once at mount; only the layer thumbnails are
- * rebuilt by render(), so the button keeps its identity and open/closed state
- * across refreshes.
+ * LayerStackStrip - the "On the map" list in the map console's Find mode
+ * (js/map-control-bar.js, js/console/find-panel.js): one row per layer
+ * currently visible on the map. It also mounts the console itself, and is
+ * shown whenever Find is open.
  *
  * Order matches the map's visual stack as defined by LayerOrderManager:
  * MapLayerControl._state.groups is already held in config/visual/URL order
@@ -17,9 +13,8 @@
  * opens the map/selection shortcuts shared with the long-press menu (see
  * LayerStackOptionsMenu), then "Import Map" and "Export Map".
  *
- * Each thumbnail is a LayerThumbnail, so clicking one opens that layer's info
- * panel (or zooms to it when it's out of view) exactly like the thumbnails in
- * map-browser.html. Hovering a row isolates that layer through
+ * Each thumbnail is a LayerThumbnail, and clicking a row opens that layer's
+ * details page in Find (js/console/layer-details.js). Hovering a row isolates that layer through
  * MapLayerControl's shared LayerIsolationManager and reveals the layer's details
  * (name, atlas, shortcut actions, opacity) in a panel that opens over the rest
  * of its own row, inside the strip.
@@ -31,7 +26,7 @@ import { MapControlBar } from './map-control-bar.js';
 import { LayerCompareBadge } from './layer-compare-badge.js';
 import { attachSwipeDelete } from './layer-swipe-delete.js';
 
-const THUMB_SIZE = 36;
+const THUMB_SIZE = 32;
 
 export class LayerStackStrip {
     constructor() {
@@ -43,10 +38,7 @@ export class LayerStackStrip {
         this._reorderTimer = null;
         this._draggedItem = null;
         this._footer = null;
-        this._reordering = false;
-        this._hideTimer = null;
-        this._expandTimer = null;
-        this._expandedByHover = false;
+        this._open = false;
         this._showHidden = false;
         this._zoomState = null;
         this._map = null;
@@ -64,18 +56,11 @@ export class LayerStackStrip {
             this._controlBar?.setLoading(!!window.layerControl?._loadingLayerIds?.size);
             if (this._updateFeatureVisibility()) this.render();
         };
-        this._onSearchStart = () => this._collapse();
-        this._onMapClick = () => {
-            if (!this._isPinned()) this._setReordering(false);
-        };
-        // Only a user-driven move collapses the strip: a programmatic one (the
-        // strip's own Zoom action, say) has no originalEvent.
+        // Moving the map by hand after a layer zoom makes "Reset" meaningless:
+        // the next click zooms again instead. A programmatic move (the zoom
+        // itself) has no originalEvent.
         this._onMapMoveStart = (e) => {
-            if (!e?.originalEvent) return;
-            // Moving the map after a layer zoom makes "Reset" meaningless: the
-            // next click zooms again instead.
-            this._zoomState = null;
-            this._collapse();
+            if (e?.originalEvent) this._zoomState = null;
         };
         // Debounced: window.urlManager's active-layers state updates on its own
         // 300ms debounce (see CLAUDE.md), so reading it synchronously on
@@ -91,9 +76,9 @@ export class LayerStackStrip {
     }
 
     /**
-     * @param {HTMLElement} hostEl - the map control container to render into
+     * @param {HTMLElement} hostEl - the map control container the console goes into
      * @param {HTMLElement} [browserButton] - MapBrowserControl's toggle button,
-     *   adopted as the first item in the stack rather than sitting in the search row
+     *   kept as a hidden proxy for keyboard and test hooks
      * @param {Object} [map] - the map the options menu's actions act on
      */
     mount(hostEl, { browserButton = null, map = null } = {}) {
@@ -115,37 +100,14 @@ export class LayerStackStrip {
                 e.clientY < rect.top || e.clientY > rect.bottom;
             if (outside) this._clearDropIndicators();
         });
-        this._el.addEventListener('mouseenter', () => clearTimeout(this._hideTimer));
-        this._el.addEventListener('mouseleave', () => this._scheduleHide());
-        hostEl.appendChild(this._el);
 
-        window.addEventListener('mapSearchStart', this._onSearchStart);
         this._controlBar = new MapControlBar();
         this._controlBar.mount(hostEl, {
-            triggerButton: browserButton,
-            searchEl: window.searchBoxControl?._searchEl || null,
-            onSummaryClick: () => {
-                clearTimeout(this._expandTimer);
-                // A click right after the hover expanded the strip confirms it
-                // rather than toggling it straight back off.
-                if (this._expandedByHover) {
-                    this._expandedByHover = false;
-                    this._controlBar?.setSummaryActive(true, true);
-                    return;
-                }
-                this._setReordering(!this._reordering);
-            },
-            onSummaryEnter: () => {
-                this._reveal();
-                if (this._updateFeatureVisibility()) this.render();
-                if (!this._reordering) {
-                    this._expandedByHover = true;
-                    this._setReordering(true);
-                }
-            },
-            onSummaryLeave: () => {
-                this._scheduleHide();
-            },
+            map,
+            searchToggle: window.searchBoxControl?.searchToggle || null,
+            stripEl: this._el,
+            getOnMapLayers: () => this._getVisibleLayers(),
+            onModeChange: (mode) => this._setOpen(mode === 'find'),
             onToggleHidden: (show) => {
                 this._showHidden = show;
                 this.render({ force: true });
@@ -158,7 +120,7 @@ export class LayerStackStrip {
         this._controlBar.update(window.layersInitialized ? this._getVisibleLayers() : null);
 
         this._map = map;
-        this._mountBrowserProxy(browserButton);
+        this._mountBrowserProxy(browserButton, hostEl);
         this._mountFooter(map);
 
         // 'layersInitialized' is the signal that MapLayerControl has finished
@@ -214,19 +176,15 @@ export class LayerStackStrip {
         window.removeEventListener('layer-toggled', this._onChange);
         window.removeEventListener('urlUpdated', this._onChange);
         window.removeEventListener('mask-changed', this._onChange);
+        window.removeEventListener('compare-changed', this._onChange);
         clearTimeout(this._refreshTimer);
         clearTimeout(this._reorderTimer);
-        clearTimeout(this._expandTimer);
-        (this._map || window.map)?.off?.('click', this._onMapClick);
         this._map?.off?.('dataloading', this._onDataLoading);
         this._map?.off?.('idle', this._onMapIdle);
         this._map?.off?.('movestart', this._onMapMoveStart);
-        this._reordering = false;
-        clearTimeout(this._hideTimer);
         this._clearIsolation({ immediate: true });
         this._footer?.unmount();
         this._footer = null;
-        window.removeEventListener('mapSearchStart', this._onSearchStart);
         this._controlBar?.destroy();
         this._controlBar = null;
         if (this._el && this._el.parentNode) this._el.parentNode.removeChild(this._el);
@@ -261,7 +219,7 @@ export class LayerStackStrip {
         this._controlBar?.setHidden(allLayers.filter(l => this._noFeatureIds.has(l.id)).length, this._showHidden);
         const maskedId = this._getMaskedLayerId();
         const loadingIds = window.layerControl?._loadingLayerIds;
-        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${compareId}|mask:${maskedId}|reorder:${this._reordering}|zoom:${this._zoomState?.layerId}|hidden:${hiddenCount}:${this._showHidden}|empty:${[...this._noFeatureIds].join(',')}`;
+        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${compareId}|mask:${maskedId}|open:${this._open}|zoom:${this._zoomState?.layerId}|hidden:${hiddenCount}:${this._showHidden}|empty:${[...this._noFeatureIds].join(',')}`;
         if (!force && signature === this._signature) return;
         this._signature = signature;
 
@@ -274,7 +232,6 @@ export class LayerStackStrip {
         const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(layers);
 
         [overlays, basemaps].forEach((list, section) => {
-            if (section === 0 && !this._reordering) return;
             list.forEach((layer, index) => {
                 const item = this._createItem(layer, { index, total: list.length, maskedId });
                 // The two groups meet at the first basemap, which carries the rule
@@ -291,8 +248,6 @@ export class LayerStackStrip {
             this._el.appendChild(this._footer.el);
             this._footer.sync();
         }
-
-        this._syncBarWidth();
     }
 
     /**
@@ -310,63 +265,10 @@ export class LayerStackStrip {
         }, 80);
     }
 
-    _mountBrowserProxy(browserButton) {
+    _mountBrowserProxy(browserButton, hostEl) {
         if (!browserButton) return;
         browserButton.classList.add('layer-stack-browser-proxy');
-        this._el.parentNode.appendChild(browserButton);
-    }
-
-    _reveal() {
-        clearTimeout(this._hideTimer);
-        this._el?.classList.add('revealed');
-        this._syncBarWidth();
-    }
-
-    /**
-     * The strip grows to fit its longest layer name, so the bar above it is
-     * widened to match while it is open and the two stay one flush block.
-     */
-    _syncBarWidth() {
-        if (!this._el || !this._controlBar) return;
-        this._controlBar.setMinWidth(0);
-        if (this._el.classList.contains('revealed')) {
-            this._controlBar.setMinWidth(this._el.offsetWidth);
-        }
-    }
-
-    _scheduleHide() {
-        clearTimeout(this._hideTimer);
-        this._hideTimer = setTimeout(() => {
-            if (!this._el || this._draggedItem) return;
-            if (this._el.matches(':hover') || this._controlBar?.summaryEl?.matches(':hover, :focus-visible') || this._controlBar?.el?.matches(':hover')) return;
-            if (this._el.classList.contains('options-open')) return;
-            if (this._expandedByHover) {
-                this._setReordering(false);
-                clearTimeout(this._hideTimer);
-            } else if (this._reordering) {
-                return;
-            }
-            this._el.classList.remove('revealed');
-            this._controlBar?.setMinWidth(0);
-            this._resetShowHidden();
-        }, 200);
-    }
-
-    // Opened by clicking "Maps" rather than by hovering: it stays open, through
-    // map moves, map clicks and searches, until "Maps" is clicked again.
-    _isPinned() {
-        return this._reordering && !this._expandedByHover;
-    }
-
-    _collapse() {
-        if (!this._el || this._isPinned()) return;
-        clearTimeout(this._expandTimer);
-        clearTimeout(this._hideTimer);
-        this._setReordering(false);
-        this._clearIsolation({ immediate: true });
-        this._el.classList.remove('revealed');
-        this._controlBar?.setMinWidth(0);
-        this._resetShowHidden();
+        hostEl.appendChild(browserButton);
     }
 
     /**
@@ -414,16 +316,16 @@ export class LayerStackStrip {
         this.render();
     }
 
-    _setReordering(on) {
-        if (on === this._reordering) return;
-        this._reordering = on;
-        if (!on) this._expandedByHover = false;
-        this._controlBar?.setSummaryActive(on, on && !this._expandedByHover);
-        const map = this._map || window.map;
-        map?.[on ? 'on' : 'off']?.('click', this._onMapClick);
+    /** Find opened or closed: the list only does work while it can be seen. */
+    _setOpen(open) {
+        if (open === this._open) return;
+        this._open = open;
         this._clearIsolation({ immediate: true });
-        if (on) this._reveal();
-        else this._scheduleHide();
+        if (open) this._updateFeatureVisibility();
+        else {
+            this._footer?.closeMenu();
+            this._resetShowHidden();
+        }
         this.render({ force: true });
     }
 
@@ -464,7 +366,7 @@ export class LayerStackStrip {
     _updateFeatureVisibility() {
         const stateManager = window.stateManager;
         if (!stateManager?.hasRenderedFeatures || !window.layersInitialized) return false;
-        if (!this._reordering && !this._el?.classList.contains('revealed')) return false;
+        if (!this._open) return false;
         const comparedId = this._getComparedLayerId();
         const next = new Set(
             this._getVisibleLayers()

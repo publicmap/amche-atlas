@@ -1,6 +1,6 @@
 /**
- * SettingsMenuControl - header-nav locale button (a translate-style icon: overlapping boxes, the primary language code in the filled front one, a fixed "हि" in the outline one behind) (top-left, before the atlas +
- * layers menu). Built as a manual toggle button + panel, the same pattern
+ * SettingsMenuControl - the map console's locale button (a translate-style icon: overlapping boxes, the primary language code in the filled front one, a fixed "हि" in the outline one behind),
+ * at the end of the console's bar. Built as a manual toggle button + panel, the same pattern
  * every other header-nav menu here uses (see the atlas-layer-menu-* styles in css/styles.css,
  * map-location-menu-control.js) rather than a Shoelace <sl-dropdown>, so it
  * looks and behaves identically to its neighbors.
@@ -19,7 +19,7 @@
  *   params (`lang` is comma-separated, primary language first) - takes
  *   effect immediately, no reload.
  *
- * Not a mapboxgl control - this lives in the header-nav DOM, not on the map.
+ * Not a mapboxgl control of its own - it lives in the map console's bar.
  */
 import { mountLocaleSection } from './locale-ui.js';
 import { localeManager } from './locale-manager.js';
@@ -52,7 +52,7 @@ export class SettingsMenuControl {
     }
 
     mount(hostEl) {
-        if (!hostEl) return;
+        if (!hostEl || this._container) return;
 
         this._container = document.createElement('div');
         this._container.className = 'atlas-layer-menu settings-menu';

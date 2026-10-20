@@ -222,7 +222,7 @@ export class Terrain3DControl {
     }
 
     // The panel's markup. Styling lives in css/styles.css (.terrain-3d-* /
-    // .t3d-*), sharing map-browser.html's palette. Element ids are unchanged so
+    // .t3d-*), sharing the dark side-panel palette. Element ids are unchanged so
     // the public setters and initializeFromURL keep addressing the same nodes.
     _panelHtml() {
         const { minExaggeration, maxExaggeration, step } = this.options;

@@ -115,9 +115,12 @@ export class CadastralSearchUI {
         // position: fixed (see _positionDropdown), so sharing the corner changes
         // nothing about where it sits. The picker drawer is a modal overlay and
         // stays at body level.
-        const dropdownHost = this.searchBoxEl.closest('.mapboxgl-ctrl-top-left') ||
+        // Inside the map console it is the first thing in Find's body, in the
+        // flow above the filters, rather than floating over them.
+        this.consoleBody = this.searchBoxEl.closest('.map-console')?.querySelector('.map-console-body')
+        const dropdownHost = this.consoleBody || this.searchBoxEl.closest('.mapboxgl-ctrl-top-left') ||
             this.searchBoxEl.closest('.mapboxgl-map') || document.body
-        dropdownHost.appendChild(this.dropdown)
+        dropdownHost.insertBefore(this.dropdown, dropdownHost.firstChild)
         document.body.appendChild(this.pickerDrawer)
 
         // While the dropdown is open under the control bar the two read as one
@@ -552,6 +555,14 @@ export class CadastralSearchUI {
     }
 
     _positionDropdown() {
+        if (this.consoleBody) {
+            // Guarded: a class write re-fires the class observer above even
+            // when nothing changes, and that observer calls back in here.
+            if (!this.dropdown.classList.contains('cadastral-dropdown--inline')) {
+                this.dropdown.classList.add('cadastral-dropdown--inline')
+            }
+            return
+        }
         const bar = this.searchBoxEl.closest('.map-control-bar')
         const rect = (bar || this.searchBoxEl).getBoundingClientRect()
         this.dropdown.classList.toggle('cadastral-dropdown--docked', Boolean(bar))

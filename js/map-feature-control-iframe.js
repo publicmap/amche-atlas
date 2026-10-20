@@ -1924,7 +1924,7 @@ export class MapFeatureControl {
      * Historically sent to the docked inspector iframe; that panel is gone, so
      * this is now permanently inert. Left in place rather than chased through
      * every `_send*ToIframe` caller, several of which also forward the same
-     * event to window.browserControl's iframe (map-browser.html) and must
+     * event to window.browserControl's iframe (the layer editor) and must
      * keep doing so.
      */
     _sendMessageToIframe(message) {

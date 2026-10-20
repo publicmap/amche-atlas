@@ -381,6 +381,12 @@ export class MapMarkerManager {
         });
 
         window.addEventListener('layer-toggled', () => this._layoutDockedPanels());
+        // Docked panels hide while the console's Find list covers their column
+        // (see .console-find in css/map-console.css) and settle back below the
+        // console when it closes.
+        window.addEventListener('mapConsoleModeChanged', (e) => {
+            if (e.detail?.mode === 'explore') requestAnimationFrame(() => this._layoutDockedPanels());
+        });
         document.addEventListener('wheel', (e) => this._scrollDock(e), { passive: false, capture: true });
         window.addEventListener('routes-changed', () => requestAnimationFrame(() => this._layoutDockedPanels()));
         this._map.on('idle', () => this._layoutDockedPanels());
@@ -521,10 +527,13 @@ export class MapMarkerManager {
             stack.render(container, [], new Map(), 0);
             return;
         }
-        const main = document.querySelector('.map-control-bar-main');
-        const head = main?.closest('.map-control-bar-head');
-        if (!main || !head) return;
-        const mainRect = main.getBoundingClientRect();
+        // The column hangs below the whole map console (its bar and place
+        // line) and matches the bar's width. While Find is open the console
+        // fills the corner and the column is hidden, so it waits for Find to close.
+        const consoleEl = document.querySelector('.map-console');
+        const head = consoleEl?.querySelector('.map-control-bar-head');
+        if (!consoleEl || !head || consoleEl.dataset.mode === 'find') return;
+        const mainRect = head.getBoundingClientRect();
         if (!mainRect.width) return;
         const canvas = this._map.getCanvas().getBoundingClientRect();
 
@@ -550,7 +559,7 @@ export class MapMarkerManager {
         this._dockGeometry = { panelLeft, width: mainRect.width - gutter, lanes: [] };
         const width = `${Math.round(mainRect.width - gutter)}px`;
 
-        let top = head.getBoundingClientRect().bottom + MARKER_DOCK_GAP;
+        let top = consoleEl.getBoundingClientRect().bottom + MARKER_DOCK_GAP;
         const routeRows = new Map();
         stackRoutes.forEach(route => {
             routeRows.set(route.id, { top, height: ROUTE_BUTTON_HEIGHT });
@@ -1108,7 +1117,7 @@ export class MapMarkerManager {
     _handleSelection(data) {
         // Selections restored from a shared URL already had their markers created by
         // restoreMarkersFromSelectionLayer; this event only notifies other listeners
-        // (e.g. map-browser.html), so don't re-create the markers here.
+        // (e.g. URL sync), so don't re-create the markers here.
         if (data.fromMarkerRestore) return;
 
         const features = data.selectedFeatures || [data];
@@ -6633,7 +6642,7 @@ export class MapMarkerManager {
             this._stateManager._updateLineSortKeys();
         }
 
-        // Notify other listeners (e.g. map-browser.html, URL sync) of the full
+        // Notify other listeners (e.g. URL sync) of the full
         // restoration so the status bar with the Clear / Add / Zoom buttons shows. Every
         // marker above was created manually (bypassing the normal click pipeline), so the
         // fromMarkerRestore flag tells _handleSelection not to re-add them — mirrors the
