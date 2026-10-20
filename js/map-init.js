@@ -20,12 +20,10 @@ import { StreetviewControl } from './streetview-control.js';
 import { MapContextMessagesControl } from './map-context-messages-control.js';
 import { ShortcutMenu } from './shortcut-menu.js';
 import { RouteDragHandler } from './search/directions-layer.js';
-import { LocationNavigatorControl } from './location-navigator-control.js';
 import { MapLocationMenuControl } from './map-location-menu-control.js';
 import { ButtonExternalMapLinks } from './button-external-map-links.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { MapMaskManager } from './map-mask-manager.js';
-import { NearbyFeaturesControl } from './map-nearby-features-control.js';
 import { MapOrientationControl } from './map-orientation-control.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
 import { ZoomToParam } from './zoom-to-param.js';
@@ -997,18 +995,6 @@ export class MapInitializer {
             // Initialize the feature control with state manager and config
             window.featureControl = new MapFeatureControl();
             window.featureControl.onAdd(map);
-
-            // Header-nav location navigator, next to the atlas + layers menu -
-            // add a marker at the current map center, or jump straight to any
-            // marker already saved on the map (see location-navigator-control.js).
-            window.locationNavigatorControl = new LocationNavigatorControl();
-            window.locationNavigatorControl.mount(document.getElementById('location-navigator-container'), map);
-
-            // Header-nav "list features in view" menu, next to the shortcuts
-            // menu - accessible alternative to tapping/clicking the map canvas
-            // (see map-nearby-features-control.js).
-            window.nearbyFeaturesControl = new NearbyFeaturesControl(stateManager);
-            window.nearbyFeaturesControl.mount(document.getElementById('nearby-features-menu-container'), map);
 
             // Header-nav map location menu: coordinates, bearing, pitch, and
             // the reverse-geocoded address for the current map center (see
