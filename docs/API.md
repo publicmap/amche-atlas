@@ -528,7 +528,7 @@ Available on all layer types unless noted otherwise.
 | Field | Type | Notes |
 |---|---|---|
 | `id` | string | Unique identifier referenced from URLs and other configs. **Required** for all types except inline `style` layers. |
-| `type` | string | One of `style`, `vector`, `tms`, `wmts`, `wms`, `cog`, `geojson`, `js`, `csv`, `sheet`, `overpass`, `arcgis`, `img`, `raster-style-layer`, `layer-group`. **Required.** |
+| `type` | string | One of `style`, `vector`, `tms`, `wmts`, `wms`, `cog`, `geojson`, `js`, `csv`, `sheet`, `overpass`, `arcgis`, `img`, `raster-style-layer`, `layer-group`. **Required**, except on the [reserved layers](#reserved-layer-ids). |
 | `title` | string | Display name in the layer control. |
 | `description` | string | HTML allowed; shown in the layer info panel. |
 | `tags` | string[] | Used to group layers in the UI. Prefix with `N.` (e.g. `"1.Development Plans"`) to control sort order. |
@@ -543,6 +543,19 @@ Available on all layer types unless noted otherwise.
 | `filter` | array | Mapbox GL filter expression, applied on top of the layer's own rendering. `vector`/`geojson` only. Also the property a marker popup's quick property filter (see [Feature Property Quick Filter](#feature-property-quick-filter)) reads and writes live, so it round-trips through `?layers=` like `opacity` does. |
 | `inspect` | object | Configures the feature popup. See [Inspect Configuration](#inspect-configuration). Set to `false`/`null` to disable interactivity. |
 | `stylePreset` | string | Name of a preset declared at atlas-level under `stylePresets`. See [Atlas-level style and inspect defaults](#atlas-level-style-and-inspect-defaults). |
+
+#### Reserved layer ids
+
+These ids belong to layers the app writes to itself. They are present in every atlas, whatever is loaded, and cannot be changed or reused for another layer in `config/index.atlas.json`. Their entries there set only the title, description, style and inspect settings: the type (`geojson`) and the data are supplied by `config/index.js`, so the entries carry no `type`.
+
+| Id | Layer | Written by |
+|---|---|---|
+| `selection` | Selected Points: the markers placed on the map, carried in `?markers=` | `js/map-marker-manager.js` |
+| `directions` | Navigation Routes: routes drawn by navigation, carried as `route:` shorthand in `?layers=` | `js/search/route-store.js` |
+| `mask` | Feature Mask: the cutout for [`?mask=`](#mask) | `js/map-mask-manager.js` |
+| `gpx` | GPS Tracks: tracks logged from the device's location with **Log Track** in the place menu's Locate Me tab, one line per session, logged every 5 s to 5 min | `js/gpx-log.js` |
+
+Only `selection` is on from the start; the others are switched on by their owner once there is something to draw. The `gpx` layer's tracks are kept in the browser's `localStorage` and never written into a shared URL: `?layers=gpx` only switches the layer on, showing whatever tracks the opening device has logged. A layer with one of these ids in another atlas is that atlas's own (`<atlas>-<id>`) and is not affected.
 
 #### Feature Property Quick Filter
 

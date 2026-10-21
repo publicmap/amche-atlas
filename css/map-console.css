@@ -410,6 +410,83 @@ mapbox-search-box [class$='--Container'] {
     text-overflow: ellipsis;
 }
 
+/* 3D terrain and location status at the end of the place line: muted while
+   off, blue while on; a dot while a track is being logged */
+
+.map-console-place-row {
+    display: flex;
+    align-items: flex-start;
+}
+
+.map-console-place-row .map-console-place {
+    flex: 1;
+    min-width: 0;
+}
+
+.map-console-status {
+    display: flex;
+    flex-shrink: 0;
+    gap: 2px;
+    margin-top: -6px;
+    padding-right: 8px;
+}
+
+.map-console .map-console-status-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 20px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    color: var(--console-ink-3);
+    font-size: 14px;
+    opacity: 0.6;
+    cursor: pointer;
+}
+
+.map-console .map-console-status-btn:hover,
+.map-console .map-console-status-btn:focus-visible {
+    background: var(--console-hover);
+    color: var(--console-ink);
+    opacity: 1;
+    outline: none;
+}
+
+/* The blue of GL JS's own location dot (.mapboxgl-user-location-dot) */
+.map-console .map-console-status-btn.is-on {
+    color: #1da1f2;
+    opacity: 1;
+}
+
+.map-console .map-console-status-btn.is-pending {
+    color: #1da1f2;
+    animation: console-status-pulse 1.2s ease-in-out infinite;
+}
+
+.map-console .map-console-status-btn.is-recording::after {
+    content: "";
+    position: absolute;
+    top: 1px;
+    right: 3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ef4444;
+    box-shadow: 0 0 0 1.5px var(--console-surface);
+}
+
+@keyframes console-status-pulse {
+    50% { opacity: 0.35; }
+}
+
+.place-tab-icon.is-on {
+    color: #1da1f2;
+}
+
 /* ---------- Find ---------- */
 
 .map-console-body {
@@ -1718,7 +1795,7 @@ body.console-find .marker-dock-routes {
 }
 
 /* Measure, street view and map links act on the map rather than the view:
-   set a little apart from locate / 3D / time above them. */
+   set a little apart from locate / time above them. */
 .mapboxgl-ctrl-top-right .maplibregl-measures,
 .maplibregl-ctrl-top-right .maplibregl-measures {
     margin-top: 8px !important;
@@ -1754,4 +1831,1276 @@ body.console-find .marker-dock-routes {
         width: 40px !important;
         height: 40px !important;
     }
+}
+
+
+/* ---------- Place menu (js/map-location-menu-control.js) ---------- */
+
+.map-location-menu {
+    position: fixed;
+    z-index: 10001;
+    width: 320px;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 120px);
+    overflow-y: auto;
+    background: var(--console-surface);
+    border: 1px solid var(--console-line-strong);
+    border-radius: var(--console-radius);
+    box-shadow: var(--console-shadow);
+    color: var(--console-ink);
+    font-size: 13px;
+}
+
+.place-section {
+    padding: 0 12px 12px;
+    border-bottom: 1px solid var(--console-line);
+}
+
+.place-section:last-child {
+    border-bottom: none;
+}
+
+.place-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 0 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--console-ink-3);
+}
+
+/* Address / Map view tabs, as the Current location section's label */
+
+.place-tabs {
+    display: flex;
+    align-items: center;
+    margin-right: auto;
+    white-space: nowrap;
+}
+
+.place-tabs .place-tab {
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--console-ink-3);
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    cursor: pointer;
+}
+
+.place-tabs .place-tab + .place-tab::before {
+    content: "/";
+    margin: 0 6px;
+    color: var(--console-line);
+    font-weight: 400;
+}
+
+.place-tab-icon {
+    flex-shrink: 0;
+    width: 12px;
+    height: 12px;
+    margin-right: 5px;
+    font-size: 12px;
+}
+
+.place-tabs .place-tab:hover,
+.place-tabs .place-tab:focus-visible {
+    color: var(--console-ink-2);
+    outline: none;
+}
+
+.place-tabs .place-tab[aria-selected="true"] {
+    color: var(--console-ink);
+    cursor: default;
+}
+
+.place-tabpanel[hidden] {
+    display: none;
+}
+
+/* Address */
+
+.place-part {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    max-width: 100%;
+}
+
+.place-part-btn {
+    min-width: 0;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 2px 4px;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.place-part-btn:hover,
+.place-part-btn:focus-visible {
+    background: var(--console-hover);
+    color: var(--console-blue);
+    outline: none;
+}
+
+/* Inside the part last picked: kept, muted, still a way back in */
+.place-part.is-muted .place-part-btn {
+    color: var(--console-ink-3);
+    font-weight: 500;
+}
+
+.place-part.is-muted .place-part-btn:hover,
+.place-part.is-muted .place-part-btn:focus-visible {
+    color: var(--console-blue);
+}
+
+/* The level the current view is at */
+.place-part.is-active .place-part-btn {
+    color: var(--console-amber);
+    box-shadow: inset 0 -2px 0 var(--console-amber);
+    border-radius: 4px 4px 0 0;
+}
+
+.place-part.is-active .place-part-btn:hover,
+.place-part.is-active .place-part-btn:focus-visible {
+    color: var(--console-amber);
+}
+
+.place-part-icon {
+    margin-right: 4px;
+    font-size: 11px;
+    vertical-align: -1px;
+    color: var(--console-ink-3);
+}
+
+.place-part.is-unnamed .place-part-btn {
+    font-style: italic;
+}
+
+/* Compartments - Street, Locality, Administrative - boxed like
+   the Map view readouts, one level per row */
+.place-address {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.place-compartment {
+    padding: 6px 8px 5px;
+    background: var(--console-raised);
+    border: 1px solid var(--console-line);
+    border-radius: var(--console-radius-sm);
+}
+
+.place-compartment-title {
+    margin-bottom: 2px;
+    font-size: 10.5px;
+    color: var(--console-ink-3);
+}
+
+.place-level {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 8px;
+    font-size: 12.5px;
+    line-height: 1.35;
+}
+
+.place-level-name {
+    overflow: hidden;
+    font-size: 11px;
+    color: var(--console-ink-3);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.place-level-name::first-letter {
+    text-transform: uppercase;
+}
+
+.place-level-value {
+    margin-left: -4px;
+    color: var(--console-ink);
+    font-weight: 500;
+}
+
+.place-level[data-key="postcode"] .place-part-btn {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+}
+
+.place-level:has(.place-part.is-active) .place-level-name {
+    color: var(--console-amber);
+}
+
+.place-level:has(.place-part.is-muted) .place-level-name {
+    opacity: 0.6;
+}
+
+.place-detail {
+    margin: 0 -4px;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--console-ink-2);
+}
+
+.place-osm-link {
+    display: none;
+    flex-shrink: 0;
+    padding: 2px;
+    border-radius: 4px;
+    line-height: 0;
+}
+
+.place-osm-link img {
+    width: 12px;
+    height: 12px;
+}
+
+.place-osm-link:hover {
+    background: var(--console-hover);
+}
+
+/* An address part's OSM link: on hover, and on the current level */
+.place-level:hover .place-osm-link,
+.place-level:focus-within .place-osm-link,
+.place-part.is-active .place-osm-link {
+    display: inline-flex;
+}
+
+/* Map view readouts */
+
+.place-readouts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    overflow: hidden;
+    background: var(--console-line);
+    border: 1px solid var(--console-line);
+    border-radius: var(--console-radius-sm);
+}
+
+.place-readout {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    background: var(--console-raised);
+}
+
+.place-readout-wide {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.place-readout-label {
+    font-size: 10.5px;
+    color: var(--console-ink-3);
+}
+
+.place-readout-value {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--console-ink);
+}
+
+/* Map view: the camera and the 3D terrain (js/location-view.js) */
+
+.place-view-box + .place-view-box {
+    margin-top: 6px;
+}
+
+.place-view-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.place-view-reset {
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--console-ink-3);
+    font: inherit;
+    cursor: pointer;
+}
+
+.place-view-reset:hover,
+.place-view-reset:focus-visible {
+    color: var(--console-blue);
+    outline: none;
+}
+
+.place-view-centre {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.place-scrubs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.place-scrubs-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* A value dragged sideways to change it (js/value-scrub.js), with a bar
+   showing where it sits in its range */
+.place-scrub,
+.place-select-cell {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: 6px 8px 9px;
+    background: var(--console-surface);
+}
+
+.place-scrub {
+    cursor: ew-resize;
+    user-select: none;
+    touch-action: none;
+}
+
+.place-scrub::after {
+    content: "";
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 4px;
+    height: 2px;
+    border-radius: 1px;
+    background: linear-gradient(to right, var(--console-ink-3) var(--fill, 0%), var(--console-line) var(--fill, 0%));
+    opacity: 0.7;
+}
+
+.place-scrub:hover,
+.place-scrub.is-dragging {
+    background: var(--console-hover);
+}
+
+.place-scrub:hover::after,
+.place-scrub.is-dragging::after,
+.place-scrub:focus-visible::after {
+    background: linear-gradient(to right, var(--console-blue) var(--fill, 0%), var(--console-line) var(--fill, 0%));
+    opacity: 1;
+}
+
+.place-scrub:focus-visible {
+    outline: 2px solid var(--console-blue);
+    outline-offset: -2px;
+}
+
+.place-scrub-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+    font-size: 10.5px;
+    color: var(--console-ink-3);
+    white-space: nowrap;
+}
+
+.place-scrub-label sl-icon {
+    flex-shrink: 0;
+    font-size: 11px;
+}
+
+.place-scrub-value {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    color: var(--console-ink);
+}
+
+.place-scrub.is-modified .place-scrub-value {
+    color: var(--console-blue);
+}
+
+.place-scrub-input {
+    width: 100%;
+    padding: 0;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--console-blue);
+    color: var(--console-ink);
+    font: inherit;
+    outline: none;
+}
+
+.place-scrub.is-off .place-scrub-value,
+.place-select-cell.is-off .place-select {
+    color: var(--console-ink-3);
+}
+
+.place-scrub.is-disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.place-select {
+    min-width: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--console-ink);
+    font: inherit;
+    font-size: 12.5px;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.place-select:focus-visible {
+    outline: 2px solid var(--console-blue);
+    outline-offset: 2px;
+}
+
+.place-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.place-chip,
+.place-chip-select {
+    padding: 3px 9px;
+    background: transparent;
+    border: 1px solid var(--console-line);
+    border-radius: 999px;
+    color: var(--console-ink-2);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.place-chip:hover,
+.place-chip:focus-visible {
+    border-color: var(--console-ink-3);
+    color: var(--console-ink);
+    outline: none;
+}
+
+.place-chip[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--console-blue) 18%, transparent);
+    border-color: var(--console-blue);
+    color: var(--console-ink);
+}
+
+.place-chip-select[hidden] {
+    display: none;
+}
+
+.place-view-more {
+    margin-top: 8px;
+}
+
+.place-view-more summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--console-ink-3);
+    list-style: none;
+    cursor: pointer;
+}
+
+.place-view-more summary::-webkit-details-marker {
+    display: none;
+}
+
+.place-view-more summary:hover {
+    color: var(--console-ink);
+}
+
+.place-view-more summary sl-icon {
+    font-size: 10px;
+    transition: transform 0.15s;
+}
+
+.place-view-more[open] summary sl-icon {
+    transform: rotate(90deg);
+}
+
+.place-view-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 12px;
+    margin-top: 8px;
+}
+
+/* Share */
+
+.map-location-menu .location-share {
+    padding: 0;
+}
+
+.map-location-menu .location-share-qr {
+    border-color: var(--console-line-strong);
+    border-radius: var(--console-radius-sm);
+}
+
+.map-location-menu .location-share-qr:hover {
+    border-color: var(--console-blue);
+}
+
+.map-location-menu .location-share-url {
+    background: var(--console-raised);
+    border: 1px solid var(--console-line);
+    border-radius: var(--console-radius-sm);
+    color: var(--console-ink-2);
+}
+
+.map-location-menu .location-share-url:focus {
+    border-color: var(--console-blue);
+}
+
+.map-location-menu .location-share-copy {
+    background: var(--console-raised);
+    border: 1px solid var(--console-line-strong);
+    border-radius: var(--console-radius-sm);
+    color: var(--console-ink);
+}
+
+.map-location-menu .location-share-copy:hover {
+    background: var(--console-hover);
+}
+
+/* OpenStreetMap credit and Fix Address (js/location-osm.js) */
+
+.place-osm {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 11.5px;
+}
+
+.place-osm-credit {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: var(--console-ink-3);
+    text-decoration: none;
+}
+
+.place-osm-credit img {
+    width: 14px;
+    height: 14px;
+}
+
+.place-osm-credit:hover {
+    color: var(--console-ink);
+}
+
+/* OSM data explorer (js/location-osm.js) - nearly full screen, a console
+   card with the place menu's header: tabs on the left, the object and its
+   actions on the right, then the object's data filling the rest */
+
+.place-fix-dialog {
+    --width: min(1280px, calc(100vw - 32px));
+}
+
+.place-fix-dialog::part(panel) {
+    height: calc(100vh - 32px);
+    max-height: none;
+    background: var(--console-surface);
+    border: 1px solid var(--console-line);
+    border-radius: var(--console-radius);
+    box-shadow: var(--console-shadow);
+}
+
+.place-fix-dialog::part(body) {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    background: transparent;
+    color: var(--console-ink-2);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.place-data-header {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 12px 10px 16px;
+    border-bottom: 1px solid var(--console-line);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--console-ink-3);
+}
+
+.place-data-header .place-tabs {
+    flex-shrink: 0;
+    margin: 0;
+}
+
+.place-data-title {
+    display: flex;
+    flex: 1;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+    padding-left: 16px;
+    border-left: 1px solid var(--console-line);
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+}
+
+.place-fix-dialog .place-data-name {
+    overflow: hidden;
+    color: var(--console-ink);
+    font-size: 13px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+}
+
+.place-fix-dialog .place-data-id {
+    color: var(--console-ink-3);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    font-weight: 400;
+}
+
+.place-data-actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 4px;
+}
+
+.place-fix-dialog .place-data-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    color: var(--console-ink-3);
+    text-decoration: none;
+}
+
+.place-fix-dialog .place-data-action span {
+    color: inherit;
+}
+
+.place-data-action sl-icon {
+    font-size: 10px;
+}
+
+.place-fix-dialog .place-data-action:hover,
+.place-fix-dialog .place-data-action:focus-visible {
+    background: var(--console-hover);
+    color: var(--console-blue);
+    outline: none;
+}
+
+.place-data-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-left: 4px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--console-ink-3);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.place-data-close:hover,
+.place-data-close:focus-visible {
+    background: var(--console-hover);
+    color: var(--console-ink);
+    outline: none;
+}
+
+.place-fix-dialog .place-tabpanel {
+    flex: 1;
+    min-height: 0;
+}
+
+.place-fix-dialog .place-tabpanel[hidden] {
+    display: none;
+}
+
+.place-data-frame {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #fff;
+    border: none;
+    border-radius: 0 0 var(--console-radius) var(--console-radius);
+}
+
+.place-fix-dialog #place-tabpanel-osm-help {
+    overflow-y: auto;
+}
+
+.place-fix-help {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 16px 16px 24px;
+}
+
+.place-fix-label {
+    padding: 4px 0 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--console-ink-3);
+}
+
+.place-fix-text {
+    margin: 0;
+}
+
+.place-fix-text strong {
+    color: var(--console-ink);
+    font-weight: 600;
+}
+
+.place-fix-steps {
+    margin: 0;
+    padding: 8px 10px 8px 30px;
+    background: var(--console-raised);
+    border: 1px solid var(--console-line);
+    border-radius: var(--console-radius-sm);
+    list-style: decimal;
+}
+
+.place-fix-steps li {
+    padding: 2px 0;
+}
+
+.place-fix-steps li::marker {
+    color: var(--console-ink-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.place-fix-aside {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--console-ink-3);
+}
+
+.place-fix-dialog code {
+    padding: 0 4px;
+    border-radius: 4px;
+    background: var(--console-hover);
+    color: var(--console-ink);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11.5px;
+}
+
+.place-fix-links {
+    padding: 4px;
+    background: var(--console-raised);
+    border: 1px solid var(--console-line);
+    border-radius: var(--console-radius-sm);
+}
+
+.place-fix-links .place-row {
+    padding: 6px 8px;
+}
+
+.place-fix-section + .place-fix-section .place-fix-label {
+    padding-top: 14px;
+}
+
+.place-fix-dialog .place-osm-licence {
+    display: block;
+    margin-top: 10px;
+}
+
+.place-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 6px;
+    border-radius: var(--console-radius-sm);
+    color: var(--console-ink);
+    font-size: 13px;
+    text-decoration: none;
+}
+
+.place-row sl-icon {
+    flex-shrink: 0;
+    font-size: 14px;
+    color: var(--console-ink-3);
+}
+
+.place-row:hover {
+    background: var(--console-hover);
+    color: var(--console-blue);
+}
+
+.place-osm-licence {
+    font-size: 11px;
+    color: var(--console-ink-3);
+}
+
+.place-osm-licence:hover {
+    color: var(--console-blue);
+}
+
+/* Languages (js/location-language.js), right of the OSM credit */
+
+.map-location-menu .place-language-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--console-ink-3);
+    font-size: 11.5px;
+    cursor: pointer;
+}
+
+.place-language-toggle span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.place-language-toggle sl-icon {
+    flex-shrink: 0;
+    font-size: 13px;
+}
+
+.map-location-menu .place-language-toggle:hover,
+.map-location-menu .place-language-toggle:focus-visible,
+.map-location-menu .place-language-toggle[aria-expanded="true"] {
+    color: var(--console-ink);
+    outline: none;
+}
+
+.place-language-panel {
+    padding: 10px 0 0;
+}
+
+.place-language-panel .locale-field:last-child {
+    margin-bottom: 0;
+}
+
+/* History (js/location-history.js) */
+
+.place-label-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+}
+
+.place-label-toggle,
+.place-label-toggle:hover,
+.place-label-toggle:focus,
+.place-label-toggle[aria-expanded="true"] {
+    background: transparent;
+    box-shadow: none;
+    outline: none;
+}
+
+.place-label-toggle:hover,
+.place-label-toggle:focus-visible {
+    color: var(--console-ink);
+}
+
+.place-label-toggle[aria-expanded="true"] .place-label-side {
+    display: none;
+}
+
+.place-label-toggle span:first-child {
+    flex: 1;
+}
+
+.place-label-side {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.place-label-chevron {
+    flex-shrink: 0;
+    width: 11px;
+    height: 11px;
+    font-size: 11px;
+    transition: transform 0.15s;
+}
+
+.place-section.is-collapsed {
+    padding-bottom: 0;
+}
+
+.place-section.is-collapsed .place-label-toggle {
+    padding-bottom: 12px;
+}
+
+.place-section.is-collapsed .place-label-chevron {
+    transform: rotate(-90deg);
+}
+
+.place-history-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.place-history-nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 28px;
+    padding: 0;
+    background: var(--console-raised);
+    border: 1px solid var(--console-line-strong);
+    border-radius: var(--console-radius-sm);
+    color: var(--console-ink);
+    cursor: pointer;
+}
+
+.place-history-nav sl-icon {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    font-size: 14px;
+    color: var(--console-ink);
+}
+
+.place-history-nav:hover:not(:disabled) sl-icon {
+    color: var(--console-blue);
+}
+
+.place-history-nav:hover:not(:disabled) {
+    background: var(--console-hover);
+    color: var(--console-blue);
+}
+
+.place-history-nav:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.place-history-count {
+    flex: 1;
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--console-ink-3);
+}
+
+.place-history-list {
+    list-style: none;
+    margin: 8px -6px 0;
+    padding: 0;
+}
+
+.place-history-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 6px;
+    background: transparent;
+    border: none;
+    border-radius: var(--console-radius-sm);
+    color: var(--console-ink-2);
+    font-size: 12.5px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.place-history-step sl-icon {
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--console-ink-3);
+}
+
+.place-history-step:hover {
+    background: var(--console-hover);
+    color: var(--console-ink);
+}
+
+.place-history-step.current {
+    background: var(--console-amber-soft);
+    color: var(--console-ink);
+}
+
+.place-history-step.current sl-icon {
+    color: var(--console-amber);
+}
+
+.place-history-step.undone {
+    opacity: 0.55;
+}
+
+.place-history-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.place-history-time {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--console-ink-3);
+    font-variant-numeric: tabular-nums;
+}
+
+/* "Locate Me", the last Current location tab, at the right: a tab that is also the trigger */
+
+.place-label .place-tabs {
+    flex: 1;
+}
+
+.place-tabs .place-tab-text {
+    color: inherit;
+}
+
+.place-tabs .place-tab.place-locate {
+    margin-left: auto;
+}
+
+.place-tabs .place-tab.place-locate::before {
+    content: none;
+}
+
+/* The blue of GL JS's own location dot (.mapboxgl-user-location-dot) */
+.place-tabs .place-tab.place-locate.active {
+    color: #1da1f2;
+}
+
+/* Locate Me: the track log under the device's readouts */
+
+.place-log {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.place-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--console-ink-2);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+
+.place-switch-track {
+    position: relative;
+    flex-shrink: 0;
+    width: 26px;
+    height: 15px;
+    border-radius: 999px;
+    background: var(--console-line);
+    transition: background 0.15s;
+}
+
+.place-switch-track::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--console-surface);
+    transition: transform 0.15s;
+}
+
+.place-switch:hover,
+.place-switch:focus {
+    background: none;
+}
+
+.place-switch[aria-checked="true"] {
+    color: var(--console-ink);
+}
+
+.place-switch[aria-checked="true"] .place-switch-track {
+    background: #1da1f2;
+}
+
+.place-switch[aria-checked="true"] .place-switch-track::after {
+    transform: translateX(11px);
+}
+
+.place-switch:focus-visible {
+    outline: 2px solid var(--console-blue);
+    outline-offset: 2px;
+}
+
+.place-log-interval {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--console-ink-3);
+}
+
+.place-log-interval select {
+    padding: 2px 4px;
+    background: var(--console-raised);
+    border: 1px solid var(--console-line);
+    border-radius: var(--console-radius-sm);
+    color: var(--console-ink);
+    font: inherit;
+}
+
+.place-log-error {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--console-amber);
+}
+
+.place-log-error[hidden] {
+    display: none;
+}
+
+.place-tracks {
+    margin-top: 8px;
+}
+
+.place-tracks-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.place-tracks-clear {
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--console-ink-3);
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    cursor: pointer;
+}
+
+.place-tracks-clear:hover,
+.place-tracks-clear:focus-visible {
+    color: var(--console-amber);
+    outline: none;
+}
+
+.place-tracks-empty {
+    margin: 0;
+    padding: 2px 0;
+    font-size: 12px;
+    color: var(--console-ink-3);
+}
+
+.place-track {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 2px;
+    padding: 3px 0;
+}
+
+.place-track-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 6px;
+    min-width: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--console-ink);
+    font: inherit;
+    font-size: 12.5px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.place-track-name span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.place-track-name:hover span:first-child,
+.place-track-name:focus-visible span:first-child {
+    color: var(--console-blue);
+    outline: none;
+}
+
+.place-track-now {
+    flex-shrink: 0;
+    font-size: 10.5px;
+    color: #1da1f2;
+}
+
+.place-track-meta {
+    flex-basis: 100%;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    color: var(--console-ink-3);
+    white-space: nowrap;
+}
+
+.place-track-action {
+    display: inline-flex;
+    padding: 4px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--console-ink-3);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.place-track-action:hover,
+.place-track-action:focus-visible {
+    background: var(--console-hover);
+    color: var(--console-blue);
+    outline: none;
 }

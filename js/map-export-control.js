@@ -2,7 +2,7 @@ import { ExportFrame } from './export-frame.js';
 import { InspectionHandlerLoader } from './inspection-handler-loader.js';
 import { trackEvent } from './analytics.js';
 import { collectSourceFeatures, prefetchGeoJSONSources } from './source-feature-collector.js';
-import { isNominatimBackedOff, reportNominatimFailure } from './nominatim-search.js';
+import { isNominatimBackedOff, reportNominatimFailure, nominatimLanguage } from './nominatim-search.js';
 
 const VECTOR_FORMATS = ['geojson', 'kml', 'csv', 'dxf'];
 
@@ -328,7 +328,7 @@ export class MapExportControl {
             const latRounded = Math.round(lat * 100000) / 100000;
             const lngRounded = Math.round(lng * 100000) / 100000;
             const nominatimZoom = Math.max(0, Math.min(18, Math.round(zoom || 15)));
-            const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latRounded}&lon=${lngRounded}&zoom=${nominatimZoom}&addressdetails=1`;
+            const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latRounded}&lon=${lngRounded}&zoom=${nominatimZoom}&addressdetails=1&accept-language=${encodeURIComponent(nominatimLanguage())}`;
 
             const response = await fetch(url, {
                 headers: { 'User-Agent': 'AMChe-Goa-Map-Export/1.0' }
@@ -1729,17 +1729,8 @@ export class MapExportControl {
         const originalBearing = this._map.getBearing();
         const originalPitch = this._map.getPitch();
 
-        let terrainControl = null;
-        let originalTerrainEnabled = false;
-
-        const controls = this._map._controls || [];
-        for (const control of controls) {
-            if (control.constructor.name === 'Terrain3DControl') {
-                terrainControl = control;
-                originalTerrainEnabled = control.getEnabled();
-                break;
-            }
-        }
+        const terrainControl = window.terrain3DControl?._map === this._map ? window.terrain3DControl : null;
+        const originalTerrainEnabled = !!terrainControl?.getEnabled();
 
         const mapRect = this._map.getContainer().getBoundingClientRect();
 

@@ -82,6 +82,19 @@ export class MapOrientationControl {
         return true;
     }
 
+    // The camera follows the device (either follow mode), as opposed to GPS
+    // merely running with the camera left where the user put it.
+    get isLockedToLocation() {
+        return this._mode === MODE.FOLLOW_NORTH || this._mode === MODE.FOLLOW_HEADING;
+    }
+
+    // Brings the camera back onto the device without the button's cycle -
+    // starting GPS if it is off. Used by the place menu's Locate Me.
+    locate() {
+        if (!this.isTracking) this._start();
+        else if (!this.isLockedToLocation) this._watch.relock();
+    }
+
     turnOff() {
         this._releaseDeviceLock();
         this._watch.turnOff();
@@ -140,6 +153,7 @@ export class MapOrientationControl {
         else this._lockedToDevice = false;
         if (MODE_MESSAGES[mode]) showGeolocationStatus(MODE_MESSAGES[mode], mode === MODE.LOCATING ? 0 : 3000);
         this._render();
+        window.dispatchEvent(new CustomEvent('geolocationModeChanged', { detail: { mode } }));
     }
 
     _onClick = () => {

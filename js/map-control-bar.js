@@ -5,7 +5,8 @@
  *
  * It has two modes:
  * - explore: one bar row (home, atlas, Find, On map with its count, locale
- *   settings) over a line naming the place at the map center, then the pins
+ *   settings) over a line naming the place at the map center - ending in the
+ *   3D terrain and location status icons - then the pins
  *   row and, when opened, Share (js/console/share-pins.js). Marker panels dock
  *   in a column beneath the console (map-marker-manager.js), so the pins read
  *   as the console's own list.
@@ -22,6 +23,8 @@
 import { FindPanel } from './console/find-panel.js';
 import { PinsRow, SharePanel } from './console/share-pins.js';
 import { placeLine } from './map-search-toggle.js';
+import { trackLog } from './gpx-log.js';
+import { MODE } from './map-orientation-modes.js';
 
 const LOGO_SRC = 'assets/img/icon-192x192.png';
 
@@ -47,6 +50,7 @@ export class MapControlBar {
         this._layers = null;
         this._onAtlasChanged = () => this.update(this._layers);
         this._onLocation = (e) => this._setPlace(placeLine(e.detail?.address));
+        this._onStatus = () => this.refreshStatus();
         this._onMapClick = () => { if (this._mode === 'find') this.setMode('explore'); };
         this._onKeydown = (e) => {
             if (e.key !== 'Escape' || e.defaultPrevented) return;
@@ -123,6 +127,9 @@ export class MapControlBar {
         this._placeText = document.createElement('span');
         this._placeText.textContent = 'Locating…';
         this.placeButton.appendChild(this._placeText);
+        const placeRow = document.createElement('div');
+        placeRow.className = 'map-console-place-row when-explore';
+        placeRow.append(this.placeButton, this._buildStatus());
 
         const body = document.createElement('div');
         body.className = 'map-console-body when-find';
@@ -145,7 +152,7 @@ export class MapControlBar {
         this.share = new SharePanel({ onClose: () => this.closeShare() });
         explore.appendChild(this.share.el);
 
-        this._el.append(head, this.placeButton, explore, body);
+        this._el.append(head, placeRow, explore, body);
         hostEl.appendChild(this._el);
         hostEl.classList.add('has-map-control-bar');
 
@@ -158,6 +165,8 @@ export class MapControlBar {
 
         window.addEventListener('atlasChanged', this._onAtlasChanged);
         window.addEventListener('mapLocationChanged', this._onLocation);
+        window.addEventListener('geolocationModeChanged', this._onStatus);
+        this._offTrackLog = trackLog.onChange(this._onStatus);
         document.addEventListener('keydown', this._onKeydown);
         this._map?.on?.('click', this._onMapClick);
         window.mapConsole = this;
@@ -266,6 +275,41 @@ export class MapControlBar {
         this._el?.classList.toggle('loading', !!loading);
     }
 
+    // The view's status at the end of the place line: whether 3D terrain is
+    // on and whether the device is being tracked (and its track logged), each
+    // opening its tab of the place menu (js/map-location-menu-control.js).
+    _buildStatus() {
+        const status = document.createElement('div');
+        status.className = 'map-console-status';
+        this._terrainIcon = button('map-console-status-btn', 'badge-3d', '3D terrain');
+        this._trackingIcon = button('map-console-status-btn', 'crosshair', 'Location');
+        this._terrainIcon.addEventListener('click', () => window.mapLocationMenuControl?.toggleTab('view'));
+        this._trackingIcon.addEventListener('click', () => window.mapLocationMenuControl?.toggleTab('locate'));
+        status.append(this._terrainIcon, this._trackingIcon);
+        this.refreshStatus();
+        return status;
+    }
+
+    refreshStatus() {
+        if (!this._terrainIcon) return;
+        const terrain = !!window.terrain3DControl?.getEnabled();
+        this._terrainIcon.classList.toggle('is-on', terrain);
+        this._terrainIcon.title = terrain ? '3D terrain is on - map view settings' : '3D terrain is off - map view settings';
+
+        const control = window.geolocationControl;
+        const tracking = !!control?.isTracking;
+        const locating = control?.mode === MODE.LOCATING;
+        const logging = trackLog.logging;
+        this._trackingIcon.classList.toggle('is-on', tracking && !locating);
+        this._trackingIcon.classList.toggle('is-pending', locating);
+        this._trackingIcon.classList.toggle('is-recording', logging);
+        this._trackingIcon.title = [
+            locating ? 'Finding your location' : tracking ? (control.isLockedToLocation ? 'Following your location' : 'Showing your location') : 'Location is off',
+            logging ? 'logging a track' : null
+        ].filter(Boolean).join(', ') + ' - location details';
+        [this._terrainIcon, this._trackingIcon].forEach(icon => icon.setAttribute('aria-label', icon.title));
+    }
+
     _setPlace(text) {
         this._placeText.textContent = text || 'This view';
     }
@@ -291,6 +335,8 @@ export class MapControlBar {
     destroy() {
         window.removeEventListener('atlasChanged', this._onAtlasChanged);
         window.removeEventListener('mapLocationChanged', this._onLocation);
+        window.removeEventListener('geolocationModeChanged', this._onStatus);
+        this._offTrackLog?.();
         window.removeEventListener('urlUpdated', this._onUrlUpdated);
         document.removeEventListener('keydown', this._onKeydown);
         this._resizeObserver?.disconnect();

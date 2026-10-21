@@ -184,6 +184,13 @@ export class GeolocationWatch {
         this._control.setFollowUserLocation(false);
     }
 
+    // BACKGROUND -> ACTIVE_LOCK. Following again is itself the switch back,
+    // camera move to the last fix included - a trigger() after it would turn
+    // GPS off, and a camera move of our own would read as panning away again.
+    relock() {
+        if (this.isTracking) this._control.setFollowUserLocation(true);
+    }
+
     turnOff() {
         this._cancelAutoActivate();
         // GL JS reads a click in BACKGROUND as "re-centre", so trigger() alone

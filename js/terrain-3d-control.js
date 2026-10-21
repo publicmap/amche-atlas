@@ -1,42 +1,32 @@
 /**
- * Controller for Three Dimensional Terrain
+ * Controller for Three Dimensional Terrain: the terrain, its vertical scale
+ * and source, hillshade, fog, and the camera's field
+ * of view. Its controls live in the place menu's Map view tab
+ * (js/location-view.js), opened from the 3D icon on the map console's place
+ * line (js/map-control-bar.js); both follow this control through onChange().
  */
-import { trackEvent } from './analytics.js';
 import { MapContextMessagesControl } from './map-context-messages-control.js';
 
-// Geometry of the side-elevation guide in the panel, in its 132x72 viewBox.
-// The camera swings on a radius around the point it is aimed at, which sits on
-// the ground line; the profile is a normalised skyline scaled by amplitude.
-const SCENE = {
-    width: 132,
-    height: 72,
-    originX: 66,
-    originY: 56,
-    radius: 42,
-    maxAmplitude: 34,
-    profile: [[20, 0.28], [31, 0.1], [45, 0.78], [57, 0.34], [70, 1], [84, 0.4], [96, 0.62], [110, 0.16]]
-};
-
-// The panel's map-layer chips. These are ordinary atlas layers rather than
+// The Map view tab's map-layer chips. These are ordinary atlas layers rather than
 // anything the terrain engine owns, so they are toggled through the same
 // handler the layer browser uses - which also pulls a layer in from the
 // registry when the current atlas doesn't include it.
 //
 // Buildings come from either vendor's tiles, styled identically (see the two
 // atlas configs), so the choice is about data coverage rather than looks.
-const BUILDING_SOURCES = {
+export const BUILDING_SOURCES = {
     mapbox: { label: 'Mapbox Streets', layerId: 'mapbox-3d-buildings' },
     osm: { label: 'OpenStreetMap', layerId: 'osm-3d-buildings' }
 };
 
-const CONTOURS_LAYER = 'mapbox-terrain-v2';
+export const CONTOURS_LAYER = 'mapbox-terrain-v2';
 
 function findLayerGroupIndex(layerId) {
     const groups = window.layerControl?._state?.groups || [];
     return groups.findIndex(g => g.id === layerId || g._prefixedId === layerId || g._originalId === layerId);
 }
 
-function isAtlasLayerVisible(layerId) {
+export function isAtlasLayerVisible(layerId) {
     const index = findLayerGroupIndex(layerId);
     if (index === -1) return false;
     const element = window.layerControl?._sourceControls?.[index];
@@ -64,7 +54,7 @@ export class Terrain3DControl {
         this._bearing = 0; // Default bearing (rotation) in degrees
         this._pitch = 0; // Default pitch (tilt) in degrees
         this._animationFrame = null; // For requestAnimationFrame
-        this._panel = null;
+        this._listeners = new Set();
         this._map = null;
         // Mapbox's DEM tileset doesn't work under MapLibre (see
         // _terrainSources.maplibre above), so MapLibre defaults to its own
@@ -75,10 +65,6 @@ export class Terrain3DControl {
         this._pitchListener = null; // Track pitch change listener for cleanup
         this._autoPitchAnimationFrame = null;
         this._autoPitchAnimating = false;
-        // Last pitch the panel's own animation wrote, so a pitch that no
-        // longer matches it can be recognised as the user's own choice.
-        this._autoPitchLastSet = null;
-        this._pitchBeforePanel = null;
         this._lockToDeviceOrientation = false; // Whether map pitch follows the device accelerometer
         this._deviceOrientationListener = null;
         this._syncCallback = null; // Optional callback fired after visual updates (e.g. compare/swipe)
@@ -138,65 +124,15 @@ export class Terrain3DControl {
         };
     }
 
-    onAdd(map) {
+    // Not a map control of its own: its controls are the place menu's Map
+    // view tab, opened from the 3D icon on the map console's place line.
+    attach(map) {
         this._map = map;
-
-        // Initialize bearing and pitch from current map state
         this._bearing = this._map.getBearing();
         this._pitch = this._map.getPitch();
-
-        // Create container with jQuery
-        this._container = $('<div>', {
-            class: 'mapboxgl-ctrl mapboxgl-ctrl-group'
-        })[0];
-
-        // Create button with jQuery
-        const $button = $('<button>', {
-            class: 'mapboxgl-ctrl-icon',
-            type: 'button',
-            'aria-label': '3D Controls',
-            css: {
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '30px',
-                height: '30px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                color: '#666'
-            }
-        });
-
-        // Create 3D text
-        const $text = $('<span>', {
-            text: '3D',
-            css: {
-                display: 'block',
-                lineHeight: '1'
-            }
-        });
-
-        // Add event handlers using jQuery
-        $button
-            .append($text)
-            .on('click', () => {
-                this._togglePanel();
-            })
-            .on('mouseenter', function () {
-                $(this).css('backgroundColor', '#f0f0f0');
-            })
-            .on('mouseleave', function () {
-                $(this).css('backgroundColor', '#ffffff');
-            })
-            .appendTo(this._container);
-
-        // Create panel
-        this._createPanel();
-
-        return this._container;
     }
 
-    onRemove() {
+    detach() {
         // Stop animation if running
         this._stopAnimation();
 
@@ -213,325 +149,21 @@ export class Terrain3DControl {
         }
 
         this._closeAutoEnabledMessage();
-
-        if (this._panel) {
-            $(this._panel).remove();
-        }
-        $(this._container).remove();
         this._map = undefined;
-    }
-
-    // The panel's markup. Styling lives in css/styles.css (.terrain-3d-* /
-    // .t3d-*), sharing the dark side-panel palette. Element ids are unchanged so
-    // the public setters and initializeFromURL keep addressing the same nodes.
-    _panelHtml() {
-        const { minExaggeration, maxExaggeration, step } = this.options;
-        const sources = Object.entries(this._terrainSources)
-            .map(([key, config]) =>
-                `<option value="${key}"${key === this._terrainSource ? ' selected' : ''}>${config.name}</option>`)
-            .join('');
-        const buildingSources = Object.entries(BUILDING_SOURCES)
-            .map(([key, config]) =>
-                `<option value="${key}"${key === this._buildingSource ? ' selected' : ''}>${config.label} buildings</option>`)
-            .join('');
-
-        return `
-        <div class="t3d-header">
-            <span class="t3d-title"><sl-icon name="badge-3d"></sl-icon>3D Terrain</span>
-            <button type="button" class="t3d-close terrain-3d-close-button" aria-label="Close">&times;</button>
-        </div>
-        <div class="t3d-body">
-            <svg class="t3d-scene" viewBox="0 0 132 72" role="img"
-                 aria-label="Side view of the camera angle and terrain height. Drag to tilt.">
-                <path class="t3d-scene-arc" d="M66,14 A42,42 0 0,1 107.8,52.3"></path>
-                <path class="t3d-scene-profile" d=""></path>
-                <line class="t3d-scene-ground" x1="8" y1="56" x2="124" y2="56"></line>
-                <line class="t3d-scene-ray" x1="66" y1="14" x2="66" y2="56"></line>
-                <g class="t3d-scene-cam" transform="translate(66,14)">
-                    <rect x="-5.5" y="-5" width="11" height="8" rx="2.5"></rect>
-                    <path d="M-3.2,3 L3.2,3 L2,6.8 L-2,6.8 Z"></path>
-                </g>
-            </svg>
-
-            <div class="t3d-row">
-                <div class="t3d-row-head">
-                    <span class="t3d-label"><sl-icon name="triangle"></sl-icon>Tilt</span>
-                    <button type="button" class="t3d-value" id="terrain-3d-pitch-value" title="Reset to top-down">0&deg;</button>
-                </div>
-                <input type="range" class="t3d-slider" id="terrain-3d-pitch-slider" min="0" max="85" step="1" value="0">
-                <div class="t3d-scale"><span>Top-down</span><span>Horizon</span></div>
-            </div>
-
-            <div id="terrain-3d-controls-container">
-                <div class="t3d-row">
-                    <div class="t3d-row-head">
-                        <span class="t3d-label"><sl-icon name="arrow-bar-up"></sl-icon>Vertical Scale</span>
-                        <button type="button" class="t3d-value" id="terrain-3d-exaggeration-value" title="Reset to default">1.5&times;</button>
-                    </div>
-                    <input type="range" class="t3d-slider" id="terrain-3d-exaggeration-slider"
-                           min="${minExaggeration}" max="${maxExaggeration}" step="${step}" value="${this._exaggeration}">
-                    <div class="t3d-scale"><span>Flat</span><span>${maxExaggeration}&times;</span></div>
-                </div>
-            </div>
-
-            <div class="t3d-chips">
-                <label class="t3d-chip" title="Toggle 3D terrain">
-                    <input type="checkbox" id="terrain-3d-enabled"><span>3D</span>
-                </label>
-                <select class="t3d-select" id="terrain-source-select" aria-label="Terrain source">${sources}</select>
-            </div>
-
-            <div class="t3d-chips t3d-chips-sub">
-                <label class="t3d-chip" title="Extruded building footprints">
-                    <input type="checkbox" id="terrain-3d-buildings"><span>3D Buildings</span>
-                </label>
-                <label class="t3d-chip" title="Elevation contour lines from Mapbox Terrain">
-                    <input type="checkbox" id="terrain-3d-contours"><span>Contours</span>
-                </label>
-                <label class="t3d-chip" title="Shaded relief from the terrain source">
-                    <input type="checkbox" id="terrain-3d-hillshade"><span>Hillshade</span>
-                </label>
-            </div>
-
-            <div class="t3d-chips t3d-chips-sub t3d-building-source" hidden>
-                <select class="t3d-select" id="terrain-3d-building-source" aria-label="Building source">${buildingSources}</select>
-            </div>
-
-            <details class="t3d-more">
-                <summary class="t3d-more-toggle"><sl-icon name="chevron-right"></sl-icon>More options</summary>
-                <div class="t3d-more-body">
-                    <div class="t3d-row">
-                        <div class="t3d-row-head">
-                            <span class="t3d-label"><sl-icon name="arrow-counterclockwise"></sl-icon>Rotation</span>
-                            <button type="button" class="t3d-value" id="terrain-3d-bearing-value" title="Reset to North">0&deg;</button>
-                        </div>
-                        <input type="range" class="t3d-slider" id="terrain-3d-bearing-slider" min="0" max="360" step="1" value="0">
-                    </div>
-                    <div class="t3d-row">
-                        <div class="t3d-row-head">
-                            <span class="t3d-label"><sl-icon name="arrows-angle-expand"></sl-icon>Perspective</span>
-                            <button type="button" class="t3d-value" id="terrain-3d-fov-value" title="Reset to default">36.8&deg;</button>
-                        </div>
-                        <input type="range" class="t3d-slider" id="terrain-3d-fov-slider" min="0.1" max="1.5" step="0.01" value="0.643">
-                    </div>
-                    <label class="t3d-check"><input type="checkbox" id="terrain-3d-wireframe"><span>Show terrain mesh</span></label>
-                    <label class="t3d-check"><input type="checkbox" id="terrain-3d-fog" checked><span>Atmospheric fog</span></label>
-                    <label class="t3d-check"><input type="checkbox" id="terrain-3d-animate"><span>Orbit around location</span></label>
-                    <label class="t3d-check"><input type="checkbox" id="terrain-3d-sound"><span>Dancing terrain (microphone)</span></label>
-                    <label class="t3d-check"><input type="checkbox" id="terrain-3d-device-lock"><span>Lock to device angle</span></label>
-                    <button type="button" class="t3d-reset" id="terrain-3d-reset">Reset to defaults</button>
-                </div>
-            </details>
-        </div>`;
-    }
-
-    _createPanel() {
-        this._panel = $('<div>', { class: 'terrain-3d-panel' }).html(this._panelHtml());
-        const find = (selector) => this._panel.find(selector);
-
-        this._sceneEl = find('.t3d-scene')[0];
-        this._sceneProfile = find('.t3d-scene-profile')[0];
-        this._sceneGround = find('.t3d-scene-ground')[0];
-        this._sceneRay = find('.t3d-scene-ray')[0];
-        this._sceneCam = find('.t3d-scene-cam')[0];
-
-        const defaults = {
-            bearing: 0,
-            pitch: 0,
-            fov: 0.643,
-            exaggeration: this.options.initialExaggeration,
-            source: window.amche?.RENDERER === 'maplibre' ? 'maplibre' : 'mapbox',
-            wireframe: false
-        };
-
-        // Each row's value chip doubles as its reset: it only lights up, and
-        // only accepts a click, once the value is off its default.
-        const readout = ($value, format, defaultValue, epsilon, apply) => {
-            const render = (value) => {
-                $value.text(format(value)).toggleClass('is-modified', Math.abs(value - defaultValue) > epsilon);
-            };
-            $value.on('click', () => {
-                if ($value.hasClass('is-modified')) apply(defaultValue);
-            });
-            return render;
-        };
-
-        const $pitchSlider = find('#terrain-3d-pitch-slider');
-        const $exaggerationSlider = find('#terrain-3d-exaggeration-slider');
-        const $bearingSlider = find('#terrain-3d-bearing-slider');
-        const $fovSlider = find('#terrain-3d-fov-slider');
-
-        // The UI setters are stored on the instance so the public setters, the
-        // pitch animation and initializeFromURL can all refresh the panel
-        // without reaching back into the DOM by id.
-        this._setPitchUI = (value) => {
-            $pitchSlider.val(value);
-            renderPitch(value);
-            this._renderScene();
-        };
-        this._setExaggerationUI = (value) => {
-            $exaggerationSlider.val(value);
-            renderExaggeration(value);
-            this._renderScene();
-        };
-        this._setBearingUI = (value) => {
-            $bearingSlider.val(value);
-            renderBearing(value);
-        };
-        this._setFovUI = (value) => {
-            $fovSlider.val(value);
-            renderFov(value);
-        };
-
-        const applyPitch = (value) => {
-            // Any hand-set tilt ends the panel's intro animation and becomes the
-            // user's own (see _hidePanel).
-            this._cancelAutoPitch();
-            if (this._lockToDeviceOrientation) this.setLockToDeviceOrientation(false);
-            this._pitch = Math.max(0, Math.min(85, value));
-            this._setPitchUI(this._pitch);
-            this._updatePitch();
-        };
-
-        const applyExaggeration = (value) => {
-            this._exaggeration = value;
-            this._setExaggerationUI(value);
-            if (this._enabled) this._updateTerrain();
-        };
-
-        const renderPitch = readout(find('#terrain-3d-pitch-value'),
-            v => `${Math.round(v)}°`, defaults.pitch, 0.1, applyPitch);
-        const renderExaggeration = readout(find('#terrain-3d-exaggeration-value'),
-            v => `${v.toFixed(1)}×`, defaults.exaggeration, 0.01, applyExaggeration);
-        const renderBearing = readout(find('#terrain-3d-bearing-value'),
-            v => `${Math.round(v)}°`, defaults.bearing, 0.1, v => this.setBearing(v));
-        const renderFov = readout(find('#terrain-3d-fov-value'),
-            v => `${(v * (180 / Math.PI)).toFixed(1)}°`, defaults.fov, 0.001, v => this.setFov(v));
-
-        this._setPitchUI(this._pitch);
-        this._setExaggerationUI(this._exaggeration);
-        this._setBearingUI(this._bearing);
-        this._setFovUI(this._fov);
-
-        $pitchSlider.on('input', (e) => applyPitch(parseFloat(e.target.value)));
-        $exaggerationSlider.on('input', (e) => applyExaggeration(parseFloat(e.target.value)));
-        $bearingSlider.on('input', (e) => this.setBearing(parseFloat(e.target.value)));
-        $fovSlider.on('input', (e) => this.setFov(parseFloat(e.target.value)));
-
-        // Dragging the camera around its arc is the direct way to tilt; the
-        // slider below is the same value by another route.
-        const pitchFromPointer = (event) => {
-            const rect = this._sceneEl.getBoundingClientRect();
-            const x = ((event.clientX - rect.left) / rect.width) * SCENE.width;
-            const y = ((event.clientY - rect.top) / rect.height) * SCENE.height;
-            return Math.atan2(x - SCENE.originX, SCENE.originY - y) * (180 / Math.PI);
-        };
-        this._sceneEl.addEventListener('pointerdown', (event) => {
-            event.preventDefault();
-            this._sceneEl.setPointerCapture(event.pointerId);
-            applyPitch(pitchFromPointer(event));
-        });
-        this._sceneEl.addEventListener('pointermove', (event) => {
-            if (this._sceneEl.hasPointerCapture(event.pointerId)) applyPitch(pitchFromPointer(event));
-        });
-
-        find('#terrain-3d-enabled').on('change', (e) => {
-            this._enabled = e.target.checked;
-            trackEvent('terrain_3d_toggle', { enabled: this._enabled });
-            find('#terrain-3d-controls-container').css('display', this._enabled ? 'block' : 'none');
-            this._updateTerrain();
-        });
-
-        find('#terrain-source-select').on('change', (e) => {
-            this._terrainSource = e.target.value;
-            this._updateTerrain();
-            this._updateTerrainSourceURLParameter();
-        });
-
-        find('#terrain-3d-buildings').on('change', (e) => {
-            this.setAtlasLayerVisible(this._buildingLayerId(), e.target.checked);
-            find('.t3d-building-source').prop('hidden', !e.target.checked);
-        });
-
-        find('#terrain-3d-building-source').on('change', (e) => this.setBuildingSource(e.target.value));
-
-        find('#terrain-3d-contours').on('change', (e) => this.setAtlasLayerVisible(CONTOURS_LAYER, e.target.checked));
-
-        find('#terrain-3d-hillshade').on('change', (e) => this.setHillshade(e.target.checked));
-
-        find('#terrain-3d-wireframe').on('change', (e) => this.setWireframe(e.target.checked));
-        find('#terrain-3d-fog').on('change', (e) => this.setFog(e.target.checked));
-        find('#terrain-3d-animate').on('change', (e) => this.setAnimate(e.target.checked));
-        find('#terrain-3d-sound').on('change', (e) => this.setVisualizeSound(e.target.checked));
-        find('#terrain-3d-device-lock').on('change', (e) => this.setLockToDeviceOrientation(e.target.checked));
-
-        find('#terrain-3d-reset').on('click', () => {
-            this.setTerrainSource(defaults.source);
-            this.setEnabled(true);
-            this.setExaggeration(defaults.exaggeration);
-            this.setWireframe(defaults.wireframe);
-            this.setHillshade(false);
-            this.setFov(defaults.fov);
-            this.setBearing(defaults.bearing);
-            this.setLockToDeviceOrientation(false);
-            applyPitch(defaults.pitch);
-        });
-
-        find('.t3d-close').on('click', () => this._hidePanel());
-
-        // Close when clicking outside the panel or its toggle button
-        $(document).on('click.terrain3d', (e) => {
-            if (!$(e.target).closest('.terrain-3d-panel, .mapboxgl-ctrl-icon').length) {
-                this._hidePanel();
-            }
-        });
-
-        $(this._map.getContainer()).append(this._panel);
-        this._renderScene();
-    }
-
-    // Redraws the side-elevation guide: the terrain silhouette's amplitude
-    // tracks the vertical scale (square-rooted, since the useful range is
-    // bunched at the low end) and the camera rides its arc at the map's pitch.
-    _renderScene() {
-        if (!this._sceneProfile) return;
-
-        const amplitude = SCENE.maxAmplitude *
-            Math.sqrt(Math.max(0, this._exaggeration) / this.options.maxExaggeration);
-        const peaks = SCENE.profile
-            .map(([x, height]) => ` L${x},${(SCENE.originY - height * amplitude).toFixed(1)}`)
-            .join('');
-        this._sceneProfile.setAttribute('d', `M8,${SCENE.originY}${peaks} L124,${SCENE.originY} Z`);
-
-        const pitch = Math.max(0, Math.min(85, this._pitch));
-        const radians = pitch * (Math.PI / 180);
-        const x = SCENE.originX + SCENE.radius * Math.sin(radians);
-        const y = SCENE.originY - SCENE.radius * Math.cos(radians);
-        this._sceneCam.setAttribute('transform', `translate(${x.toFixed(2)},${y.toFixed(2)}) rotate(${pitch.toFixed(1)})`);
-        this._sceneRay.setAttribute('x1', x.toFixed(2));
-        this._sceneRay.setAttribute('y1', y.toFixed(2));
     }
 
     _buildingLayerId(source = this._buildingSource) {
         return BUILDING_SOURCES[source].layerId;
     }
 
-    // Reads the map-layer chips back off the layer control, which is the
-    // authority - any of them can also be switched from the layer browser, the
-    // URL or the shortcut menu while this panel is closed. A visible buildings
-    // layer also tells us which source is in play, so the select needs no state
-    // of its own in the URL.
-    _syncAtlasLayerChips() {
-        if (!this._panel) return;
+    /** Calls `listener` whenever the terrain settings change; returns the unsubscribe. */
+    onChange(listener) {
+        this._listeners.add(listener);
+        return () => this._listeners.delete(listener);
+    }
 
-        const visibleSource = Object.keys(BUILDING_SOURCES)
-            .find(source => isAtlasLayerVisible(this._buildingLayerId(source)));
-        if (visibleSource) this._buildingSource = visibleSource;
-
-        this._panel.find('#terrain-3d-buildings').prop('checked', !!visibleSource);
-        this._panel.find('#terrain-3d-building-source').val(this._buildingSource);
-        this._panel.find('.t3d-building-source').prop('hidden', !visibleSource);
-        this._panel.find('#terrain-3d-contours').prop('checked', isAtlasLayerVisible(CONTOURS_LAYER));
+    _changed() {
+        this._listeners.forEach(listener => listener());
     }
 
     _cancelAutoPitch() {
@@ -540,61 +172,6 @@ export class Terrain3DControl {
             this._autoPitchAnimationFrame = null;
         }
         this._autoPitchAnimating = false;
-    }
-
-    _togglePanel() {
-        if (this._panel.css('display') === 'none') {
-            this._showPanel();
-        } else {
-            this._hidePanel();
-        }
-    }
-
-    _showPanel() {
-        $(this._panel).show();
-        this._closeAutoEnabledMessage();
-        this._syncAtlasLayerChips();
-
-        // Lazy load: enable terrain when panel is opened for the first time
-        if (!this._enabled) {
-            this.setEnabled(true);
-        }
-
-        // Auto-animate pitch to 50° if the map is flat. Read the pitch off the
-        // map rather than this._pitch, which only tracks changes made through
-        // this panel and goes stale the moment the map is tilted by a drag.
-        const currentPitch = this._map ? this._map.getPitch() : this._pitch;
-        if (Math.abs(currentPitch) < 0.5) {
-            this._pitchBeforePanel = currentPitch;
-            this._animatePitch(currentPitch, 50, 2000);
-        } else {
-            this._pitchBeforePanel = null;
-            this._autoPitchLastSet = null;
-            // Already tilted: show that tilt on the slider instead of whatever
-            // this panel last set.
-            this._pitch = currentPitch;
-            this._setPitchUI?.(currentPitch);
-        }
-    }
-
-    _hidePanel() {
-        this._cancelAutoPitch();
-
-        // Undo the tilt the panel introduced, but only while it is still the
-        // tilt the panel set. Moving the slider, dragging the map or hitting
-        // the camera Reset button all leave the pitch somewhere this control
-        // didn't put it, and that choice is the user's to keep. Compare
-        // against the map rather than this._pitch, since a drag on the map
-        // never reaches this control's own copy.
-        const currentPitch = this._map ? this._map.getPitch() : this._pitch;
-        const stillOurs = this._autoPitchLastSet !== null
-            && Math.abs(currentPitch - this._autoPitchLastSet) < 0.5;
-        if (this._pitchBeforePanel !== null && stillOurs) {
-            this._animatePitch(currentPitch, this._pitchBeforePanel, 2000);
-        }
-        this._pitchBeforePanel = null;
-
-        $(this._panel).hide();
     }
 
     _animatePitch(from, to, duration) {
@@ -608,8 +185,6 @@ export class Terrain3DControl {
             const pitch = from + (to - from) * easeOut(t);
 
             this._pitch = pitch;
-            this._autoPitchLastSet = pitch;
-            this._setPitchUI?.(pitch);
             this._updatePitch();
 
             if (t < 1) {
@@ -889,6 +464,7 @@ export class Terrain3DControl {
     }
 
     _notifySync() {
+        this._changed();
         if (this._syncCallback) {
             try {
                 this._syncCallback();
@@ -1080,15 +656,15 @@ export class Terrain3DControl {
 
     // Public methods for external control
 
-    // Opens the 3D Controls panel, e.g. from the auto-enable context message's
-    // "Vertical Scale" link. Pass focusExaggeration to scroll/focus that slider.
-    showPanel(focusExaggeration = false) {
-        this._showPanel();
-        if (focusExaggeration) {
-            const slider = document.getElementById('terrain-3d-exaggeration-slider');
-            slider?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            slider?.focus();
-        }
+    // The auto-enable message's "Vertical Scale" link:
+    // turns terrain on, tilts a flat map to 50° so the relief shows, and
+    // opens the place menu's Map view tab where its controls are.
+    showPanel() {
+        this._closeAutoEnabledMessage();
+        if (!this._enabled) this.setEnabled(true);
+        const currentPitch = this._map ? this._map.getPitch() : this._pitch;
+        if (Math.abs(currentPitch) < 0.5) this._animatePitch(currentPitch, 50, 2000);
+        window.mapLocationMenuControl?.openTab('view');
     }
 
     // Shows or hides one of the map layers behind the panel's chips. The atlas
@@ -1107,7 +683,7 @@ export class Terrain3DControl {
         const previousLayerId = this._buildingLayerId();
         const wasVisible = isAtlasLayerVisible(previousLayerId);
         this._buildingSource = source;
-        this._panel?.find('#terrain-3d-building-source').val(source);
+        this._changed();
 
         if (!wasVisible) return;
         await this.setAtlasLayerVisible(previousLayerId, false);
@@ -1115,25 +691,47 @@ export class Terrain3DControl {
     }
 
     getBuildingSource() {
+        const visible = Object.keys(BUILDING_SOURCES).find(source => isAtlasLayerVisible(this._buildingLayerId(source)));
+        if (visible) this._buildingSource = visible;
         return this._buildingSource;
+    }
+
+    getBuildingsVisible() {
+        return Object.keys(BUILDING_SOURCES).some(source => isAtlasLayerVisible(this._buildingLayerId(source)));
+    }
+
+    async setBuildingsVisible(visible) {
+        await this.setAtlasLayerVisible(this._buildingLayerId(this.getBuildingSource()), visible);
+        this._changed();
+    }
+
+    getContoursVisible() {
+        return isAtlasLayerVisible(CONTOURS_LAYER);
+    }
+
+    async setContoursVisible(visible) {
+        await this.setAtlasLayerVisible(CONTOURS_LAYER, visible);
+        this._changed();
+    }
+
+    getTerrainSources() {
+        return Object.entries(this._terrainSources).map(([id, config]) => ({ id, name: config.name }));
     }
 
     setEnabled(enabled) {
         this._closeAutoEnabledMessage();
         this._enabled = enabled;
-        $('#terrain-3d-enabled').prop('checked', enabled);
-        // Show/hide terrain controls container based on enabled state
-        $('#terrain-3d-controls-container').css('display', enabled ? 'block' : 'none');
         this._updateTerrain();
+        this._changed();
     }
 
     setExaggeration(exaggeration) {
         this._exaggeration = Math.max(this.options.minExaggeration,
             Math.min(this.options.maxExaggeration, exaggeration));
-        this._setExaggerationUI?.(this._exaggeration);
         if (this._enabled) {
             this._updateTerrain();
         }
+        this._changed();
     }
 
     getEnabled() {
@@ -1146,8 +744,8 @@ export class Terrain3DControl {
 
     setAnimate(animate) {
         this._animate = animate;
-        $('#terrain-3d-animate').prop('checked', animate);
         this._updateAnimation();
+        this._changed();
     }
 
     getAnimate() {
@@ -1156,7 +754,6 @@ export class Terrain3DControl {
 
     setWireframe(wireframe) {
         this._showWireframe = wireframe;
-        $('#terrain-3d-wireframe').prop('checked', wireframe);
         this._updateWireframe();
     }
 
@@ -1166,7 +763,6 @@ export class Terrain3DControl {
 
     setHillshade(showHillshade) {
         this._showHillshade = showHillshade;
-        $('#terrain-3d-hillshade').prop('checked', showHillshade);
         this._updateHillshade();
         this._updateHillshadeURLParameter();
         this._notifySync();
@@ -1179,7 +775,6 @@ export class Terrain3DControl {
     setTerrainSource(source) {
         if (this._terrainSources[source]) {
             this._terrainSource = source;
-            $('#terrain-source-select').val(source);
             this._updateTerrain();
             this._updateTerrainSourceURLParameter();
         }
@@ -1191,7 +786,6 @@ export class Terrain3DControl {
 
     setFog(enableFog) {
         this._enableFog = enableFog;
-        $('#terrain-3d-fog').prop('checked', enableFog);
         this._updateFog();
     }
 
@@ -1201,8 +795,8 @@ export class Terrain3DControl {
 
     setVisualizeSound(visualizeSound) {
         this._visualizeSound = visualizeSound;
-        $('#terrain-3d-sound').prop('checked', visualizeSound);
         this._updateAudioVisualization();
+        this._changed();
     }
 
     getVisualizeSound() {
@@ -1211,7 +805,6 @@ export class Terrain3DControl {
 
     setFov(fov) {
         this._fov = Math.max(0.1, Math.min(1.5, fov));
-        this._setFovUI?.(this._fov);
         this._updateFov();
     }
 
@@ -1222,7 +815,6 @@ export class Terrain3DControl {
     setBearing(bearing) {
         this._bearing = bearing % 360;
         if (this._bearing < 0) this._bearing += 360;
-        this._setBearingUI?.(this._bearing);
         this._updateBearing();
     }
 
@@ -1231,8 +823,8 @@ export class Terrain3DControl {
     }
 
     setPitch(pitch) {
+        this._cancelAutoPitch();
         this._pitch = Math.max(0, Math.min(85, pitch));
-        this._setPitchUI?.(this._pitch);
         this._updatePitch();
     }
 
@@ -1249,7 +841,7 @@ export class Terrain3DControl {
         if (enabled) {
             const granted = await this._requestDeviceOrientationPermission();
             if (!granted) {
-                this._panel?.find('#terrain-3d-device-lock').prop('checked', false);
+                this._changed();
                 return;
             }
             this._cancelAutoPitch();
@@ -1264,9 +856,8 @@ export class Terrain3DControl {
             }
         }
 
-        this._panel?.find('#terrain-3d-device-lock').prop('checked', this._lockToDeviceOrientation);
-        this._panel?.find('#terrain-3d-pitch-slider').prop('disabled', this._lockToDeviceOrientation);
         this._updateLockToDeviceURLParameter();
+        this._changed();
     }
 
     getLockToDeviceOrientation() {
@@ -1301,7 +892,6 @@ export class Terrain3DControl {
         const pitch = Math.max(0, Math.min(85, 90 - beta));
 
         this._pitch = pitch;
-        this._setPitchUI?.(pitch);
         this._updatePitch();
     }
 
@@ -1373,7 +963,7 @@ export class Terrain3DControl {
 
                 // Update terrain exaggeration
                 this._exaggeration = newExaggeration;
-                this._setExaggerationUI?.(this._exaggeration);
+                this._changed();
 
                 if (this._enabled && this._map) {
                     const terrainConfig = this._terrainSources[this._terrainSource];
@@ -1394,7 +984,7 @@ export class Terrain3DControl {
             console.error('Error accessing microphone:', error);
             alert('Unable to access microphone. Please grant microphone permissions and try again.');
             this._visualizeSound = false;
-            $('#terrain-3d-sound').prop('checked', false);
+            this._changed();
         }
     }
 
@@ -1549,7 +1139,6 @@ export class Terrain3DControl {
             }
         } else if (this._map) {
             this._bearing = this._map.getBearing();
-            this._setBearingUI?.(this._bearing);
         }
 
         // Handle pitch parameter
@@ -1560,7 +1149,6 @@ export class Terrain3DControl {
             }
         } else if (this._map) {
             this._pitch = this._map.getPitch();
-            this._setPitchUI?.(this._pitch);
         }
 
         // Handle device orientation lock parameter. Requires a user gesture on

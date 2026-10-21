@@ -6,7 +6,7 @@ import { StatePersistence } from './state-persistence.js';
 import { MapSearchControl } from './map-search-control.js';
 import { SearchBoxControl } from './search-box-control.js';
 import { configureCadastralSearch, prewarmCadastral, isCadastralSearchEnabled } from './cadastral-search.js';
-import { isNominatimBackedOff, reportNominatimFailure } from './nominatim-search.js';
+import { isNominatimBackedOff, reportNominatimFailure, nominatimLanguage } from './nominatim-search.js';
 import { initCadastralSearchUI } from './cadastral-search-ui.js';
 import { MapExportControl } from './map-export-control.js';
 import { Terrain3DControl } from './terrain-3d-control.js';
@@ -15,6 +15,7 @@ import { MapFeatureControl } from './map-feature-control-iframe.js';
 import { MapBrowserControl } from './map-browser-control.js';
 import { SettingsMenuControl } from './settings-menu-control.js';
 import { initLocaleMapSync } from './locale-map-sync.js';
+import { localeManager } from './locale-manager.js';
 import { MapAttributionControl } from './map-attribution-control.js';
 import { StreetviewControl } from './streetview-control.js';
 import { MapContextMessagesControl } from './map-context-messages-control.js';
@@ -33,6 +34,9 @@ import { resolveConstants } from './atlas-constants.js';
 import { isDynamicLayerShorthand, expandDynamicLayerShorthand, resolveDynamicLayerShorthands, parseDynamicLayerShorthandString } from './dynamic-layer-shorthand.js';
 import { setAll as setMarkerRegistry, parseMarkersParam } from './marker-registry.js';
 import { atlasMarkersParam, atlasRouteShorthands } from './atlas-pins.js';
+import { MapHistory } from './map-history.js';
+import { trackLog } from './gpx-log.js';
+import { systemLayers } from '../config/index.js';
 import { installLayerSampler } from './layer-feature-samples.js';
 import { installStyleReferenceContext } from './style-reference-context.js';
 
@@ -693,16 +697,17 @@ export class MapInitializer {
                 (invalidLayers.length ? ` (${invalidLayers.length} invalid: ${invalidLayers.join(', ')})` : ''),
                 validLayers.map(l => ({ id: l.id, type: l.type, initiallyChecked: !!l.initiallyChecked })));
 
-            // Ensure the system layers are always present, whatever atlas is
-            // loaded: 'selection' holds map markers, 'directions' the routes a
-            // navigation draws (see search/route-store.js), and 'mask' the
-            // cutout MapMaskManager generates for `?mask=`. Only 'selection' is
-            // on from the start; the other two are switched on by their owner
-            // once there is something to draw - a route drawn on the map, a
-            // layer linked to the mask - so neither sits empty in the layer
-            // stack and in every shared URL.
-            const SYSTEM_LAYERS = { selection: true, directions: false, mask: false };
-            Object.entries(SYSTEM_LAYERS).forEach(([systemLayerId, initiallyChecked]) => {
+            // Ensure the system layers (config/index.js) are always present,
+            // whatever atlas is loaded: 'selection' holds map markers,
+            // 'directions' the routes a navigation draws (see
+            // search/route-store.js), 'mask' the cutout MapMaskManager
+            // generates for `?mask=`, and 'gpx' the device's logged tracks
+            // (gpx-log.js). Only 'selection' is on from the start; the others
+            // are switched on by their owner once there is something to draw -
+            // a route drawn on the map, a layer linked to the mask, a track
+            // being logged - so none sits empty in the layer stack and in
+            // every shared URL.
+            Object.entries(systemLayers).forEach(([systemLayerId, { initiallyChecked }]) => {
                 if (config.layers.find(l => l.id === systemLayerId)) return;
                 const systemLayer = layerRegistry.getLayer(systemLayerId, 'index');
                 if (systemLayer) {
@@ -1075,12 +1080,15 @@ export class MapInitializer {
             // (top corners insert each new control below the previous one, so
             // add order is top-to-bottom). The view tools first: geolocation and
             // bearing (already mounted at the top of map.on('load') so its GPS
-            // auto-trigger runs in parallel with the rest of setup), the 3D
-            // panel's toggle and time; then the tools that act on the map:
+            // auto-trigger runs in parallel with the rest of setup) and time;
+            // then the tools that act on the map:
             // measure, street view and links out to other maps (see the
             // .mapboxgl-ctrl-top-right rules in css/map-console.css).
             map.addControl(window.orientationControl, 'top-right');
-            map.addControl(window.terrain3DControl, 'top-right');
+            // 3D terrain has no rail button: its controls are the place
+            // menu's Map view tab, opened from the console's place line.
+            window.terrain3DControl.attach(map);
+            window.terrain3DControl.onChange(() => window.mapConsole?.refreshStatus());
             window.timeControl = new TimeControl();
             map.addControl(window.timeControl, 'top-right');
             if (typeof MapboxDraw !== 'undefined') {
@@ -1114,6 +1122,7 @@ export class MapInitializer {
             window.layerControl = new MapLayerControl(layers);
             window.layerControl.renderToContainer('#layer-controls-container', map);
             window.layerControl.setStateManager(stateManager);
+            trackLog.start();
 
             // Initialize feature control (click/hover engine + marker manager)
             window.featureControl.initialize(stateManager, config);
@@ -1186,6 +1195,10 @@ export class MapInitializer {
             };
             applyParams();
 
+            // Back / forward through the map's own steps (the place menu's History)
+            window.mapHistory = new MapHistory(map);
+            window.mapHistory.start();
+
             // Initialize state persistence event listeners after URL manager is ready
             statePersistence.initialize();
 
@@ -1203,7 +1216,7 @@ export class MapInitializer {
                     const latRounded = Math.round(center.lat * 100000) / 100000;
                     const lngRounded = Math.round(center.lng * 100000) / 100000;
                     const nominatimZoom = Math.max(0, Math.min(18, Math.round(zoom)));
-                    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latRounded}&lon=${lngRounded}&zoom=${nominatimZoom}&addressdetails=1`;
+                    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latRounded}&lon=${lngRounded}&zoom=${nominatimZoom}&addressdetails=1&accept-language=${encodeURIComponent(nominatimLanguage())}`;
 
                     const response = await fetch(url, {
                         headers: { 'User-Agent': 'AMChe-Goa-Map/1.0' }
@@ -1212,7 +1225,9 @@ export class MapInitializer {
                     if (response.ok) {
                         const data = await response.json();
                         if (data.display_name && window.attributionControl) {
-                            window.attributionControl.setLocation(data.display_name, data.address || null);
+                            window.attributionControl.setLocation(data.display_name, data.address || null, data.osm_type
+                                ? { osmType: data.osm_type, osmId: String(data.osm_id), name: data.name || null, category: data.category || null, type: data.type || null, lat: parseFloat(data.lat), lon: parseFloat(data.lon) }
+                                : null);
                         }
                     } else {
                         reportNominatimFailure();
@@ -1234,6 +1249,15 @@ export class MapInitializer {
             });
 
             updateAttributionLocation();
+
+            // The address is in the locale's language; a new one asks again.
+            let addressLanguage = nominatimLanguage();
+            localeManager.onChange(() => {
+                if (nominatimLanguage() === addressLanguage) return;
+                addressLanguage = nominatimLanguage();
+                clearTimeout(reverseGeocodeTimeout);
+                reverseGeocodeTimeout = setTimeout(updateAttributionLocation, 300);
+            });
 
             // Set camera position: prioritize hash layer view, then URL hash, then config defaults
             const signalMapReady = () => {

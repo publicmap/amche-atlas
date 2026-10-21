@@ -1,4 +1,5 @@
 import { fetchConfigJson, fetchConfigResult } from './config-cache.js';
+import { withSystemLayerDefaults } from '../config/index.js';
 
 // In-flight initialize() promise, keyed off the registry instance. Held in
 // a module-level WeakMap (not on the instance) because postMessage to iframes
@@ -199,6 +200,10 @@ export class LayerRegistry {
      * _doInitialize() and the on-demand load in ensureAtlasLoaded().
      */
     _registerAtlasConfig({ atlasId, config, baseUrl, url }) {
+        // The index atlas's reserved layers take their type from config/index.js.
+        if (atlasId === 'index' && Array.isArray(config.layers)) {
+            config = { ...config, layers: config.layers.map(withSystemLayerDefaults) };
+        }
         // Store atlas metadata (color, name, etc.)
         this._atlasMetadata.set(atlasId, {
             // Resolved URL the config was loaded from (external URL for cross-repo

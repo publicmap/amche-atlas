@@ -1,3 +1,5 @@
+import { localeManager } from './locale-manager.js'
+
 const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search'
 const NOMINATIM_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse'
 const NOMINATIM_DETAILS_URL = 'https://nominatim.openstreetmap.org/details'
@@ -32,6 +34,13 @@ export function reportNominatimFailure() {
     blockedUntil = Date.now() + BACKOFF_MS
 }
 
+// The locale's languages, primary first, as Nominatim's `accept-language`
+// parameter - a parameter rather than the header, so each language is its
+// own cache entry.
+export function nominatimLanguage() {
+    return localeManager.getLanguageCodes().join(',') || 'en'
+}
+
 function shortLabel(displayName) {
     return (displayName || '').split(',')[0].trim() || displayName || ''
 }
@@ -53,6 +62,7 @@ export function nominatimResultToFeature(result) {
             _isNominatim: true,
             _locationString: label,
             _boundingbox: Array.isArray(result.boundingbox) ? result.boundingbox.map(Number) : null,
+            _osmType: result.osm_type || null,
         },
     }
 }
@@ -73,6 +83,7 @@ export async function queryNominatim(query, { limit = 5, countrycodes = 'in', vi
         format: 'jsonv2',
         addressdetails: '0',
         limit: String(limit),
+        'accept-language': nominatimLanguage(),
     })
     if (countrycodes) params.set('countrycodes', countrycodes)
     if (viewbox) params.set('viewbox', viewbox)
@@ -87,7 +98,6 @@ export async function queryNominatim(query, { limit = 5, countrycodes = 'in', vi
     let response
     try {
         response = await fetch(`${NOMINATIM_SEARCH_URL}?${cacheKey}`, {
-            headers: { 'Accept-Language': 'en' },
             signal,
         })
     } catch (err) {
@@ -123,6 +133,7 @@ export async function reverseGeocodeNominatim(lat, lon, zoom = 16, { signal } = 
         lat: String(latRounded),
         lon: String(lonRounded),
         zoom: String(nominatimZoom),
+        'accept-language': nominatimLanguage(),
     })
 
     const cacheKey = `reverse:${params.toString()}`
@@ -135,7 +146,6 @@ export async function reverseGeocodeNominatim(lat, lon, zoom = 16, { signal } = 
     let response
     try {
         response = await fetch(`${NOMINATIM_REVERSE_URL}?${params.toString()}`, {
-            headers: { 'Accept-Language': 'en' },
             signal,
         })
     } catch (err) {
@@ -186,6 +196,7 @@ export async function reverseGeocodeAddress(lat, lon, { zoom = 18, detail = 2, s
         lat: String(Math.round(lat * 100000) / 100000),
         lon: String(Math.round(lon * 100000) / 100000),
         zoom: String(Math.max(0, Math.min(18, Math.round(zoom)))),
+        'accept-language': nominatimLanguage(),
     })
 
     const cacheKey = `address:${params.toString()}`
@@ -195,7 +206,6 @@ export async function reverseGeocodeAddress(lat, lon, { zoom = 18, detail = 2, s
     let response
     try {
         response = await fetch(`${NOMINATIM_REVERSE_URL}?${params.toString()}`, {
-            headers: { 'Accept-Language': 'en' },
             signal,
         })
     } catch (err) {
@@ -260,9 +270,11 @@ export function formatNominatimAddress(parts, count = 2) {
  * Where each of several OSM objects is - a point, and a bounding box where it
  * has an extent - in one request. Keyed `W123` / `R456` / `N789`.
  *
- * @returns {Promise<Map<string, {lat: number, lon: number, boundingbox: number[]|null}>>}
+ * With `geometry`, each also carries its GeoJSON outline (`geojson`).
+ *
+ * @returns {Promise<Map<string, {lat: number, lon: number, boundingbox: number[]|null, osmType: string|null, geojson?: Object}>>}
  */
-export async function lookupNominatimPlaces(refs, { signal } = {}) {
+export async function lookupNominatimPlaces(refs, { signal, geometry = false } = {}) {
     const ids = [...new Set((refs || [])
         .map(ref => {
             const letter = OSM_TYPE_LETTERS[String(ref.osmType || '').toLowerCase()]
@@ -273,14 +285,14 @@ export async function lookupNominatimPlaces(refs, { signal } = {}) {
     const places = new Map()
     if (!ids.length) return places
 
-    const cacheKey = `lookup:${ids.join(',')}`
+    const language = encodeURIComponent(nominatimLanguage())
+    const cacheKey = `lookup${geometry ? '+geometry' : ''}:${language}:${ids.join(',')}`
     if (resultCache.has(cacheKey)) return resultCache.get(cacheKey)
     if (isNominatimBackedOff()) return places
 
     let response
     try {
-        response = await fetch(`${NOMINATIM_LOOKUP_URL}?osm_ids=${ids.join(',')}&format=jsonv2`, {
-            headers: { 'Accept-Language': 'en' },
+        response = await fetch(`${NOMINATIM_LOOKUP_URL}?osm_ids=${ids.join(',')}&format=jsonv2&accept-language=${language}${geometry ? '&polygon_geojson=1' : ''}`, {
             signal,
         })
     } catch (err) {
@@ -299,6 +311,8 @@ export async function lookupNominatimPlaces(refs, { signal } = {}) {
             lat: parseFloat(result.lat),
             lon: parseFloat(result.lon),
             boundingbox: Array.isArray(result.boundingbox) ? result.boundingbox.map(Number) : null,
+            osmType: result.osm_type || null,
+            ...(geometry ? { geojson: result.geojson || null } : {}),
         })
     })
 
@@ -336,6 +350,7 @@ export async function fetchNominatimAddressParts(osmType, osmId, { signal } = {}
         osmid: String(osmId),
         addressdetails: '1',
         format: 'json',
+        'accept-language': nominatimLanguage(),
     })
 
     const cacheKey = `details:${params.toString()}`
@@ -345,7 +360,6 @@ export async function fetchNominatimAddressParts(osmType, osmId, { signal } = {}
     let response
     try {
         response = await fetch(`${NOMINATIM_DETAILS_URL}?${params.toString()}`, {
-            headers: { 'Accept-Language': 'en' },
             signal,
         })
     } catch (err) {

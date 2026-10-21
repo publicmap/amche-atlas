@@ -48,9 +48,7 @@
       "title": "Selected Points",
       "description": "User selected points from the map.",
       "headerImage": null,
-      "type": "geojson",
       "id": "selection",
-      "geojson": null,
       "attribution": "<a href='https://amche.in'>Amche.in Atlas</a>",
       "style": {
         "circle-radius": 2,
@@ -68,9 +66,7 @@
       "title": "Navigation Routes",
       "description": "Routes drawn by map navigation, and routes defined in the URL as <code>?layers=route:mapbox-driving(73.81/15.49|73.83/15.51)</code>. Waypoints are start, stops and destination; the route line carries every property the <a href='https://docs.mapbox.com/api/navigation/directions/' target='_blank'>Mapbox Directions API</a> returned.",
       "headerImage": null,
-      "type": "geojson",
       "id": "directions",
-      "geojson": null,
       "attribution": "<a href='https://docs.mapbox.com/api/navigation/directions/' target='_blank'>Mapbox Directions</a>",
       "style": {
         "title/symbol-placement": "line-center",
@@ -257,6 +253,62 @@
       "initiallyChecked": false
     },
     {
+      "tags": [
+        "Points Of Interest"
+      ],
+      "title": "GPS Tracks",
+      "description": "Tracks logged from this device's location with <em>Log Track</em> in the place menu's Locate Me tab. Kept only in this browser and never shared in the map's link.",
+      "headerImage": null,
+      "id": "gpx",
+      "attribution": "<a href='https://amche.in'>Amche.in Atlas</a>",
+      "style": {
+        "line-color": [
+          "case",
+          [
+            "get",
+            "current"
+          ],
+          "#1da1f2",
+          "#7c3aed"
+        ],
+        "line-width": [
+          "case",
+          [
+            "get",
+            "current"
+          ],
+          4,
+          3
+        ],
+        "line-opacity": 0.9,
+        "line-cap": "round",
+        "line-join": "round",
+        "circle-radius": 2,
+        "circle-color": "#1da1f2",
+        "circle-stroke-width": 1,
+        "circle-stroke-color": "#ffffff",
+        "text-field": ""
+      },
+      "inspect": {
+        "id": "id",
+        "title": "GPS Track",
+        "label": "name",
+        "fields": [
+          "startedAt",
+          "endedAt",
+          "points",
+          "distance"
+        ],
+        "fieldTitles": [
+          "Started",
+          "Last point",
+          "Points",
+          "Distance"
+        ]
+      },
+      "initiallyChecked": false
+    },
+    {
       "id": "notes",
       "title": "Map Notes",
       "type": "csv",
@@ -315,9 +367,7 @@
       "title": "Feature Mask",
       "description": "Everything outside the polygons of the layer linked with <code>?mask=&lt;layer-id&gt;</code>. Generated on the fly from the geometry loaded on the map, so it follows the layer's filters and selection and is rebuilt as you pan and zoom.",
       "headerImage": null,
-      "type": "geojson",
       "id": "mask",
-      "geojson": null,
       "attribution": "<a href='https://amche.in'>Amche.in Atlas</a>",
       "style": {
         "fill-opacity": 1,

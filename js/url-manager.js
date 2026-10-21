@@ -10,6 +10,7 @@ import { parseDynamicLayerShorthandString } from './dynamic-layer-shorthand.js';
 import { allEntries as allRegisteredMarkers, buildMarkersParam, parseMarkersParam } from './marker-registry.js';
 import { localeManager } from './locale-manager.js';
 import { rebaseOnEmbedHost } from './embed-host.js';
+import { isLocalDataLayer } from '../config/index.js';
 
 /**
  * `_editedFields` lists the definition fields a layer's config diverges from
@@ -343,9 +344,9 @@ export class URLManager {
         // Iterate through all groups in the layer control
         this.mapLayerControl._state.groups.forEach((group, groupIndex) => {
             // Special case: skip the system layers ('selection' markers,
-            // 'directions' routes) while they hold nothing - they are always
-            // present, so listing them empty would only pad every URL.
-            const isEmptySystemLayer = (group.id === 'selection' || group.id === 'directions') &&
+            // 'directions' routes, 'gpx' tracks) while they hold nothing - they
+            // are always present, so listing them empty would only pad every URL.
+            const isEmptySystemLayer = ['selection', 'directions', 'gpx'].includes(group.id) &&
                 (!group.geojson || !group.geojson.features || group.geojson.features.length === 0);
             if (isEmptySystemLayer) {
                 return;
@@ -399,8 +400,9 @@ export class URLManager {
                     }
                     // Include geojson if it exists and has features. The selection layer is
                     // excluded here — its markers are carried in the compact `markers=` param
-                    // instead of inlining a full FeatureCollection (see serializeMarkersForURL).
-                    if (group.id !== 'selection' && group.geojson && group.geojson.features && group.geojson.features.length > 0) {
+                    // instead of inlining a full FeatureCollection (see serializeMarkersForURL),
+                    // and a layer whose data stays on the device (config/index.js) never inlines it.
+                    if (group.id !== 'selection' && !isLocalDataLayer(group.id) && group.geojson && group.geojson.features && group.geojson.features.length > 0) {
                         layerObj.geojson = group.geojson;
                     }
                     copyEditedFields(group, layerObj);
