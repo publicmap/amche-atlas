@@ -48,6 +48,8 @@ Select the GL rendering library. Applies to script loading only and is read once
 - `maplibre` - MapLibre GL JS instead, with no other config changes required (see `js/gl-compat.js`). Has better complex-script (e.g. Indic) text shaping.
 - `<value>@<version>` - either of the above, pinned to an exact CDN version for this load only (e.g. `maplibre@6.9.0`), instead of the version pinned in `window.amche.RENDERER_ASSETS`. The `v` prefix some npm tags use is optional (`maplibre@v6.9.0` and `maplibre@6.9.0` are equivalent). MapLibre's own UMD-vs-ES-module split (v6+ dropped the UMD build - see the `module` flag in `RENDERER_ASSETS`) is resolved from the version's major number, not assumed.
 
+When the user picks a primary or fallback language written in an Indic script (Devanagari, Bengali, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam or Sinhala, e.g. `hi`, `gom`, `ta`) in the settings menu, the page reloads with `?renderer=maplibre` so those labels are shaped correctly (`js/renderer-switch.js`). An explicit `?renderer=` is left alone, and so is a `?lang=` already in the URL on load.
+
 **Examples:**
 ```
 ?renderer=maplibre

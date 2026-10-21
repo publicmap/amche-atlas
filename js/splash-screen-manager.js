@@ -1,6 +1,9 @@
 /**
  * Splash Screen Manager
- * Two-state UI: "Detecting user location" (with optional Allow/Deny when the
+ * A centered splash card over the loading map, in the manner of an old
+ * application splash screen: artwork and branding on top, the credits
+ * (js/splash-credits.js) below, and a status line along the bottom.
+ * The status line has two states: "Detecting user location" (with optional Allow/Deny when the
  * geolocation permission has never been answered), then "Loading map atlas of
  * <name> [Change]" once an atlas has been picked. The map loads in the
  * background; watchForMapReady auto-proceeds the splash when the map is
@@ -9,6 +12,7 @@
 
 import { DataUtils } from './map-utils.js';
 import { fetchConfigJson, fetchConfigResult } from './config-cache.js';
+import { SPLASH_CREDITS } from './splash-credits.js';
 
 export class SplashScreenManager {
     constructor() {
@@ -33,6 +37,9 @@ export class SplashScreenManager {
         window.loadingStartupState.manualOverlayControl = true;
 
         this.cacheElements();
+        this.renderCredits();
+        this.renderProjects();
+        this.renderDevLink();
         await this.parseURLConfiguration();
         this.showSplashSection();
         this.setupEventListeners();
@@ -101,8 +108,90 @@ export class SplashScreenManager {
             atlasDropdown: document.getElementById('splash-atlas-dropdown'),
             logoImg: document.getElementById('splash-logo-img'),
             brandLink: document.getElementById('splash-brand-link'),
-            description: document.getElementById('splash-description')
+            description: document.getElementById('splash-description'),
+            meaning: document.getElementById('splash-meaning'),
+            credits: document.getElementById('splash-credits'),
+            projects: document.getElementById('splash-projects'),
+            links: document.getElementById('splash-links')
         };
+    }
+
+    /**
+     * Off the dev build (localhost or amche.in/dev), a DEV button opens the
+     * same map on https://amche.in/dev/ so anyone can try what's coming next.
+     */
+    renderDevLink() {
+        const host = this.elements.links;
+        const { hostname, pathname } = window.location;
+        const isDev = ['localhost', '127.0.0.1'].includes(hostname) || pathname.startsWith('/dev/');
+        if (!host || isDev) return;
+        const link = document.createElement('a');
+        link.className = 'splash-dev-link';
+        link.href = 'https://amche.in/dev/';
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.title = 'Try the development version';
+        link.textContent = 'DEV';
+        link.addEventListener('click', () => {
+            link.href = `https://amche.in/dev/${window.location.search}${window.location.hash}`;
+        });
+        host.appendChild(link);
+    }
+
+    renderProjects() {
+        const host = this.elements.projects;
+        if (!host) return;
+        SPLASH_CREDITS.projects.forEach(({ name, maintainers, url }) => {
+            const link = document.createElement('a');
+            link.className = 'splash-project';
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            const title = document.createElement('span');
+            title.className = 'splash-project-name';
+            title.textContent = name;
+            const sub = document.createElement('span');
+            sub.className = 'splash-project-maintainers';
+            sub.textContent = maintainers;
+            link.append(title, sub);
+            host.appendChild(link);
+        });
+    }
+
+    renderCredits() {
+        const host = this.elements.credits;
+        if (!host) return;
+        const credit = ({ name, url }) => {
+            if (!url) return document.createTextNode(name);
+            const link = document.createElement('a');
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.textContent = name;
+            return link;
+        };
+        const line = document.createElement('p');
+        const dataLine = document.createElement('p');
+        const list = (entries, target = line) => entries.forEach((entry, i) => {
+            if (i) target.append(i === entries.length - 1 ? ' and ' : ', ');
+            target.appendChild(credit(entry));
+        });
+
+        const heading = document.createElement('div');
+        heading.className = 'splash-credits-heading';
+        heading.textContent = 'Credits';
+        const dedication = document.createElement('p');
+        dedication.className = 'splash-credits-dedication';
+        dedication.textContent = SPLASH_CREDITS.dedication;
+        line.append('Built using tools from ');
+        list(SPLASH_CREDITS.tools);
+        line.append(', with thanks to ');
+        list(SPLASH_CREDITS.thanks);
+        line.append('.');
+        dataLine.append('Data contributed from ');
+        list(SPLASH_CREDITS.data, dataLine);
+        dataLine.append('.');
+        host.append(heading, dedication, dataLine, line);
     }
 
     showSplashSection() {
@@ -318,6 +407,8 @@ export class SplashScreenManager {
         }
         if (this.elements.brandLink && brand.name) {
             this.elements.brandLink.textContent = brand.name;
+            // "आमचे Amche - 'Ours'" explains amche.in, not another brand's name
+            if (this.elements.meaning) this.elements.meaning.style.display = 'none';
         }
         if (this.elements.description && brand.tagline) {
             this.elements.description.textContent = brand.tagline;

@@ -597,9 +597,20 @@ export class URLManager {
 
         const mergedOptions = this._pendingURLOptions;
         this.pendingURLUpdate = setTimeout(() => {
+            this.pendingURLUpdate = null;
             this._pendingURLOptions = {};
             this._performURLUpdate(mergedOptions);
         }, 300);
+    }
+
+    /** Write a pending debounced update now, e.g. before reloading the page. */
+    flushURLUpdate() {
+        if (!this.pendingURLUpdate) return;
+        clearTimeout(this.pendingURLUpdate);
+        this.pendingURLUpdate = null;
+        const options = this._pendingURLOptions;
+        this._pendingURLOptions = {};
+        this._performURLUpdate(options);
     }
 
     _performURLUpdate(options = {}) {

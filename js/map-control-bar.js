@@ -4,8 +4,7 @@
  * box, the layer stack and the map browser panel.
  *
  * It has two modes:
- * - explore: one bar row (home, atlas, Find, On map with its count, locale
- *   settings) over a line naming the place at the map center - ending in the
+ * - explore: one bar row (home, atlas, Find, On map with its count) over a line naming the place at the map center - ending in the
  *   3D terrain and location status icons - then the pins
  *   row and, when opened, Share (js/console/share-pins.js). Marker panels dock
  *   in a column beneath the console (map-marker-manager.js), so the pins read
@@ -113,15 +112,12 @@ export class MapControlBar {
         this._layersBtn.appendChild(this._badge);
         this._layersBtn.addEventListener('click', () => this.setMode('find', { filter: 'onmap' }));
 
-        this.menuSlot = document.createElement('span');
-        this.menuSlot.className = 'console-menu-slot when-explore';
-
         const closeBtn = button('console-btn when-find', 'x-lg', 'Back to the map ( Esc )');
         closeBtn.addEventListener('click', () => this.setMode('explore'));
 
         head.append(home, this._main);
         if (searchEl) head.appendChild(searchEl);
-        head.append(findBtn, this._layersBtn, this.menuSlot, closeBtn);
+        head.append(findBtn, this._layersBtn, closeBtn);
 
         this.placeButton = button('map-console-place when-explore', 'geo-alt', 'Coordinates, address and share link for this view');
         this._placeText = document.createElement('span');

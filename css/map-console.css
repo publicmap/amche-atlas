@@ -259,37 +259,6 @@
     color: var(--console-ink-3);
 }
 
-/* Locale settings (js/settings-menu-control.js) sit at the end of the bar */
-.console-menu-slot {
-    display: inline-flex;
-    flex-shrink: 0;
-}
-
-.map-console .settings-menu-btn {
-    width: 38px;
-    height: 38px;
-    padding: 0;
-    border-radius: var(--console-radius-sm);
-    color: var(--console-ink-2);
-}
-
-.map-console .settings-menu-btn:hover,
-.map-console button.settings-menu-btn.active {
-    background: var(--console-raised);
-    color: var(--console-ink);
-}
-
-.map-console .settings-menu-btn .locale-icon {
-    margin: 0 auto;
-}
-
-.map-console .settings-menu-panel {
-    position: fixed;
-    top: calc(var(--console-gap) + 58px);
-    left: var(--console-gap);
-    max-height: calc(100dvh - 2 * var(--console-gap) - 70px);
-}
-
 /* ---------- Search field (Find only) ---------- */
 
 .map-search-control {
@@ -380,8 +349,7 @@ mapbox-search-box [class$='--Container'] {
     align-items: center;
     gap: 6px;
     width: 100%;
-    margin-top: -4px;
-    padding: 0 12px 9px 52px;
+    padding: 8px 12px 9px 52px;
     border: 0;
     background: transparent;
     color: var(--console-ink-2);
@@ -413,9 +381,11 @@ mapbox-search-box [class$='--Container'] {
 /* 3D terrain and location status at the end of the place line: muted while
    off, blue while on; a dot while a track is being logged */
 
+/* Divided from the bar row like Find's body below it */
 .map-console-place-row {
     display: flex;
     align-items: flex-start;
+    border-top: 1px solid var(--console-line);
 }
 
 .map-console-place-row .map-console-place {
@@ -427,7 +397,7 @@ mapbox-search-box [class$='--Container'] {
     display: flex;
     flex-shrink: 0;
     gap: 2px;
-    margin-top: -6px;
+    margin-top: 6px;
     padding-right: 8px;
 }
 
@@ -1216,12 +1186,6 @@ body.console-find .marker-dock-routes {
 
     .map-console[data-mode="explore"] {
         width: calc(100vw - 2 * var(--console-gap) - 52px);
-    }
-
-    .map-console .settings-menu-panel {
-        left: var(--console-gap);
-        right: var(--console-gap);
-        width: auto;
     }
 }
 

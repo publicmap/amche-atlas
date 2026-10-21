@@ -497,6 +497,25 @@ export function formatLanguageLabel(code, autonym) {
     return `${native} [${code}]`;
 }
 
+// Devanagari through Sinhala: the Brahmic scripts of South Asia, whose
+// conjuncts and vowel signs need complex text shaping to render correctly
+const INDIC_SCRIPT = /[ऀ-෿]/;
+
+/**
+ * Whether a language is written in an Indic script, judged by its autonym.
+ * A bare code with no autonym of its own (e.g. "gom") counts when one of its
+ * script variants ("gom-deva") is Indic; an explicit non-Indic variant
+ * ("gom-latn") does not.
+ */
+export function usesIndicScript(code) {
+    if (!code) return false;
+    const lower = code.toLowerCase();
+    const match = LANGUAGES.find(([c]) => c === lower);
+    if (match && INDIC_SCRIPT.test(match[1])) return true;
+    if (match && match[1] !== lower) return false;
+    return LANGUAGES.some(([c, autonym]) => c.startsWith(`${lower}-`) && INDIC_SCRIPT.test(autonym));
+}
+
 export function findLanguageByCode(code) {
     if (!code) return null;
     const lower = code.toLowerCase();

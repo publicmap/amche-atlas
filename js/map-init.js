@@ -850,8 +850,8 @@ export class MapInitializer {
 
     // Initialize the map with the configuration
     static async initializeMap() {
-        // Doesn't depend on the map or atlas config; mounted into the map
-        // console's bar once that exists (see below).
+        // Doesn't depend on the map or atlas config; mounted into the main
+        // menu's hero header (index.html) below.
         window.settingsMenuControl = new SettingsMenuControl();
 
         // Kick off the full atlas registry in parallel. We do NOT await it
@@ -939,7 +939,7 @@ export class MapInitializer {
         // need the map to have fully loaded.
         window.browserControl = new MapBrowserControl();
         window.searchBoxControl.mountBrowserControl(window.browserControl.onAdd(map));
-        window.settingsMenuControl.mount(window.mapConsole?.menuSlot);
+        window.settingsMenuControl.mount(document.getElementById('nav-menu-settings-slot'));
 
         // Setup proper cursor handling for map dragging
         map.on('load', async () => {

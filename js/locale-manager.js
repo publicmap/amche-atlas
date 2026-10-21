@@ -19,9 +19,12 @@
  * `?country=`/`?lang=` via js/url-manager.js - see docs/API.md. `?lang=` is
  * comma-separated, primary language first followed by fallbacks in priority
  * order (e.g. `?lang=hi,en`).
+ * Picking a language written in an Indic script reloads the map with MapLibre
+ * GL JS, which shapes those scripts correctly (see js/renderer-switch.js).
  */
 import { findLanguageByCode } from './language-data.js';
 import { COUNTRIES } from './search/providers/country-provider.js';
+import { ensureRendererForLanguages } from './renderer-switch.js';
 
 /**
  * Resolves a BCP 47 tag from `navigator.languages` to one of our language
@@ -159,12 +162,14 @@ class LocaleManager {
         this._primaryLanguage = lang;
         this._notify();
         this._syncURL();
+        ensureRendererForLanguages(this.getLanguageCodes());
     }
 
     setFallbackLanguages(langs) {
         this._fallbackLanguages = langs || [];
         this._notify();
         this._syncURL();
+        ensureRendererForLanguages(this.getLanguageCodes());
     }
 
     onChange(fn) {
