@@ -4,7 +4,8 @@
  * box, the layer stack and the map browser panel.
  *
  * It has two modes:
- * - explore: one bar row (home, atlas, Find, On map with its count) over a line naming the place at the map center - ending in the
+ * - explore: one bar row (home, atlas, Find, On map with its count) over a line naming the place at the map center - starting
+ *   with the Share panel's link icon (js/share-view-panel.js), ending in the
  *   3D terrain and location status icons - then the pins
  *   row and, when opened, Share (js/console/share-pins.js). Marker panels dock
  *   in a column beneath the console (map-marker-manager.js), so the pins read
@@ -119,13 +120,15 @@ export class MapControlBar {
         if (searchEl) head.appendChild(searchEl);
         head.append(findBtn, this._layersBtn, closeBtn);
 
-        this.placeButton = button('map-console-place when-explore', 'geo-alt', 'Coordinates, address and share link for this view');
+        // Opens the Share panel (js/share-view-panel.js)
+        this.shareButton = button('map-console-share-btn', 'link-45deg', 'Share this view, map history and other maps');
+        this.placeButton = button('map-console-place when-explore', 'geo-alt', 'Address, map view and location for this view');
         this._placeText = document.createElement('span');
         this._placeText.textContent = 'Locating…';
         this.placeButton.appendChild(this._placeText);
         const placeRow = document.createElement('div');
         placeRow.className = 'map-console-place-row when-explore';
-        placeRow.append(this.placeButton, this._buildStatus());
+        placeRow.append(this.shareButton, this.placeButton, this._buildStatus());
 
         const body = document.createElement('div');
         body.className = 'map-console-body when-find';

@@ -935,6 +935,46 @@
       }
     },
     {
+      "id": "addresses",
+      "title": "Addresses",
+      "description": "House numbers and house names from the OpenStreetMap project. See <a href='https://shortbread-tiles.org/schema/1.1/#layer-addresses'>Shortbread addresses layer</a> and <a href='https://wiki.openstreetmap.org/wiki/Key:addr:*'>OSM Wiki</a> for details.",
+      "type": "vector",
+      "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
+      "sourceLayer": "addresses",
+      "minzoom": 14,
+      "maxzoom": 14,
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.1/#layer-addresses'>Shortbread vector tiles</a>",
+      "style": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "housenumber"
+          ],
+          [
+            "get",
+            "housename"
+          ]
+        ],
+        "text-size": 10,
+        "text-max-width": 6,
+        "text-color": "#fde68a",
+        "text-halo-color": "#1a1a1a",
+        "text-halo-width": 1.2
+      },
+      "inspect": {
+        "id": "housenumber",
+        "title": "House Number",
+        "label": "housenumber",
+        "fields": [
+          "housename"
+        ],
+        "fieldTitles": [
+          "House Name"
+        ]
+      }
+    },
+    {
       "title": "OpenInfraMap Power Lines",
       "description": "Power lines from the OpenInfraMap project. See <a href='https://openinframap.org'>OpenInfraMap</a> for details.",
       "type": "vector",
@@ -2030,7 +2070,19 @@
       "maxzoom": 13,
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
       "style": {
-        "overlay/line-color": "#333",
+        "overlay/line-color": [
+          "case",
+          [
+            "==",
+            [
+              "get",
+              "maritime"
+            ],
+            1
+          ],
+          "#0284c7",
+          "#333"
+        ],
         "overlay/line-width": [
           "interpolate",
           [
@@ -2041,37 +2093,81 @@
           ],
           3,
           [
-            "match",
+            "*",
             [
-              "get",
-              "admin_level"
+              "case",
+              [
+                "==",
+                [
+                  "get",
+                  "maritime"
+                ],
+                1
+              ],
+              0.5,
+              1
             ],
-            2,
-            2.5,
-            4,
-            1,
-            5,
-            0.8,
-            0.2
+            [
+              "match",
+              [
+                "get",
+                "admin_level"
+              ],
+              2,
+              2.5,
+              4,
+              1,
+              5,
+              0.8,
+              0.2
+            ]
           ],
           14,
           [
-            "match",
+            "*",
             [
-              "get",
-              "admin_level"
+              "case",
+              [
+                "==",
+                [
+                  "get",
+                  "maritime"
+                ],
+                1
+              ],
+              0.5,
+              1
             ],
-            2,
-            12,
-            4,
-            8,
-            5,
-            6,
-            4
+            [
+              "match",
+              [
+                "get",
+                "admin_level"
+              ],
+              2,
+              12,
+              4,
+              8,
+              5,
+              6,
+              4
+            ]
           ]
         ],
         "overlay/line-join": "round",
-        "line-color": "rgba(255, 255, 255, 0.6)",
+        "line-color": [
+          "case",
+          [
+            "==",
+            [
+              "get",
+              "maritime"
+            ],
+            1
+          ],
+          "rgba(186, 230, 253, 0.7)",
+          "rgba(255, 255, 255, 0.6)"
+        ],
         "line-width": [
           "interpolate",
           [
@@ -2082,38 +2178,126 @@
           ],
           3,
           [
-            "match",
+            "*",
             [
-              "get",
-              "admin_level"
+              "case",
+              [
+                "==",
+                [
+                  "get",
+                  "maritime"
+                ],
+                1
+              ],
+              0.5,
+              1
             ],
-            2,
-            5.0,
-            4,
-            3.5,
-            5,
-            3.3,
-            2.7
+            [
+              "match",
+              [
+                "get",
+                "admin_level"
+              ],
+              2,
+              5,
+              4,
+              3.5,
+              5,
+              3.3,
+              2.7
+            ]
           ],
           14,
           [
-            "match",
+            "*",
             [
-              "get",
-              "admin_level"
+              "case",
+              [
+                "==",
+                [
+                  "get",
+                  "maritime"
+                ],
+                1
+              ],
+              0.5,
+              1
             ],
-            2,
-            14.5,
-            4,
-            10.5,
-            5,
-            8.5,
-            6.5
+            [
+              "match",
+              [
+                "get",
+                "admin_level"
+              ],
+              2,
+              14.5,
+              4,
+              10.5,
+              5,
+              8.5,
+              6.5
+            ]
           ]
         ],
-        "line-join": "round"
+        "line-join": "round",
+        "coast/line-color": "#38bdf8",
+        "coast/line-opacity": 0.35,
+        "coast/line-blur": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          3,
+          3,
+          14,
+          10
+        ],
+        "coast/line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          3,
+          [
+            "case",
+            [
+              "==",
+              [
+                "get",
+                "maritime"
+              ],
+              1
+            ],
+            6,
+            0
+          ],
+          14,
+          [
+            "case",
+            [
+              "==",
+              [
+                "get",
+                "maritime"
+              ],
+              1
+            ],
+            24,
+            0
+          ]
+        ],
+        "coast/line-join": "round"
       },
-      "inspect": false
+      "inspect": {
+        "title": "Admin Level",
+        "label": "admin_level"
+      }
     },
     {
       "id": "historic-boundaries",

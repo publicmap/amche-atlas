@@ -1,8 +1,9 @@
 /**
  * Back / forward through the map's own history: every settled change to the
  * URL - the camera (the `#zoom/lat/lng` hash) or the query (layers, pins,
- * terrain, ...) - becomes a step, listed in the place menu
- * (js/map-location-menu-control.js) to undo or redo.
+ * terrain, ...) - becomes a step, listed in the Share panel's History tab
+ * (js/share-view-panel.js) to undo or redo, also with Ctrl/Cmd+Z and
+ * Ctrl/Cmd+Shift+Z (js/keyboard-controller.js).
  *
  * The app writes the URL with history.replaceState, so the browser keeps no
  * entries of its own; the steps live in sessionStorage, which survives the

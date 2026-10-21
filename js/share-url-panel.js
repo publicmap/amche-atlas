@@ -4,15 +4,14 @@
  * state:
  *
  *  - `buildInlineSection()` - a compact QR thumbnail plus the share URL and a
- *    copy button, appended to the map location menu
- *    (map-location-menu-control.js)
+ *    copy button, at the top of the Share panel (share-view-panel.js)
  *  - `openModal()` - a fullscreen, across-the-room-scannable QR with the full
  *    URL, a copy button, and the "Customize URL" parameter editor for trimming
  *    or tweaking parameters before sharing
  *
  * The URL is read from `window.location.href` - url-manager.js already keeps
  * that current (debounced) as the map moves - and re-read by `refresh()` while
- * the menu is open. Re-reading keeps each parameter's enabled/disabled state
+ * the panel is open. Re-reading keeps each parameter's enabled/disabled state
  * but takes fresh values, so unchecking e.g. `layers` survives panning.
  *
  * When the atlas is embedded in someone else's page the link is rebased onto
@@ -37,7 +36,7 @@ export class ShareUrlPanel {
     }
 
     /**
-     * Compact row for the location menu: QR thumbnail (opens the modal), the
+     * Compact row for the Share panel: QR thumbnail (opens the modal), the
      * share URL, and a copy button. `onOpenModal` lets the host close its menu
      * before the modal takes over the screen.
      */

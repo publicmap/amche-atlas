@@ -15,10 +15,6 @@
  *   - "Locate Me": a tab that is also the trigger - selecting it centres the
  *     map on the device - with the device's GPS fix and its track log
  *     (js/location-device.js, js/gpx-log.js).
- * - "Map History" (collapsed until opened): back / forward through the map's recent steps (js/map-history.js,
- *   drawn by js/location-history.js).
- * - "Share": QR thumbnail + link (share-url-panel.js, which also owns the
- *   fullscreen QR modal).
  * - Under the address, its OpenStreetMap credit (js/location-osm.js). Each
  *   address part shows its OSM icon on hover and while it is the current
  *   level; it opens the OSM data explorer on that part's object.
@@ -32,14 +28,15 @@
  * geocode of its name scoped to its parents ("Panaji, Goa, India"). Hover and
  * click share one lookup (and its cache).
  *
+ * Sharing the view, its history and links to other maps are in the Share
+ * panel (js/share-view-panel.js); opening one closes the other.
+ *
  * Not a mapboxgl control of its own - it lives in the map console's bar.
  */
 import { queryNominatim, lookupNominatimPlaces, fetchNominatimAddressParts } from './nominatim-search.js';
-import { ShareUrlPanel } from './share-url-panel.js';
 import { activePart, buildAddressBlock, linkOsmObjects, nearestOnLine } from './location-address.js';
 import { directionTo, drawHoverPreview } from './location-hover.js';
 import { buildOsmFooter, showOsmDialog } from './location-osm.js';
-import { buildHistorySection } from './location-history.js';
 import { buildTabs } from './location-tabs.js';
 import { buildLanguageControl } from './location-language.js';
 import { buildDevicePanel } from './location-device.js';
@@ -71,8 +68,6 @@ export class MapLocationMenuControl {
         this._hoverRequestToken = 0;
         this._renderToken = 0;
         this._locationTab = 'address';
-
-        this._sharePanel = new ShareUrlPanel();
 
         this._handleOutsideEvent = this._handleOutsideEvent.bind(this);
         this._handleKeydown = this._handleKeydown.bind(this);
@@ -139,7 +134,6 @@ export class MapLocationMenuControl {
 
         this._clearRefreshTimer();
         this._clearHoverPreview();
-        this._sharePanel.destroy();
         this._container?.parentNode?.removeChild(this._container);
         this._menu?.parentNode?.removeChild(this._menu);
         this._container = null;
@@ -166,8 +160,13 @@ export class MapLocationMenuControl {
         else this.openTab(id);
     }
 
+    close() {
+        if (this._isOpenState) this._hide();
+    }
+
     _open() {
         if (!this._map || !this._button || !this._menu) return;
+        window.shareViewPanel?.close();
         this._isOpenState = true;
         this._button.classList.add('active');
         if (this._ownButton) this._button.querySelector('sl-icon')?.setAttribute('name', 'qr-code-scan');
@@ -194,8 +193,6 @@ export class MapLocationMenuControl {
         if (this._ownButton) this._button?.querySelector('sl-icon')?.setAttribute('name', 'qr-code');
         this._clearRefreshTimer();
         this._clearHoverPreview();
-        this._history?.destroy();
-        this._history = null;
         this._language?.destroy();
         this._language = null;
         this._device?.destroy();
@@ -244,7 +241,6 @@ export class MapLocationMenuControl {
 
     _render() {
         this._menu.innerHTML = '';
-        this._history?.destroy();
         this._language?.destroy();
         this._device?.destroy();
         this._view?.destroy();
@@ -271,13 +267,6 @@ export class MapLocationMenuControl {
         this._renderAddress();
 
         this._view = buildViewPanel(panels.view, this._map);
-
-        if (window.mapHistory) {
-            this._history = buildHistorySection(window.mapHistory, this._section());
-        }
-
-        const share = this._section('Share this view');
-        share.appendChild(this._sharePanel.buildInlineSection({ onOpenModal: () => this._hide() }));
     }
 
     // Clicking the Locate Me tab also locks the camera onto the device's
@@ -354,7 +343,6 @@ export class MapLocationMenuControl {
         this._updateLocateButton();
         this._device?.refresh();
         this._view?.refresh();
-        this._sharePanel.refresh();
     }
 
     /**

@@ -16,6 +16,7 @@
  *   long-press menu.
  */
 import { GeoLibreAPI } from './geolibre-api.js';
+import { externalMapLinks } from './external-map-links.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { routeStore } from './search/route-store.js';
 import { routeBounds } from './search/route-geojson.js';
@@ -603,28 +604,26 @@ export class ShortcutMenuBase {
     }
 
     /**
-     * Opens one of ButtonExternalMapLinks' generated URLs directly, reusing
-     * its link definitions (see button-external-map-links.js) so the URL
-     * formats stay in one place.
+     * Opens one of the other-map links directly, reusing their definitions
+     * (see external-map-links.js) so the URL formats stay in one place.
      */
     _openExternalLink(linkId) {
         const point = this._getExternalLinkPoint();
-        if (!point || !window.externalMapLinksControl) return;
+        if (!point) return;
 
         const zoom = Math.round(this._map.getZoom());
-        const links = window.externalMapLinksControl._generateNavigationLinks(point.lat, point.lng, zoom);
-        const link = links.find(l => l.id === linkId);
+        const link = externalMapLinks(point.lat, point.lng, zoom).find(l => l.id === linkId);
         if (link) window.open(link.url, '_blank', 'noopener');
     }
 
     /**
-     * "More" opens the full ButtonExternalMapLinks modal pinned to the point
-     * the shortcut menu was opened at.
+     * "More" opens the Share panel's "Open in other maps" section, its links
+     * built for the point the shortcut menu was opened at.
      */
     _openMoreExternalLinks() {
         const point = this._getExternalLinkPoint();
         if (!point) return;
-        window.externalMapLinksControl?.showAtCoordinates(point.lat, point.lng);
+        window.shareViewPanel?.open({ point: { lat: point.lat, lng: point.lng } });
     }
 
     /**

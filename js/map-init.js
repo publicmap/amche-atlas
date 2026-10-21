@@ -22,10 +22,11 @@ import { MapContextMessagesControl } from './map-context-messages-control.js';
 import { ShortcutMenu } from './shortcut-menu.js';
 import { RouteDragHandler } from './search/directions-layer.js';
 import { MapLocationMenuControl } from './map-location-menu-control.js';
-import { ButtonExternalMapLinks } from './button-external-map-links.js';
+import { ShareViewPanel } from './share-view-panel.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { MapMaskManager } from './map-mask-manager.js';
 import { MapOrientationControl } from './map-orientation-control.js';
+import { MapScaleControl } from './map-scale-control.js';
 import { DataUtils, MapUtils, URLUtils } from './map-utils.js';
 import { ZoomToParam } from './zoom-to-param.js';
 import { fetchConfigJson, fetchConfigResult } from './config-cache.js';
@@ -916,8 +917,8 @@ export class MapInitializer {
         // One button covers both GPS tracking and map bearing; window
         // .geolocationControl stays as an alias for the callers that used to
         // talk to the separate geolocation button.
-        // onAdd is called directly here, rather than waiting for the
-        // map.addControl() that mounts it bottom-right on load, so its GPS
+        // onAdd is called directly here, rather than waiting for the scale
+        // row's addBeside() that mounts it bottom-right on load, so its GPS
         // auto-trigger starts in parallel with style/tile loading. The element
         // stays detached until then; the second onAdd returns the same one.
         window.orientationControl = new MapOrientationControl();
@@ -1021,17 +1022,32 @@ export class MapInitializer {
             window.featureControl = new MapFeatureControl();
             window.featureControl.onAdd(map);
 
-            // Map location menu: coordinates, bearing, pitch, the reverse-
-            // geocoded address and a share link for the current map center
-            // (see map-location-menu-control.js), opened from the place line
+            // Map location menu: the reverse-geocoded address, map view and
+            // device location for the current map center (see
+            // map-location-menu-control.js), opened from the place line
             // under the console bar.
             window.mapLocationMenuControl = new MapLocationMenuControl();
             window.mapLocationMenuControl.mount(null, map, { button: window.mapConsole?.placeButton });
+            // Share panel: the share link and QR, map history and the view in
+            // other maps (see share-view-panel.js), opened from the link icon
+            // at the start of the place line.
+            new ShareViewPanel().mount(map, { button: window.mapConsole?.shareButton });
 
             // Bottom-right, in stacking order from the corner up: attribution
-            // sits lowest. Bottom corners insert each new control above the
-            // previous one, so add order is bottom-to-top.
+            // sits lowest, then a row of the scale card, which carries the
+            // measure tools, and beside it its own card for geolocation and
+            // bearing (already mounted at the top of map.on('load') so its GPS
+            // auto-trigger runs in parallel with the rest of setup). Bottom
+            // corners insert each new control above the previous one, so add
+            // order is bottom-to-top.
             map.addControl(window.attributionControl, 'bottom-right');
+            window.scaleControl = new MapScaleControl();
+            map.addControl(window.scaleControl, 'bottom-right');
+            if (typeof MapboxDraw !== 'undefined') {
+                window.measureControl = new MeasureControl();
+                window.scaleControl.addTool(window.measureControl);
+            }
+            window.scaleControl.addBeside(window.orientationControl);
 
             // Right-click / long-press shortcut menu, relies on the controls above
             window.shortcutMenu = new ShortcutMenu();
@@ -1078,27 +1094,18 @@ export class MapInitializer {
 
             // The tool rail, top-right, in stacking order from the corner down
             // (top corners insert each new control below the previous one, so
-            // add order is top-to-bottom). The view tools first: geolocation and
-            // bearing (already mounted at the top of map.on('load') so its GPS
-            // auto-trigger runs in parallel with the rest of setup) and time;
-            // then the tools that act on the map:
-            // measure, street view and links out to other maps (see the
-            // .mapboxgl-ctrl-top-right rules in css/map-console.css).
-            map.addControl(window.orientationControl, 'top-right');
+            // add order is top-to-bottom): time, then street view (see the
+            // .mapboxgl-ctrl-top-right rules in css/map-console.css). Links out
+            // to other maps are in the Share panel. Geolocation and bearing,
+            // and measure beside the scale, sit bottom-right.
             // 3D terrain has no rail button: its controls are the place
             // menu's Map view tab, opened from the console's place line.
             window.terrain3DControl.attach(map);
             window.terrain3DControl.onChange(() => window.mapConsole?.refreshStatus());
             window.timeControl = new TimeControl();
             map.addControl(window.timeControl, 'top-right');
-            if (typeof MapboxDraw !== 'undefined') {
-                window.measureControl = new MeasureControl();
-                map.addControl(window.measureControl, 'top-right');
-            }
             window.streetviewControl = new StreetviewControl();
             map.addControl(window.streetviewControl, 'top-right');
-            window.externalMapLinksControl = new ButtonExternalMapLinks();
-            map.addControl(window.externalMapLinksControl, 'top-right');
             window.contextMessagesControl = new MapContextMessagesControl();
             window.contextMessagesControl.onAdd(map);
             // Not mounted as a map control - triggered from the last item in
@@ -1106,7 +1113,6 @@ export class MapInitializer {
             // 'toggle-export' message its own listener already handles.
             window.exportControl = new MapExportControl();
             window.exportControl.onAdd(map);
-            map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
 
             // Resolve the full config now that the map and all chrome controls
             // are in place. loadConfiguration() awaits the (already in-flight)

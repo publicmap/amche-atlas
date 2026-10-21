@@ -349,7 +349,7 @@ mapbox-search-box [class$='--Container'] {
     align-items: center;
     gap: 6px;
     width: 100%;
-    padding: 8px 12px 9px 52px;
+    padding: 8px 12px 9px 12px;
     border: 0;
     background: transparent;
     color: var(--console-ink-2);
@@ -391,6 +391,39 @@ mapbox-search-box [class$='--Container'] {
 .map-console-place-row .map-console-place {
     flex: 1;
     min-width: 0;
+}
+
+/* The Share panel's link icon (js/share-view-panel.js), under the home button */
+.map-console .map-console-share-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 26px;
+    margin: 4px 0 0 10px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    color: var(--console-ink-3);
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.map-console .map-console-share-btn:hover,
+.map-console .map-console-share-btn:focus-visible,
+.map-console .map-console-share-btn.active {
+    background: var(--console-hover);
+    color: var(--console-ink);
+}
+
+.map-console .map-console-share-btn.active {
+    color: var(--console-blue);
+}
+
+.map-console .map-console-share-btn:focus:not(:focus-visible) {
+    outline: none;
 }
 
 .map-console-status {
@@ -1735,17 +1768,16 @@ body.console-find .marker-dock-routes {
     background: var(--console-surface);
 }
 
-.mapboxgl-ctrl-top-right .mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib) button:not(.map-orientation-btn),
-.maplibregl-ctrl-top-right .maplibregl-ctrl-group:not(.maplibregl-ctrl-attrib) button:not(.map-orientation-btn) {
+.mapboxgl-ctrl-top-right .mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib) button,
+.maplibregl-ctrl-top-right .maplibregl-ctrl-group:not(.maplibregl-ctrl-attrib) button {
     width: 36px !important;
     height: 36px !important;
     background-color: transparent !important;
     color: var(--console-ink-2) !important;
 }
 
-/* The orientation button keeps its own size and GPS fills (css/styles.css) */
-.mapboxgl-ctrl-top-right .mapboxgl-ctrl:not(.mapboxgl-ctrl-attrib) button:not(:disabled):not(.map-orientation-btn):hover,
-.maplibregl-ctrl-top-right .maplibregl-ctrl:not(.maplibregl-ctrl-attrib) button:not(:disabled):not(.map-orientation-btn):hover {
+.mapboxgl-ctrl-top-right .mapboxgl-ctrl:not(.mapboxgl-ctrl-attrib) button:not(:disabled):hover,
+.maplibregl-ctrl-top-right .maplibregl-ctrl:not(.maplibregl-ctrl-attrib) button:not(:disabled):hover {
     background-color: var(--console-raised) !important;
     color: var(--console-ink) !important;
 }
@@ -1758,25 +1790,12 @@ body.console-find .marker-dock-routes {
     color: var(--console-amber) !important;
 }
 
-/* Measure, street view and map links act on the map rather than the view:
-   set a little apart from locate / time above them. */
-.mapboxgl-ctrl-top-right .maplibregl-measures,
-.maplibregl-ctrl-top-right .maplibregl-measures {
-    margin-top: 8px !important;
-    flex-direction: row-reverse;
-}
-
 .maplibregl-measures .measure-toggle-btn.active {
     background-color: var(--console-amber-soft) !important;
 }
 
 .maplibregl-measures .measure-toggle-btn.active sl-icon {
     color: var(--console-amber);
-}
-
-.mapboxgl-ctrl-top-right .maplibregl-measures .measure-tools button {
-    border-left: 0 !important;
-    border-right: 1px solid var(--console-line) !important;
 }
 
 .maplibregl-measures .measure-tools button svg,
@@ -1790,8 +1809,8 @@ body.console-find .marker-dock-routes {
 }
 
 @media (max-width: 480px) {
-    .mapboxgl-ctrl-top-right .mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib) button:not(.map-orientation-btn),
-    .maplibregl-ctrl-top-right .maplibregl-ctrl-group:not(.maplibregl-ctrl-attrib) button:not(.map-orientation-btn) {
+    .mapboxgl-ctrl-top-right .mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib) button,
+    .maplibregl-ctrl-top-right .maplibregl-ctrl-group:not(.maplibregl-ctrl-attrib) button {
         width: 40px !important;
         height: 40px !important;
     }
@@ -1967,9 +1986,45 @@ body.console-find .marker-dock-routes {
 }
 
 .place-compartment-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     margin-bottom: 2px;
     font-size: 10.5px;
     color: var(--console-ink-3);
+}
+
+/* OpenStreetMap layer toggles at the end of a compartment's heading (js/location-address.js) */
+.place-layer-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 3px;
+    margin-left: auto;
+}
+
+.place-layer-toggle {
+    padding: 0 6px;
+    background: transparent;
+    border: 1px solid var(--console-line);
+    border-radius: 999px;
+    color: var(--console-ink-3);
+    font: inherit;
+    font-size: 10px;
+    line-height: 16px;
+    cursor: pointer;
+}
+
+.place-layer-toggle:hover,
+.place-layer-toggle:focus-visible {
+    border-color: var(--console-line-strong);
+    color: var(--console-ink);
+}
+
+.place-layer-toggle.is-on {
+    background: var(--console-blue);
+    border-color: var(--console-blue);
+    color: #fff;
 }
 
 .place-level {
@@ -2346,6 +2401,244 @@ body.console-find .marker-dock-routes {
 
 .map-location-menu .location-share-copy:hover {
     background: var(--console-hover);
+}
+
+/* Share panel's first label (js/share-view-panel.js): "Share this map view",
+   then History with undo / redo at the right */
+
+.share-view-label .place-tabs {
+    gap: 12px;
+}
+
+.share-view-label .place-tabs .share-view-history-tab {
+    margin-left: auto;
+}
+
+.share-view-label .place-tabs .share-view-history-tab::before {
+    content: none;
+}
+
+/* History tab: Undo / Redo with their shortcuts, either side of the step count */
+.share-view-panel .place-history-nav {
+    gap: 5px;
+    width: auto;
+    padding: 0 8px;
+    font-size: 11.5px;
+    white-space: nowrap;
+}
+
+.share-view-panel .place-history-nav sl-icon {
+    width: 12px;
+    height: 12px;
+    font-size: 12px;
+}
+
+.share-view-panel .place-history-nav[hidden] {
+    display: none;
+}
+
+.share-view-panel .place-history-count {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Open With (js/share-external-links.js) */
+
+.share-links-head {
+    justify-content: flex-start;
+}
+
+.share-links-head span:first-child {
+    flex: none;
+}
+
+.share-links-quick {
+    display: flex;
+    gap: 4px;
+    margin-right: auto;
+}
+
+.share-link-quick {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background: var(--console-raised);
+    border: 1px solid var(--console-line);
+    border-radius: var(--console-radius-sm);
+}
+
+.share-link-quick:hover,
+.share-link-quick:focus-visible {
+    background: var(--console-hover);
+    border-color: var(--console-line-strong);
+}
+
+.share-link-quick .share-link-icon {
+    width: 22px;
+    height: 22px;
+    padding: 2px;
+    border-radius: 4px;
+}
+
+.share-links {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.share-links-where {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    color: var(--console-ink-3);
+    font-size: 11.5px;
+}
+
+.share-links-coords {
+    margin-right: auto;
+    font-variant-numeric: tabular-nums;
+}
+
+.share-links[hidden],
+.share-links-where[hidden] {
+    display: none;
+}
+
+.share-links-mini,
+.share-links-tag {
+    padding: 2px 8px;
+    background: var(--console-raised);
+    border: 1px solid var(--console-line);
+    border-radius: 999px;
+    color: var(--console-ink-2);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.share-links-mini:hover,
+.share-links-tag:hover {
+    border-color: var(--console-line-strong);
+    color: var(--console-ink);
+}
+
+.share-links-tag.active {
+    background: var(--console-blue);
+    border-color: var(--console-blue);
+    color: #fff;
+}
+
+.share-links-count {
+    margin-left: 5px;
+    opacity: 0.65;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Marks a service that is also one of the header's shortcut icons */
+.share-link-star {
+    margin-right: 4px;
+    color: #fbbf24;
+    font-size: 10px;
+    vertical-align: 0;
+}
+
+.share-links-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+/* On a white tile, so dark logos (Apple Maps, Esri) show on the dark panel */
+.share-link-icon {
+    width: 28px;
+    height: 28px;
+    box-sizing: border-box;
+    padding: 3px;
+    background: #fff;
+    border-radius: 6px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+/* A white logo (NIC Bharatmaps) keeps a dark tile */
+.share-link-icon.is-light-logo {
+    background: #1f2937;
+}
+
+.share-link-icon-text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #ebebeb;
+    color: #1f2937;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.share-link-icon-text img {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.share-links-list {
+    display: flex;
+    flex-direction: column;
+    margin: 0 -6px;
+}
+
+.share-link-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px;
+    border-radius: var(--console-radius-sm);
+    color: var(--console-ink);
+    text-decoration: none;
+}
+
+.share-link-row:hover,
+.share-link-row:focus-visible {
+    background: var(--console-hover);
+}
+
+.share-link-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.share-link-name {
+    font-size: 12.5px;
+    line-height: 1.3;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.share-link-tags {
+    color: var(--console-ink-3);
+    font-size: 11px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.share-link-open {
+    flex-shrink: 0;
+    color: var(--console-ink-3);
+    font-size: 12px;
+    opacity: 0;
+}
+
+.share-link-row:hover .share-link-open,
+.share-link-row:focus-visible .share-link-open {
+    opacity: 1;
 }
 
 /* OpenStreetMap credit and Fix Address (js/location-osm.js) */

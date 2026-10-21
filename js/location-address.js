@@ -8,7 +8,9 @@
  *   3. Administrative: the taluka up to the country
  *
  * Every part is a button; with OSM links on (js/location-osm.js) each part
- * whose OSM object is known also links to it on openstreetmap.org.
+ * whose OSM object is known also links to it on openstreetmap.org. The Street
+ * and Administrative headings have toggles for the OpenStreetMap layers that
+ * show what they list (COMPARTMENT_LAYERS).
  */
 import { osmObjectUrl } from './nominatim-search.js';
 
@@ -44,6 +46,44 @@ const STREET_PARTS = {
     postcode: { label: 'postcode', icon: 'envelope' }
 };
 const PATH_TYPES = new Set(['footway', 'path', 'cycleway', 'bridleway', 'steps', 'pedestrian']);
+// OpenStreetMap layers (config/osm.atlas.json) each compartment can switch
+// on, to see on the map what it lists; one toggle can switch several together
+const COMPARTMENT_LAYERS = {
+    street: [[['osm-addresses', 'osm-pois'], 'Addresses + POIs'], [['osm-road-names'], 'Road names']],
+    administrative: [[['osm-places', 'osm-boundaries'], 'Places + Boundaries']]
+};
+
+// A toggle for OSM layers, through the same map browser calls Find uses. It
+// is on while all of them are; switching it on turns on any that are off.
+function layerToggle(ids, label) {
+    const layers = ids.map(id => window.layerRegistry?.getLayer?.(id)).filter(Boolean);
+    const browser = window.browserControl;
+    if (!layers.length || !browser?._handleLayerToggle) return null;
+    const isActive = (layer, active) => active.has(layer._prefixedId) || active.has(layer.id);
+    const isOn = () => {
+        const active = browser._getActiveLayers?.() || new Set();
+        return layers.every(layer => isActive(layer, active));
+    };
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'place-layer-toggle';
+    button.textContent = label;
+    const sync = (on) => {
+        button.classList.toggle('is-on', on);
+        button.setAttribute('aria-pressed', String(on));
+        button.title = `${on ? 'Hide' : 'Show'} OpenStreetMap ${label.toLowerCase()} on the map`;
+    };
+    sync(isOn());
+    button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const on = !isOn();
+        const active = browser._getActiveLayers?.() || new Set();
+        layers.filter(layer => isActive(layer, active) !== on)
+            .forEach(layer => browser._handleLayerToggle(layer._prefixedId || layer.id, on));
+        sync(on);
+    });
+    return button;
+}
 
 // One part per level, each key used once (a hamlet is the settlement itself
 // only when there is no city, town or village above it).
@@ -248,7 +288,14 @@ export function buildAddressBlock(address, locationName, handlers = {}, place = 
         compartment.setAttribute('aria-label', title);
         const heading = document.createElement('div');
         heading.className = 'place-compartment-title';
-        heading.textContent = title;
+        heading.appendChild(document.createElement('span')).textContent = title;
+        const toggles = (COMPARTMENT_LAYERS[title.toLowerCase()] || []).map(([ids, label]) => layerToggle(ids, label)).filter(Boolean);
+        if (toggles.length) {
+            const group = document.createElement('span');
+            group.className = 'place-layer-toggles';
+            group.append(...toggles);
+            heading.appendChild(group);
+        }
         compartment.appendChild(heading);
         parts.forEach(part => {
             const row = document.createElement('div');

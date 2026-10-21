@@ -103,9 +103,9 @@ export class MapOrientationControl {
 
     // Called twice by design: once directly in map-init.js, before
     // map.on('load'), so the GPS auto-start runs in parallel with style and
-    // tile loading, and again by map.addControl() when the bottom-right corner
-    // is assembled. The second call hands back the same element rather than
-    // rebuilding it and starting a second watch.
+    // tile loading, and again by the scale row's addBeside() when the
+    // bottom-right corner is assembled. The second call hands back the same
+    // element rather than rebuilding it and starting a second watch.
     onAdd(map) {
         if (this._container) return this._container;
         this._map = map;

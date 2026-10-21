@@ -98,6 +98,14 @@ export class KeyboardController {
             this.toggleMapBrowser();
         }
 
+        // Undo / redo through the map's steps (js/map-history.js); a text
+        // field keeps its own undo
+        if (e.key.toLowerCase() === 'z' && (e.ctrlKey || e.metaKey) && !e.altKey && !this.isInputActive() && window.mapHistory) {
+            e.preventDefault();
+            if (e.shiftKey) window.mapHistory.forward();
+            else window.mapHistory.back();
+        }
+
         if (e.key === 'l' && e.ctrlKey && !this.isInputActive()) {
             e.preventDefault();
             window.mapConsole?.toggleFind('onmap');
