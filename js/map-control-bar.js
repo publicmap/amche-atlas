@@ -5,7 +5,10 @@
  *
  * It has two modes:
  * - explore: one bar row (home, atlas, Find, On map with its count, locale
- *   settings) over a line naming the place at the map center.
+ *   settings) over a line naming the place at the map center, then the pins
+ *   row and, when opened, Share (js/console/share-pins.js). Marker panels dock
+ *   in a column beneath the console (map-marker-manager.js), so the pins read
+ *   as the console's own list.
  * - find: the bar row becomes the search field and the console grows into
  *   Find (js/console/find-panel.js) - one list of atlases, maps, features and
  *   places, with a filter for what is on the map.
@@ -17,6 +20,7 @@
  * classes: map-marker-manager.js docks marker panels beneath that row.
  */
 import { FindPanel } from './console/find-panel.js';
+import { PinsRow, SharePanel } from './console/share-pins.js';
 import { placeLine } from './map-search-toggle.js';
 
 const LOGO_SRC = 'assets/img/icon-192x192.png';
@@ -45,9 +49,14 @@ export class MapControlBar {
         this._onLocation = (e) => this._setPlace(placeLine(e.detail?.address));
         this._onMapClick = () => { if (this._mode === 'find') this.setMode('explore'); };
         this._onKeydown = (e) => {
-            if (e.key !== 'Escape' || this._mode !== 'find' || e.defaultPrevented) return;
+            if (e.key !== 'Escape' || e.defaultPrevented) return;
             if (document.querySelector('sl-dropdown[open]')) return;
-            this.escape();
+            if (this._mode === 'find') this.escape();
+            else if (this.share?.isOpen) this.closeShare();
+        };
+        this._onUrlUpdated = () => {
+            this.pins?.render();
+            this.share?.render();
         };
     }
 
@@ -129,9 +138,23 @@ export class MapControlBar {
         });
         this.find.mount(body, { stripEl, onToggleHidden, map: this._map });
 
-        this._el.append(head, this.placeButton, body);
+        const explore = document.createElement('div');
+        explore.className = 'map-console-explore when-explore';
+        this.pins = new PinsRow({ onShare: () => this.openShare() });
+        this.pins.mount(explore);
+        this.share = new SharePanel({ onClose: () => this.closeShare() });
+        explore.appendChild(this.share.el);
+
+        this._el.append(head, this.placeButton, explore, body);
         hostEl.appendChild(this._el);
         hostEl.classList.add('has-map-control-bar');
+
+        // Marker panels dock just below the console, so they follow its height
+        if (typeof ResizeObserver === 'function') {
+            this._resizeObserver = new ResizeObserver(() => window.dispatchEvent(new CustomEvent('mapConsoleResized')));
+            this._resizeObserver.observe(this._el);
+        }
+        window.addEventListener('urlUpdated', this._onUrlUpdated);
 
         window.addEventListener('atlasChanged', this._onAtlasChanged);
         window.addEventListener('mapLocationChanged', this._onLocation);
@@ -170,6 +193,16 @@ export class MapControlBar {
         this.find.setVisible(false);
         this._apply();
         if (this._el.contains(document.activeElement)) document.activeElement.blur();
+    }
+
+    /** Where to keep the pins on the map: the share link or the atlas config. */
+    openShare() {
+        if (this._mode !== 'explore') this.setMode('explore', { keepQuery: true });
+        this.share.open();
+    }
+
+    closeShare() {
+        this.share.close();
     }
 
     /** Esc: from a map's details back to the list, otherwise back to the map. */
@@ -258,7 +291,10 @@ export class MapControlBar {
     destroy() {
         window.removeEventListener('atlasChanged', this._onAtlasChanged);
         window.removeEventListener('mapLocationChanged', this._onLocation);
+        window.removeEventListener('urlUpdated', this._onUrlUpdated);
         document.removeEventListener('keydown', this._onKeydown);
+        this._resizeObserver?.disconnect();
+        this.pins?.destroy();
         this._map?.off?.('click', this._onMapClick);
         this.find?.destroy();
         document.body.classList.remove('console-find');

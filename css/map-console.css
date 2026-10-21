@@ -1491,3 +1491,267 @@ body.console-find .marker-dock-routes {
     display: block;
     -webkit-line-clamp: unset;
 }
+
+/* ---------- Explore: pins row and Share (js/console/share-pins.js) ---------- */
+
+.map-console-explore {
+    flex-shrink: 0;
+    min-height: 0;
+    overflow-y: auto;
+    max-height: calc(100dvh - 2 * var(--console-gap) - 100px);
+}
+
+.console-pins {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--console-line);
+    font-size: 12px;
+    color: var(--console-ink-2);
+}
+
+.console-pins[hidden] {
+    display: none;
+}
+
+.console-pins > sl-icon {
+    flex-shrink: 0;
+    font-size: 14px;
+    color: var(--console-ink-3);
+}
+
+.console-pins-text {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.35;
+}
+
+.console-pins.just-saved {
+    background: var(--console-amber-soft);
+    color: var(--console-ink);
+}
+
+.console-pins.just-saved > sl-icon {
+    color: var(--console-amber);
+}
+
+.console-share {
+    padding: 12px;
+    border-top: 1px solid var(--console-line);
+}
+
+.console-share[hidden] {
+    display: none;
+}
+
+.console-share-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.console-share-title {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.console-share-sub {
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: var(--console-ink-3);
+}
+
+.console-share-choice {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.console-share-option {
+    display: grid;
+    gap: 3px;
+    padding: 9px 10px;
+    border: 1px solid var(--console-line-strong);
+    border-radius: 10px;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+}
+
+.console-share-option-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.console-share-option-sub {
+    font-size: 11.5px;
+    line-height: 1.35;
+    color: var(--console-ink-3);
+}
+
+.console-share-option.selected {
+    border-color: var(--console-amber);
+    background: var(--console-amber-soft);
+}
+
+.console-share-option.selected .console-share-option-title {
+    color: var(--console-amber);
+}
+
+.console-share-out {
+    margin-top: 10px;
+    border: 1px solid var(--console-line);
+    border-radius: 10px;
+    background: #0b111c;
+    overflow: hidden;
+}
+
+.console-share-url,
+.console-share-json {
+    margin: 0;
+    padding: 10px 12px;
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.55;
+    color: #d6dde8;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    max-height: 240px;
+    overflow-y: auto;
+    user-select: all;
+}
+
+.console-share-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 6px 6px 12px;
+    border-top: 1px solid var(--console-line);
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: var(--console-ink-3);
+}
+
+.console-share-bar > span {
+    flex: 1;
+    min-width: 0;
+}
+
+.console-copy {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--console-line-strong);
+    border-radius: var(--console-radius-sm);
+    background: var(--console-raised);
+    font-size: 12px !important;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.console-copy:hover {
+    border-color: rgba(255, 255, 255, 0.45);
+}
+
+/* ---------- Tool rail (top-right, see map-init.js) ----------
+   Every tool in the column wears the console's surface: neutral icons, amber
+   only for a tool that is on. Overrides the generic corner-control theme in
+   css/styles.css for this corner. */
+.mapboxgl-ctrl-top-right,
+.maplibregl-ctrl-top-right {
+    padding: var(--console-gap) var(--console-gap) 0 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.mapboxgl-ctrl-top-right .mapboxgl-ctrl,
+.maplibregl-ctrl-top-right .maplibregl-ctrl {
+    margin: 0 !important;
+    float: none;
+}
+
+.mapboxgl-ctrl-top-right .mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib),
+.maplibregl-ctrl-top-right .maplibregl-ctrl-group:not(.maplibregl-ctrl-attrib) {
+    background: var(--console-surface);
+    border: 1px solid var(--console-line-strong);
+    border-radius: 10px;
+    box-shadow: var(--console-shadow);
+    overflow: hidden;
+}
+
+.mapboxgl-ctrl-top-right .mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib):hover,
+.maplibregl-ctrl-top-right .maplibregl-ctrl-group:not(.maplibregl-ctrl-attrib):hover {
+    background: var(--console-surface);
+}
+
+.mapboxgl-ctrl-top-right .mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib) button:not(.map-orientation-btn),
+.maplibregl-ctrl-top-right .maplibregl-ctrl-group:not(.maplibregl-ctrl-attrib) button:not(.map-orientation-btn) {
+    width: 36px !important;
+    height: 36px !important;
+    background-color: transparent !important;
+    color: var(--console-ink-2) !important;
+}
+
+/* The orientation button keeps its own size and GPS fills (css/styles.css) */
+.mapboxgl-ctrl-top-right .mapboxgl-ctrl:not(.mapboxgl-ctrl-attrib) button:not(:disabled):not(.map-orientation-btn):hover,
+.maplibregl-ctrl-top-right .maplibregl-ctrl:not(.maplibregl-ctrl-attrib) button:not(:disabled):not(.map-orientation-btn):hover {
+    background-color: var(--console-raised) !important;
+    color: var(--console-ink) !important;
+}
+
+.mapboxgl-ctrl-top-right button.active,
+.mapboxgl-ctrl-top-right button[aria-pressed="true"],
+.maplibregl-ctrl-top-right button.active,
+.maplibregl-ctrl-top-right button[aria-pressed="true"] {
+    background-color: var(--console-amber-soft) !important;
+    color: var(--console-amber) !important;
+}
+
+/* Measure, street view and map links act on the map rather than the view:
+   set a little apart from locate / 3D / time above them. */
+.mapboxgl-ctrl-top-right .maplibregl-measures,
+.maplibregl-ctrl-top-right .maplibregl-measures {
+    margin-top: 8px !important;
+    flex-direction: row-reverse;
+}
+
+.maplibregl-measures .measure-toggle-btn.active {
+    background-color: var(--console-amber-soft) !important;
+}
+
+.maplibregl-measures .measure-toggle-btn.active sl-icon {
+    color: var(--console-amber);
+}
+
+.mapboxgl-ctrl-top-right .maplibregl-measures .measure-tools button {
+    border-left: 0 !important;
+    border-right: 1px solid var(--console-line) !important;
+}
+
+.maplibregl-measures .measure-tools button svg,
+.maplibregl-measures .measure-tools button svg path {
+    fill: var(--console-ink-2) !important;
+}
+
+.maplibregl-measures .measure-tools button.active svg,
+.maplibregl-measures .measure-tools button.active svg path {
+    fill: var(--console-amber) !important;
+}
+
+@media (max-width: 480px) {
+    .mapboxgl-ctrl-top-right .mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib) button:not(.map-orientation-btn),
+    .maplibregl-ctrl-top-right .maplibregl-ctrl-group:not(.maplibregl-ctrl-attrib) button:not(.map-orientation-btn) {
+        width: 40px !important;
+        height: 40px !important;
+    }
+}

@@ -106,15 +106,15 @@ const MARKER_LEADER_GRAB = 12;
 const MARKER_LEADER_INSET = 3;
 
 // The panel's surface, shared with the tail that carries it back to its point so
-// the two read as one callout. Matches .shortcut-menu (see css/styles.css),
-// since a marker panel is the same kind of surface. Translucent so the map
+// the two read as one callout. Matches the map console's surface, since docked
+// panels hang beneath it as its Explore list. Translucent so the map
 // underneath still reads through a collapsed chip - MARKER_PANEL_BG_ACTIVE
 // (see _syncMarkerContent) opts a selected/hovered/edited panel into a more
 // opaque fill instead, since that's the one actually being read.
-const MARKER_PANEL_BG_RGB = '31, 41, 55'; // #1f2937
-const MARKER_PANEL_BG = `rgba(${MARKER_PANEL_BG_RGB}, 0.7)`;
-const MARKER_PANEL_BG_ACTIVE = `rgba(${MARKER_PANEL_BG_RGB}, 0.9)`;
-const MARKER_PANEL_BORDER = '#374151';
+const MARKER_PANEL_BG_RGB = '17, 24, 39'; // #111827, the map console's surface (css/map-console.css)
+const MARKER_PANEL_BG = `rgba(${MARKER_PANEL_BG_RGB}, 0.82)`;
+const MARKER_PANEL_BG_ACTIVE = `rgba(${MARKER_PANEL_BG_RGB}, 0.96)`;
+const MARKER_PANEL_BORDER = 'rgba(255, 255, 255, 0.2)';
 const MARKER_SELECTED_BORDER = '#facc15';
 
 // Space between the map control bar and a marker panel docked beneath it.
@@ -387,6 +387,7 @@ export class MapMarkerManager {
         window.addEventListener('mapConsoleModeChanged', (e) => {
             if (e.detail?.mode === 'explore') requestAnimationFrame(() => this._layoutDockedPanels());
         });
+        window.addEventListener('mapConsoleResized', () => requestAnimationFrame(() => this._layoutDockedPanels()));
         document.addEventListener('wheel', (e) => this._scrollDock(e), { passive: false, capture: true });
         window.addEventListener('routes-changed', () => requestAnimationFrame(() => this._layoutDockedPanels()));
         this._map.on('idle', () => this._layoutDockedPanels());
@@ -1011,6 +1012,7 @@ export class MapMarkerManager {
             this._syncIdActions(el);
         }
         window.urlManager?.updateURL({ updateLayers: true });
+        if (markerData.pinned) window.dispatchEvent(new CustomEvent('marker-saved', { detail: { urlId: markerData.urlId } }));
     }
 
     /** Puts a restored panel back where the link left it. */
@@ -4185,6 +4187,8 @@ export class MapMarkerManager {
             // it was given counts just as much as changing it.
             markerData.saved = true;
             endEdit();
+            // The map console offers where to keep it: the link or the atlas config
+            window.dispatchEvent(new CustomEvent('marker-saved', { detail: { urlId: markerData.urlId } }));
             // Naming is the last step of creating a marker, so hand the panel
             // back to hover: it stays open while the pointer is still on it and
             // closes when that leaves, rather than holding focus - and staying

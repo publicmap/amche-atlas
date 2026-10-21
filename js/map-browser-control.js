@@ -9,6 +9,7 @@ import { MapContextMessagesControl } from './map-context-messages-control.js';
 import { ZoomToParam } from './zoom-to-param.js';
 import { LayerStackStrip } from './layer-stack-strip.js';
 import { LayerOrderManager } from './layer-order-manager.js';
+import { atlasPinsUrl } from './atlas-pins.js';
 
 export class MapBrowserControl {
     constructor() {
@@ -461,7 +462,7 @@ export class MapBrowserControl {
         const group = groups.find(g => g.id === layer.id) || (strippedId && groups.find(g => g.id === strippedId));
         if (!group) return layer;
 
-        const registryLayer = window.layerRegistry?.getLayer?.(group.id);
+        const registryLayer = window.layerRegistry?.getLayer?.(group.id, null, true);
         return { ...layer, ...(registryLayer || {}), ...group };
     }
 
@@ -513,7 +514,7 @@ export class MapBrowserControl {
         const visible = [];
         control._state.groups.forEach((group, index) => {
             if (group.id === 'selection' || !manager.isGroupActive(index)) return;
-            const registryLayer = window.layerRegistry?.getLayer?.(group.id);
+            const registryLayer = window.layerRegistry?.getLayer?.(group.id, null, true);
             visible.push(registryLayer ? { ...registryLayer, ...group } : group);
         });
         const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(LayerOrderManager.mapOrderToUrlOrder(visible));
@@ -956,7 +957,24 @@ export class MapBrowserControl {
     // are out of view even if they are (e.g. a shared base layer scoped to the
     // old atlas's extent), shows the new atlas's defaults, then hands off to
     // _handleUpdateAtlasParam() for the URL/registry/notification bookkeeping.
+    //
+    // A switch picked while the first atlas is still loading waits for it:
+    // until then the registry may still name the index atlas and the loading
+    // atlas's layers aren't active yet, so they'd be missed here and come on
+    // anyway on top of the new atlas once the load finishes.
     switchAtlasLive(newAtlasId) {
+        if (!window.layersInitialized) {
+            const waiting = this._pendingAtlasSwitch !== undefined;
+            this._pendingAtlasSwitch = newAtlasId;
+            if (!waiting) {
+                window.addEventListener('layersInitialized', () => {
+                    const atlasId = this._pendingAtlasSwitch;
+                    delete this._pendingAtlasSwitch;
+                    this.switchAtlasLive(atlasId);
+                }, { once: true });
+            }
+            return;
+        }
         const previousAtlasId = window.layerRegistry?.getCurrentAtlas() || 'index';
         const newDefaults = new Set(this._getAtlasDefaultLayerIds(newAtlasId));
         const activeLayers = this._getActiveLayers();
@@ -979,6 +997,36 @@ export class MapBrowserControl {
         });
 
         this._handleUpdateAtlasParam(newAtlasId);
+        if (newAtlasId !== previousAtlasId) this._loadAtlasPins(newAtlasId);
+    }
+
+    // An atlas's own pins and routes can't be added live - routes are layers
+    // resolved at load (see map-init.js) - so once the switch has settled
+    // (layers written to the URL, camera landed), the page reopens on it with
+    // them, as `?atlas=<id>` would.
+    _loadAtlasPins(atlasId) {
+        const meta = window.layerRegistry?.getAtlasMetadata(atlasId);
+        if (!meta?.markers?.length) return;
+        let timer = null;
+        const settle = () => {
+            clearTimeout(timer);
+            timer = setTimeout(go, 600);
+        };
+        const stop = () => {
+            clearTimeout(timer);
+            window.removeEventListener('urlUpdated', settle);
+            this._map?.off('moveend', settle);
+        };
+        const go = () => {
+            if (this._map?.isMoving()) return;
+            stop();
+            if (window.layerRegistry?.getCurrentAtlas() !== atlasId) return;
+            const next = atlasPinsUrl(window.location.href, meta.markers, meta.routes);
+            if (next) window.location.assign(next);
+        };
+        window.addEventListener('urlUpdated', settle);
+        this._map?.on('moveend', settle);
+        settle();
     }
 
     // Turns off every active layer except the index atlas's own base layers

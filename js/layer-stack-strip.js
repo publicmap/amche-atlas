@@ -356,7 +356,7 @@ export class LayerStackStrip {
             if (group.id === 'selection') return;
             if (!urlManager.isGroupActive(index)) return;
 
-            const registryLayer = window.layerRegistry?.getLayer?.(group.id);
+            const registryLayer = window.layerRegistry?.getLayer?.(group.id, null, true);
             visible.push(registryLayer ? { ...registryLayer, ...group } : group);
         });
 

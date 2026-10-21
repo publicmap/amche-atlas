@@ -30,8 +30,9 @@ import { ZoomToParam } from './zoom-to-param.js';
 import { fetchConfigJson, fetchConfigResult } from './config-cache.js';
 import { CameraUtils } from './map-camera-utils.js';
 import { resolveConstants } from './atlas-constants.js';
-import { isDynamicLayerShorthand, expandDynamicLayerShorthand, resolveDynamicLayerShorthands } from './dynamic-layer-shorthand.js';
+import { isDynamicLayerShorthand, expandDynamicLayerShorthand, resolveDynamicLayerShorthands, parseDynamicLayerShorthandString } from './dynamic-layer-shorthand.js';
 import { setAll as setMarkerRegistry, parseMarkersParam } from './marker-registry.js';
+import { atlasMarkersParam, atlasRouteShorthands } from './atlas-pins.js';
 import { installLayerSampler } from './layer-feature-samples.js';
 import { installStyleReferenceContext } from './style-reference-context.js';
 
@@ -355,6 +356,15 @@ export class MapInitializer {
             sessionStorage.setItem('amche_last_atlas', atlasId);
         } catch (error) { /* sessionStorage unavailable (e.g. private browsing) */ }
 
+        // The atlas's own pins and routes (docs/API.md "Atlas-level markers and
+        // routes") load as if the link carried them: `markers` stands in for a
+        // missing `?markers=` (url-manager.js reads window.amche.atlasMarkersParam),
+        // and `routes` join the default layers when there is no `?layers=`.
+        const urlMarkersParam = new URLSearchParams(location.search).get('markers');
+        window.amche.atlasMarkersParam = urlMarkersParam ? '' : atlasMarkersParam(config.markers);
+        const startMarkerIds = parseMarkersParam(urlMarkersParam || window.amche.atlasMarkersParam).map(m => m.id);
+        const atlasRoutes = layersParam ? [] : atlasRouteShorthands(config.routes, startMarkerIds);
+
         // If loading a non-index atlas without explicit layers parameter,
         // merge with index atlas layers (common layers across all atlases)
         if (atlasId !== 'index' && !layersParam && !isImportedAtlas) {
@@ -371,8 +381,10 @@ export class MapInitializer {
                 console.log('[MapInit] Atlas layers with initiallyChecked:', atlasLayers);
                 console.log('[MapInit] Index layers with initiallyChecked:', indexLayers);
 
-                // Merge layers: atlas layers first, then index layers (excluding duplicates)
-                const allLayers = [...atlasLayers, ...indexLayers.filter(id => !atlasLayers.includes(id))];
+                // Merge layers: the atlas's routes on top, then its layers, then
+                // index layers (excluding duplicates)
+                const allLayers = [...atlasRoutes, ...atlasLayers, ...indexLayers.filter(id => !atlasLayers.includes(id))];
+                atlasRoutes.length = 0;
 
                 if (allLayers.length > 0) {
                     const layersParamValue = allLayers.join(',');
@@ -389,6 +401,14 @@ export class MapInitializer {
             } catch (error) {
                 console.warn('[MapInit] Failed to merge index atlas layers:', error);
             }
+        }
+
+        // No layers string to carry them (the index atlas, an imported one): the
+        // routes go straight into the config, shaped as a parsed URL entry would be.
+        if (!layersParam && atlasRoutes.length && Array.isArray(config.layers)) {
+            config.layers.unshift(...atlasRoutes.map(entry => ({
+                ...parseDynamicLayerShorthandString(entry), _originalJson: entry, initiallyChecked: true
+            })));
         }
 
         // Parse layers from URL parameter if provided
@@ -540,7 +560,7 @@ export class MapInitializer {
             // synchronously, well before any real map marker exists (markers.js's
             // own restoration happens much later, in url-manager.js's
             // applyURLParameters(), after window.featureControl exists).
-            setMarkerRegistry(parseMarkersParam(new URLSearchParams(location.search).get('markers')));
+            setMarkerRegistry(parseMarkersParam(new URLSearchParams(location.search).get('markers') || window.amche.atlasMarkersParam));
 
             // Batch-resolve any "osm:" shorthand layers into a single Overpass
             // request before the per-layer loop below, which otherwise fires
@@ -1051,15 +1071,26 @@ export class MapInitializer {
                 }
             });
 
-            // Top-right, in stacking order from the corner down: geolocation
-            // first (already mounted at the top of map.on('load') so its GPS
-            // auto-trigger runs in parallel with the rest of setup), then the
-            // 3D panel's toggle. Top corners insert each new control below the
-            // previous one, so add order is top-to-bottom.
+            // The tool rail, top-right, in stacking order from the corner down
+            // (top corners insert each new control below the previous one, so
+            // add order is top-to-bottom). The view tools first: geolocation and
+            // bearing (already mounted at the top of map.on('load') so its GPS
+            // auto-trigger runs in parallel with the rest of setup), the 3D
+            // panel's toggle and time; then the tools that act on the map:
+            // measure, street view and links out to other maps (see the
+            // .mapboxgl-ctrl-top-right rules in css/map-console.css).
             map.addControl(window.orientationControl, 'top-right');
             map.addControl(window.terrain3DControl, 'top-right');
             window.timeControl = new TimeControl();
             map.addControl(window.timeControl, 'top-right');
+            if (typeof MapboxDraw !== 'undefined') {
+                window.measureControl = new MeasureControl();
+                map.addControl(window.measureControl, 'top-right');
+            }
+            window.streetviewControl = new StreetviewControl();
+            map.addControl(window.streetviewControl, 'top-right');
+            window.externalMapLinksControl = new ButtonExternalMapLinks();
+            map.addControl(window.externalMapLinksControl, 'top-right');
             window.contextMessagesControl = new MapContextMessagesControl();
             window.contextMessagesControl.onAdd(map);
             // Not mounted as a map control - triggered from the last item in
@@ -1067,19 +1098,7 @@ export class MapInitializer {
             // 'toggle-export' message its own listener already handles.
             window.exportControl = new MapExportControl();
             window.exportControl.onAdd(map);
-            // Bottom-right: added above attribution, external map links next,
-            // then street view on top.
-            window.externalMapLinksControl = new ButtonExternalMapLinks();
-            map.addControl(window.externalMapLinksControl, 'bottom-right');
-            window.streetviewControl = new StreetviewControl();
-            map.addControl(window.streetviewControl, 'bottom-right');
             map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
-            // Added after ScaleControl so it stacks above it (bottom corners
-            // insert each new control above the previous one).
-            if (typeof MapboxDraw !== 'undefined') {
-                window.measureControl = new MeasureControl();
-                map.addControl(window.measureControl, 'bottom-left');
-            }
 
             // Resolve the full config now that the map and all chrome controls
             // are in place. loadConfiguration() awaits the (already in-flight)

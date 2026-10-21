@@ -80,7 +80,9 @@ Available API options and examples are maintained in `/docs/API.md`
 - `url-manager.js` - URL parameter handling and permalink management
 - `mapbox-api.js` - Mapbox GL JS abstraction layer
 - `layer-creator-ui.js` - UI for creating custom layers dynamically
-- `map-control-bar.js` - The map console at the top-left: a bar (home, atlas, Find, On map, locale) over a place line in Explore mode, growing into Find (`js/console/find-panel.js`) - one list of atlases, maps, features and places with type filters. Replaces the old header strip, search dropdown, hover layer strip and map browser panel
+- `map-control-bar.js` - The map console at the top-left: a bar (home, atlas, Find, On map, locale) over a place line in Explore mode, growing into Find (`js/console/find-panel.js`) - one list of atlases, maps, features and places with type filters. A map's details page (`js/console/layer-details.js`) opens inside Find; Edit opens the full layer editor (`map-creator.html`). Replaces the old header strip, search dropdown, hover layer strip, map browser panel and the editor's read-only Overview. In Explore, marker panels dock in a column beneath the console, under its pins row and Share panel (`js/console/share-pins.js`)
+- `atlas-pins.js` - Converts an atlas config's `markers` / `routes` to and from the URL shorthand (see `docs/API.md` "Atlas-level markers and routes")
+- Map tools (locate and bearing, 3D, time, measure, street view, external map links) form one rail in the top-right corner (`map-init.js`, styled in `css/map-console.css`)
 - `map-search-control.js` - Search providers; results render into Find via `js/search/search-suggestions-panel.js`
 - `map-export-control.js` - Export map to PDF/image
 - `terrain-3d-control.js` - 3D terrain visualization toggle

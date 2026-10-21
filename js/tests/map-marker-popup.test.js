@@ -110,7 +110,7 @@ describe('marker popup layout', () => {
             const tails = leader.querySelectorAll('.marker-leader-line');
             expect(tails).toHaveLength(1);
             expect(tails[0].tagName.toLowerCase()).toBe('polygon');
-            expect(tails[0].getAttribute('fill')).toBe('rgba(31, 41, 55, 0.7)');
+            expect(tails[0].getAttribute('fill')).toBe('rgba(17, 24, 39, 0.82)');
             expect(leader.querySelector('circle')).toBeNull();
         });
 
@@ -1995,11 +1995,11 @@ describe('marker popup layout', () => {
             const b = mountMarker(manager, 'b', '2');
 
             manager._selectMarker('a');
-            expect(a.querySelector('.marker-content').style.background).toBe('rgba(31, 41, 55, 0.9)');
-            expect(b.querySelector('.marker-content').style.background).toBe('rgba(31, 41, 55, 0.7)');
+            expect(a.querySelector('.marker-content').style.background).toBe('rgba(17, 24, 39, 0.96)');
+            expect(b.querySelector('.marker-content').style.background).toBe('rgba(17, 24, 39, 0.82)');
 
             manager._selectMarker(null);
-            expect(a.querySelector('.marker-content').style.background).toBe('rgba(31, 41, 55, 0.7)');
+            expect(a.querySelector('.marker-content').style.background).toBe('rgba(17, 24, 39, 0.82)');
         });
 
         it('keeps the actions up after the pointer leaves a selected marker', () => {

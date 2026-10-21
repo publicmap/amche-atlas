@@ -240,7 +240,7 @@ The cutout is generated at runtime by `js/map-mask-manager.js` and written into 
 - The layer must be loaded (via `?layers=` or the atlas config) for the mask to appear; `?mask=` waits for it, then gives up after ~6s.
 - The atlas must define a layer with the id `mask` (`index.atlas.json` does, and it is injected into any atlas that doesn't — see `SYSTEM_LAYERS` in `js/map-init.js`). Style the cutout by styling that layer.
 - When no polygons are loaded for the target layer, nothing is masked rather than everything — a full-world mask would just blank the map.
-- Toggle it from the UI with **Toggle Mask** in a layer's info panel, or switch it off from the mask cell beside the layer's thumbnail in the console's On the map list.
+- Toggle it from the UI with **Mask** on a layer's details page in the console's Find, or switch it off from the mask cell beside the layer's thumbnail in the console's On the map list.
 
 ### `terrain`
 
@@ -443,7 +443,7 @@ Zoom to a layer's bounding box on load. Overrides any map location in the URL (t
 
 The parameter stays in the URL until the map location changes (any pan, zoom, rotate or programmatic move after the zoom has settled), then it is removed.
 
-The zoom buttons in the layer editor's Overview (`map-creator.html`) are real links to `?zoomTo=<layer-id>`, so right-click → "Copy link address" gives a shareable link that frames that layer. Zooming to a layer from the console's On the map list also adds the parameter to the current URL.
+The **Zoom to** buttons on a layer's details page (`js/console/layer-actions.js`) and in the layer editor (`map-creator.html`) are real links to `?zoomTo=<layer-id>`, so right-click → "Copy link address" gives a shareable link that frames that layer. Zooming to a layer from the console's On the map list also adds the parameter to the current URL.
 
 **Format:** `?zoomTo=<layer-id>`
 
@@ -748,9 +748,7 @@ Layer ordering is unaffected — the `bottom`/`middle`/`top` anchors come from `
 
 #### Atlas-level `markers` and `routes`
 
-> **Status:** planned with the map console redesign. The loader does not read these keys yet.
-
-An atlas can ship its own pins and the routes between them, such as a heritage walk, the stops on a field survey, or the offices a guide refers to. They open in the console's Explore view as the atlas's own list, next to any pins the visitor adds.
+An atlas can ship its own pins and the routes between them, such as a heritage walk, the stops on a field survey, or the offices a guide refers to. They dock under the map console as its Explore list, next to any pins the visitor adds.
 
 Both keys are the JSON form of the URL shorthand. A config entry and a [`?markers=`](#markers) / [`route-<rid>:`](#dynamic-layer-shortcuts) entry carry the same fields, so the app can write either one from the same pins.
 
@@ -800,10 +798,13 @@ The example above is equivalent to this URL:
 - A `?markers=` param replaces the atlas's `markers` for that visit.
 - A `?layers=` param replaces its `routes` along with the rest of the layer list.
 - Without either param the atlas's own pins and routes load. They are not written back into the URL unless the visitor moves, renames or removes one, so a plain atlas link stays short.
+- Switching to the atlas from the console's Find loads them too. Routes are layers resolved when the page loads, so the page reopens once on the new atlas with its pins in `?markers=` and its routes ahead of the other layers in `?layers=`. It doesn't reopen when the link already carries pins or routes, which take precedence as above.
 
-**Saving pins.** When you save a pin in the console, the app offers two places to keep it:
-- **Share link.** The pin goes into `?markers=` and any route into `?layers=`, as today. Copy the link to share it. Nothing outside the browser changes.
-- **Atlas config.** The app shows the `markers` and `routes` JSON for every pin and route currently on the map, with a **Copy** button. Paste it at the top level of the atlas file, such as `config/goa.atlas.json`, merging with any `markers`/`routes` already there, and open a pull request. Once merged, the pins show for everyone who opens that atlas.
+**Saving pins.** Saving a pin (naming it, or pinning its panel open) shows a prompt in the console's pins row, and **Share** there opens two places to keep the pins (`js/console/share-pins.js`):
+- **Share link.** The pins are already in `?markers=` and the routes in `?layers=`. Copy the link to share it. Nothing outside the browser changes.
+- **Atlas config.** The `markers` and `routes` JSON for every pin and route the link carries, one per line, with a **Copy** button. Paste it at the top level of the atlas file, such as `config/goa.atlas.json`, in place of any `markers`/`routes` already there, and open a pull request. Once merged, the pins show for everyone who opens that atlas.
+
+The conversion both ways is `js/atlas-pins.js`: `atlasMarkersParam()` / `atlasRouteShorthands()` on load (called from `js/map-init.js`; `js/url-manager.js` reads the result as `window.amche.atlasMarkersParam` when there is no `?markers=`), and `atlasPinsJson()` for the save page.
 
 #### Inspect Configuration
 

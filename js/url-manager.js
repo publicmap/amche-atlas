@@ -1316,7 +1316,8 @@ export class URLManager {
         const timeParam = urlParams.get('time');
         const timeStartParam = urlParams.get('timeStart');
         const selectedParam = urlParams.get('selected');
-        const markersParam = urlParams.get('markers');
+        // No `?markers=`: the atlas's own pins, if its config has any (see map-init.js)
+        const markersParam = urlParams.get('markers') || window.amche?.atlasMarkersParam || null;
         const compareParam = urlParams.get('compare');
         const maskParam = urlParams.get('mask');
         const hasLocationClick = urlParams.has('selected') && selectedParam === '';

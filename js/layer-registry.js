@@ -228,7 +228,11 @@ export class LayerRegistry {
             // Reusable values the atlas file declared, kept so style references
             // (`"$name"`) added at runtime can still be resolved - see js/style-references.js.
             constants: config.constants || null,
-            cadastralSearch: config.cadastralSearch || null
+            cadastralSearch: config.cadastralSearch || null,
+            // The atlas's own pins and routes (docs/API.md "Atlas-level markers
+            // and routes"), loaded by a live switch through js/atlas-pins.js.
+            markers: Array.isArray(config.markers) ? config.markers : null,
+            routes: Array.isArray(config.routes) ? config.routes : null
         });
 
         if (config.layers && Array.isArray(config.layers)) {
