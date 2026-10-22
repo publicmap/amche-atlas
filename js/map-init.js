@@ -40,6 +40,7 @@ import { trackLog } from './gpx-log.js';
 import { systemLayers } from '../config/index.js';
 import { installLayerSampler } from './layer-feature-samples.js';
 import { installStyleReferenceContext } from './style-reference-context.js';
+import { keepDrapedLayersBelow } from './maplibre-drape-order.js';
 
 export class MapInitializer {
     // Note: location-based atlas selection is owned by SplashScreenManager
@@ -893,6 +894,7 @@ export class MapInitializer {
         const hadInitialHash = !!window.location.hash;
 
         const map = new mapboxgl.Map(window.amche.MAPBOX_MAP_OPTIONS);
+        if (window.amche.RENDERER === 'maplibre') keepDrapedLayersBelow(map);
 
         // Make map accessible globally for debugging
         window.map = map;

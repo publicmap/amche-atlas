@@ -3402,6 +3402,7 @@ body.console-find .marker-dock-routes {
 .geolocation-error-steps {
     margin: 0;
     padding: 10px 12px 10px 30px;
+    list-style: decimal;
     background: var(--console-raised);
     border: 1px solid var(--console-line);
     border-radius: var(--console-radius-sm);
