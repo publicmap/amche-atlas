@@ -1286,9 +1286,18 @@ export class MapInitializer {
             // a manual geolocate click — prefer zooming to it and let the user
             // choose between staying locked to GPS or returning to the atlas's
             // default view.
+            // A fix outside the current view is a jump, not a flight: flyTo
+            // zooms out and back in, loading every source's tiles (and terrain
+            // DEM) at each zoom it passes, which on a phone with many layers on
+            // runs the tab out of memory before it lands.
             let gpsLockMessageTimer = null;
             const applyGpsLock = (lat, lng) => {
-                map.flyTo({ center: [lng, lat], zoom: 17, pitch: 0, bearing: 0, duration: 2000, essential: true }, { geolocateSource: true });
+                const camera = { center: [lng, lat], zoom: 17, pitch: 0, bearing: 0 };
+                if (map.getBounds().contains([lng, lat])) {
+                    map.flyTo({ ...camera, duration: 2000, essential: true }, { geolocateSource: true });
+                } else {
+                    map.jumpTo(camera, { geolocateSource: true });
+                }
                 MapContextMessagesControl.show(
                     'Locked to <a href="#" onclick="window.orientationControl?.turnOff();return false;">GPS</a>. ' +
                     'Switch to <a href="#" onclick="window.__amcheSwitchToAtlasDefault?.();return false;">map default</a>',
@@ -1380,21 +1389,22 @@ export class MapInitializer {
                 // GPS already resolved by the time we got here — go straight
                 // to it instead of running the placement chain below at all.
                 const { lat, lng } = window.loadingStartupState.gpsFix;
-                applyGpsLock(lat, lng);
                 map.once('moveend', () => map.once('idle', signalMapReady));
+                applyGpsLock(lat, lng);
             } else if (window.orientationControl?.isTracking || URLUtils.getUrlParameter('geolocate') === 'true') {
                 // GPS tracking owns the camera. Any untagged flyTo here would
                 // read as the user panning away and drop the lock, so wait for
                 // the fix instead of flying to the atlas default.
                 const settle = () => map.once('moveend', () => map.once('idle', signalMapReady));
                 const fix = window.orientationControl?.lastPosition;
+                // settle() before applyGpsLock: a jumpTo fires moveend synchronously.
                 if (fix) {
-                    applyGpsLock(fix.lat, fix.lng);
                     settle();
+                    applyGpsLock(fix.lat, fix.lng);
                 } else {
                     window.orientationControl?.once('geolocate', (position) => {
-                        applyGpsLock(position.coords.latitude, position.coords.longitude);
                         settle();
+                        applyGpsLock(position.coords.latitude, position.coords.longitude);
                     });
                     setTimeout(signalMapReady, 10000);
                 }

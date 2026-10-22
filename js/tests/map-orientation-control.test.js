@@ -88,6 +88,7 @@ function createMap(initial = {}) {
             if (bearing != null) state.bearing = bearing;
             if (pitch != null) state.pitch = pitch;
         }),
+        isEasing: () => !!state.easing,
         on: vi.fn(),
         off: vi.fn()
     };
@@ -341,6 +342,25 @@ describe('MapOrientationControl', () => {
         control._lastDeviceEaseAt = -Infinity;
         sendHeading(250);
         expect(map.easeTo).not.toHaveBeenCalled();
+    });
+
+    it('lets a camera flight land before following the device heading', async () => {
+        const { control, map, geolocate, button } = mount();
+        sendHeading(168);
+        button.click();
+        geolocate.resolvePosition();
+        await flush();
+        control._onMoveEnd();
+
+        map.easeTo.mockClear();
+        map.state.easing = true;
+        control._lastDeviceEaseAt = -Infinity;
+        sendHeading(200);
+        expect(map.easeTo).not.toHaveBeenCalled();
+
+        map.state.easing = false;
+        control._onMoveEnd();
+        expect(map.easeTo).toHaveBeenLastCalledWith({ bearing: 200, duration: 100 }, { geolocateSource: true });
     });
 
     it('turns off from unlocked in a single call', async () => {

@@ -122,6 +122,7 @@ export class MapOrientationControl {
         this._handles = new OrientationHandles(map, this._container, () => this._render());
 
         CAMERA_EVENTS.forEach(type => map.on(type, this._render));
+        map.on('moveend', this._onMoveEnd);
         $(window).on('deviceorientationabsolute deviceorientation', this._onDeviceOrientation);
         this._watch.onAdd(map);
 
@@ -131,6 +132,7 @@ export class MapOrientationControl {
 
     onRemove() {
         CAMERA_EVENTS.forEach(type => this._map?.off(type, this._render));
+        this._map?.off('moveend', this._onMoveEnd);
         $(window).off('deviceorientationabsolute deviceorientation', this._onDeviceOrientation);
         this._watch.onRemove();
         this._container?.remove();
@@ -215,9 +217,13 @@ export class MapOrientationControl {
     }
 
     // Orientation events fire at screen rate; ease at most every 100ms and only
-    // for changes big enough to see.
+    // for changes big enough to see. GL JS cancels whatever animation is
+    // running when a new one starts, so a heading ease would strand a GPS
+    // flight mid-air every time the phone moved: hold off until it lands and
+    // catch up on its moveend.
     _easeToDeviceBearing(force = false) {
         if (!this._map || this._deviceBearing == null) return;
+        if (this._map.isEasing() && !this._easingToDevice) return;
         const now = performance.now();
         if (!force) {
             if (now - this._lastDeviceEaseAt < 100) return;
@@ -225,7 +231,14 @@ export class MapOrientationControl {
             if (delta < 1) return;
         }
         this._lastDeviceEaseAt = now;
+        this._easingToDevice = true;
         this._easeTo({ bearing: this._deviceBearing, duration: 100 });
+    }
+
+    _onMoveEnd = () => {
+        const wasDeviceEase = this._easingToDevice;
+        this._easingToDevice = false;
+        if (!wasDeviceEase && this._lockedToDevice) this._easeToDeviceBearing(true);
     }
 
     // geolocateSource marks every camera move this control makes as
