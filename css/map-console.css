@@ -3337,3 +3337,122 @@ body.console-find .marker-dock-routes {
     color: var(--console-blue);
     outline: none;
 }
+
+/* Location error dialog (js/geolocation-error-dialog.js) - a small console
+   card: the uppercase header row, what went wrong, and how to fix it */
+
+.geolocation-error-dialog {
+    --width: min(380px, calc(100vw - 32px));
+}
+
+.geolocation-error-dialog::part(panel) {
+    background: var(--console-surface);
+    border: 1px solid var(--console-line);
+    border-radius: var(--console-radius);
+    box-shadow: var(--console-shadow);
+}
+
+.geolocation-error-dialog::part(body) {
+    padding: 0;
+    background: transparent;
+    color: var(--console-ink-2);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.geolocation-error-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 8px 8px 16px;
+    border-bottom: 1px solid var(--console-line);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--console-ink-3);
+}
+
+.geolocation-error-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px 4px;
+}
+
+.geolocation-error-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--console-ink);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.geolocation-error-title sl-icon {
+    flex-shrink: 0;
+    color: var(--console-amber);
+    font-size: 16px;
+}
+
+.geolocation-error-description {
+    margin: 0;
+}
+
+.geolocation-error-steps {
+    margin: 0;
+    padding: 10px 12px 10px 30px;
+    background: var(--console-raised);
+    border: 1px solid var(--console-line);
+    border-radius: var(--console-radius-sm);
+}
+
+.geolocation-error-steps li + li {
+    margin-top: 4px;
+}
+
+.geolocation-error-link {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: 6px;
+    margin-left: -8px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    color: var(--console-blue);
+    text-decoration: none;
+}
+
+.geolocation-error-link sl-icon {
+    font-size: 10px;
+}
+
+.geolocation-error-link:hover,
+.geolocation-error-link:focus-visible {
+    background: var(--console-hover);
+    outline: none;
+}
+
+.geolocation-error-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 16px 14px;
+}
+
+.geolocation-error-ok {
+    padding: 6px 16px;
+    background: var(--console-amber);
+    border: none;
+    border-radius: var(--console-radius-sm);
+    color: var(--console-amber-ink);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.geolocation-error-ok:hover,
+.geolocation-error-ok:focus-visible {
+    filter: brightness(1.08);
+    outline: 2px solid var(--console-amber-soft);
+    outline-offset: 2px;
+}

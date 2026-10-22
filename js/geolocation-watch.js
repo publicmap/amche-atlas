@@ -66,7 +66,7 @@ export class GeolocationWatch {
             trackUserLocation: true,
             showAccuracyCircle: true,
             positionOptions: { enableHighAccuracy: true },
-            fitBoundsOptions: { zoom: 18, padding: 20, maxZoom: 20 },
+            fitBoundsOptions: { padding: 20, maxZoom: 17 },
             ...options
         });
 

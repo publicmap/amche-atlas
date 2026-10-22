@@ -99,11 +99,19 @@ export class Terrain3DControl {
             // Mapterhorn is the free, token-less DEM source MapLibre's own
             // 3D terrain example uses, so it stands in as the default under
             // MapLibre - see _terrainSource below and initializeFromURL().
+            // Its tilejson declares no maxzoom, so GL assumes 22 and close in
+            // keeps requesting DEM tiles that 404 (coverage over India stops
+            // at z12), which leaves the terrain without elevation under the
+            // camera and can take the tab down on a phone. Pinned here instead.
             'maplibre': {
                 name: 'MapLibre Terrain (Mapterhorn)',
                 sourceConfig: {
                     'type': 'raster-dem',
-                    'url': 'https://tiles.mapterhorn.com/tilejson.json'
+                    'tiles': ['https://tiles.mapterhorn.com/{z}/{x}/{y}.webp'],
+                    'encoding': 'terrarium',
+                    'tileSize': 512,
+                    'maxzoom': 12,
+                    'attribution': "<a href='https://mapterhorn.com/attribution'>© Mapterhorn</a>"
                 },
                 sourceId: 'maplibre-dem',
                 hillshadeLayerId: 'maplibre-dem-hillshade'
