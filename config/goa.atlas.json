@@ -156,7 +156,7 @@
       "tags": [
         "pollution"
       ],
-      "title": "Air Quality",
+      "title": "Air Quality - Live AQI For Mining Routes",
       "description": "Live air quality and weather readings from the AQI Online sensor network across Goa.",
       "type": "js",
       "id": "aqi",
@@ -3192,7 +3192,7 @@
       "tags": [
         "2.Development Plans"
       ],
-      "title": "3.Outline Development Plan 2011",
+      "title": "Outline Development Plan 2011",
       "description": "Outline Development Plan 2011 prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a>",
       "headerImage": "https://mapwarper.net/uploads/91643/thumb/2008_Final_Panaji_ODP-2011.png",
       "legendImage": "assets/map-layers/goa/legend-odp.jpg",
@@ -3205,7 +3205,7 @@
       "tags": [
         "2.Development Plans"
       ],
-      "title": "2.Taluka Land Use Plans 2021",
+      "title": "Taluka Land Use Plans 2021",
       "description": "Taluka level regional plans",
       "date": "",
       "type": "tms",

@@ -53,7 +53,8 @@
 .map-console {
     width: 320px;
     max-width: calc(100vw - 2 * var(--console-gap) - 52px);
-    max-height: calc(100dvh - 2 * var(--console-gap));
+    /* less the amche.in menu above it */
+    max-height: calc(100dvh - 2 * var(--console-gap) - 34px);
     display: flex;
     flex-direction: column;
     background: var(--console-surface);
@@ -104,7 +105,6 @@
     box-sizing: border-box;
 }
 
-.console-home,
 .console-btn {
     position: relative;
     flex-shrink: 0;
@@ -126,7 +126,6 @@
     display: none;
 }
 
-.console-home:hover,
 .console-btn:hover,
 .console-btn.active {
     background: var(--console-raised);
@@ -137,19 +136,41 @@
     font-size: 18px;
 }
 
+/* The amche.in menu: a small logo and name just above the console card */
+.console-home {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 6px;
+    padding: 3px 10px 3px 3px;
+    border: 1px solid var(--console-line-strong);
+    border-radius: 999px;
+    background: var(--console-surface);
+    box-shadow: var(--console-shadow);
+    color: var(--console-ink);
+    font: 700 12.5px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+}
+
+.console-home:hover {
+    background: var(--console-raised);
+}
+
 .console-home img {
-    width: 30px;
-    height: 30px;
-    border-radius: 7px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
     object-fit: contain;
 }
 
 .console-home-dev {
     position: absolute;
-    right: 3px;
-    bottom: 3px;
-    width: 9px;
-    height: 9px;
+    left: 16px;
+    bottom: 2px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: #f97316;
     border: 2px solid var(--console-surface);
@@ -201,6 +222,10 @@
 }
 
 /* Find's heading: which view is open and what it lists */
+.console-view-title[hidden] {
+    display: none;
+}
+
 .console-view-title {
     display: flex;
     align-items: center;
@@ -820,66 +845,75 @@ mapbox-search-box [class$='--Container'] {
     }
 }
 
-/* The scope switch: include results outside the map view */
-.console-scope-row:empty {
+/* Tag filters over map results (js/console/tag-filter.js): one row per
+   level of the theme path, each level set off from the one above it */
+.console-tags:empty {
     display: none;
 }
 
-.console-scope {
+.console-tagbar {
+    margin: 8px 12px 0;
+}
+
+.console-tag-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    width: calc(100% - 24px);
-    margin: 8px 12px 2px;
-    padding: 8px 10px;
-    border: 1px solid var(--console-line-strong);
-    border-radius: var(--console-radius-sm);
+    gap: 6px;
+    padding: 6px 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.console-tag-row::-webkit-scrollbar {
+    display: none;
+}
+
+.console-tag-row + .console-tag-row {
+    border-top: 1px solid var(--console-line);
+}
+
+.console-tag-row + .console-tag-row::before {
+    content: "›";
+    flex-shrink: 0;
+    color: var(--console-ink-3);
+    font-size: 14px;
+    line-height: 1;
+}
+
+.console-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border: 1px solid var(--console-line);
+    border-radius: 999px;
     background: var(--console-raised);
     color: var(--console-ink-2) !important;
-    font-size: 12.5px !important;
-    text-align: left;
+    font-size: 12px !important;
+    white-space: nowrap;
     cursor: pointer;
 }
 
-.console-scope:hover {
-    border-color: rgba(255, 255, 255, 0.5);
+.console-tag-chip:hover {
+    border-color: var(--console-line-strong);
     color: var(--console-ink) !important;
 }
 
-.console-scope.on {
-    border-color: rgba(255, 191, 0, 0.55);
-    background: var(--console-amber-soft);
-    color: var(--console-ink) !important;
-}
-
-.console-scope-track {
-    position: relative;
-    flex-shrink: 0;
-    width: 28px;
-    height: 16px;
-    border-radius: 8px;
-    background: var(--console-line-strong);
-    transition: background 0.15s;
-}
-
-.console-scope-knob {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--console-ink);
-    transition: transform 0.15s;
-}
-
-.console-scope.on .console-scope-track {
+.console-tag-chip.selected {
+    border-color: var(--console-amber);
     background: var(--console-amber);
+    color: var(--console-amber-ink) !important;
 }
 
-.console-scope.on .console-scope-knob {
-    transform: translateX(12px);
-    background: var(--console-amber-ink);
+.console-tag-count {
+    color: var(--console-ink-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.console-tag-chip.selected .console-tag-count {
+    color: var(--console-amber-ink);
+    opacity: 0.7;
 }
 
 .console-thumb {
@@ -1034,37 +1068,6 @@ mapbox-search-box [class$='--Container'] {
     font-size: 12px;
     line-height: 1.5;
     color: var(--console-ink-3);
-}
-
-/* Theme tree */
-.console-tree-node,
-.console-tree-leaf {
-    padding-left: calc(12px + var(--depth, 0) * 16px);
-}
-
-.console-tree-node {
-    min-height: 40px;
-}
-
-.console-tree-node .console-row-text {
-    display: flex;
-    align-items: baseline;
-}
-
-.console-tree-node .console-row-title {
-    min-width: 0;
-}
-
-.console-tree-chevron {
-    flex-shrink: 0;
-    width: 32px;
-    font-size: 13px;
-    color: var(--console-ink-3);
-    transition: transform 0.15s;
-}
-
-.console-tree-chevron.open {
-    transform: rotate(90deg);
 }
 
 /* Atlas cards */
@@ -1492,8 +1495,7 @@ body.console-find .marker-dock-routes {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .console-tree-chevron,
-    .layer-stack-item,
+        .layer-stack-item,
     .layer-stack-label {
         transition: none;
     }
@@ -1509,6 +1511,114 @@ body.console-find .marker-dock-routes {
     border-radius: 0;
     background: transparent;
     box-shadow: none;
+}
+
+/* A sub-search checkbox, e.g. Search Within Map (js/console/find-scope.js) */
+.console-subsearch-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--console-ink-2);
+    font-size: 12.5px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.console-subsearch-option:hover {
+    color: var(--console-ink);
+}
+
+.console-subsearch-option input {
+    width: 13px;
+    height: 13px;
+    margin: 0;
+    accent-color: var(--console-amber);
+    cursor: pointer;
+}
+
+/* The survey search's one action - a text link under the search field -
+   opening its village and survey fields */
+.cadastral-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--console-blue);
+    font: inherit;
+    font-size: 12.5px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.cadastral-toggle:hover,
+.cadastral-toggle.open {
+    text-decoration: underline;
+}
+
+.map-console .cadastral-toggle,
+.map-console .cadastral-toggle:focus,
+.map-console .cadastral-toggle:active {
+    background: transparent;
+    box-shadow: none;
+    color: var(--console-ink-2);
+}
+
+.map-console .cadastral-toggle:hover,
+.map-console .cadastral-toggle.open {
+    color: var(--console-ink);
+}
+
+.cadastral-toggle-chevron {
+    margin-left: auto;
+    font-size: 12px;
+    transition: transform 0.15s;
+}
+
+.cadastral-toggle.open .cadastral-toggle-chevron {
+    transform: rotate(180deg);
+}
+
+
+/* Sub-search options (js/map-control-bar.js addSubSearch): a row of links
+   tucked just under the search field and lined up with its left edge (the
+   bar's 6px padding and the field's border), with no rule between them. Each option's fields open beneath the row. */
+.console-subsearch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    padding: 0 12px 4px 7px;
+}
+
+/* The atlas selector opens Find straight under the search field */
+.console-atlas-selector > .console-atlas-cards:first-child {
+    padding-top: 6px;
+}
+
+.console-subsearch:not(:has(> :not([hidden]))) {
+    display: none;
+}
+
+.console-subsearch > [hidden] {
+    display: none;
+}
+
+.map-console-body:has(> .console-subsearch > :not([hidden])) {
+    border-top: 0;
+}
+
+.map-console[data-mode="find"] .map-control-bar-head:has(~ .map-console-body > .console-subsearch > :not([hidden])) {
+    padding-bottom: 2px;
+    min-height: 46px;
+}
+
+.cadastral-dropdown.cadastral-dropdown--inline {
+    padding: 0 12px 8px 7px;
+}
+
+.cadastral-dropdown--inline:has(> .cadastral-search-panel.hidden):has(> .cadastral-results.hidden) {
+    display: none;
 }
 
 /* The console's corner sits above the other corners, so Find covers the
@@ -1581,55 +1691,62 @@ body.console-find .marker-dock-routes {
     display: none;
 }
 
-.console-back {
-    display: inline-flex;
+/* A details page's bar: back to the results on the left, close on the right */
+.console-details-bar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
     align-items: center;
     gap: 4px;
-    margin: 8px 8px 0;
-    padding: 6px 8px;
+    padding: 6px 6px 6px 8px;
+    border-bottom: 1px solid var(--console-line);
+    background: var(--console-surface);
+}
+
+.console-back {
+    flex: 1;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 10px;
     border: 0;
     border-radius: var(--console-radius-sm);
     background: transparent;
-    color: var(--console-ink-2) !important;
-    font-size: 12.5px !important;
+    color: var(--console-ink) !important;
+    font-size: 13px !important;
+    font-weight: 600;
+    text-align: left;
     cursor: pointer;
+}
+
+.console-back span {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.console-back sl-icon {
+    flex-shrink: 0;
+    font-size: 16px;
+    color: var(--console-blue);
 }
 
 .console-back:hover {
     background: var(--console-raised);
-    color: var(--console-ink) !important;
 }
 
-.console-details-head {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 8px 12px 0;
+.map-console .console-details-close {
+    width: 34px;
+    height: 34px;
 }
 
-.console-details-thumb {
-    border-radius: 8px !important;
-    flex-shrink: 0;
-}
-
-.console-details-titles {
-    min-width: 0;
-    padding-top: 2px;
-}
-
-.console-details-title {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 700;
-    line-height: 1.25;
-    letter-spacing: -0.01em;
-    text-wrap: balance;
-}
-
-.console-details-path {
+/* The map's own row from Find's results, heading its details page */
+.console-details-row {
     margin-top: 4px;
-    font-size: 12px;
-    color: var(--console-ink-3);
 }
 
 .console-details-desc {
@@ -1652,40 +1769,6 @@ body.console-find .marker-dock-routes {
     border: 1px solid var(--console-line);
     border-radius: 10px;
     background: var(--console-raised);
-}
-
-.console-switch {
-    position: relative;
-    flex-shrink: 0;
-    width: 38px;
-    height: 22px;
-    padding: 0;
-    border: 1px solid var(--console-line-strong);
-    border-radius: 11px;
-    background: transparent;
-    cursor: pointer;
-}
-
-.console-switch::after {
-    content: '';
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--console-ink-3);
-    transition: left 0.15s;
-}
-
-.console-switch.on {
-    background: var(--console-amber);
-    border-color: var(--console-amber);
-}
-
-.console-switch.on::after {
-    left: 19px;
-    background: var(--console-amber-ink);
 }
 
 .console-visibility-label {

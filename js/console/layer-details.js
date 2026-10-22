@@ -2,6 +2,8 @@
  * Layer details - a page inside Find (js/console/find-panel.js) for one map:
  * what it is, whether it is on and how strongly, what it can do on the map,
  * its legend, the features of it in view, and where it sits in the stack.
+ * It heads with the same row the map has in Find's results - the whole row
+ * and its eye turn the map on or off - and opening it turns the map on.
  * It replaces the layer editor's read-only Overview; Edit still opens the full
  * editor (map-creator.html).
  *
@@ -11,7 +13,7 @@
  * addresses the map uses the live layer's group id (local-body) instead - see
  * MapBrowserControl._resolveLiveLayer.
  */
-import { el, icon, sectionLabel, row, iconThumb, chevron, hint } from './find-rows.js';
+import { el, icon, sectionLabel, row, iconThumb, chevron, hint, eyeButton, layerThumb } from './find-rows.js';
 import { isLayerActive, setLayerActive, atlasName, plainText } from './find-browse.js';
 import { LayerThumbnail } from '../layer-thumbnail.js';
 import { LayerLegend } from '../layer-legend.js';
@@ -36,9 +38,10 @@ export class LayerDetails {
         return !!this._layer;
     }
 
-    open(layer, { backLabel = 'Back' } = {}) {
+    open(layer, { backLabel = 'Back', activate = true } = {}) {
         this._release();
         this._layer = layer;
+        if (activate && !isLayerActive(layer)) setLayerActive(layer, true);
         this._backLabel = backLabel;
         this._descOpen = false;
         this.el.hidden = false;
@@ -81,20 +84,33 @@ export class LayerDetails {
         const title = live.title || live.name || live.id;
         this.el.replaceChildren();
 
+        // The page's own bar: back to the results it was opened from, or close
+        const bar = el('div', 'console-details-bar');
         const back = el('button', 'console-back');
         back.type = 'button';
-        back.append(icon('chevron-left'), el('span', '', this._backLabel));
+        back.title = this._backLabel;
+        back.append(icon('arrow-left'), el('span', '', this._backLabel));
         back.addEventListener('click', () => this._onBack?.());
-        this.el.appendChild(back);
+        const close = el('button', 'console-btn console-details-close');
+        close.type = 'button';
+        close.title = 'Close and go back to the results ( Esc )';
+        close.setAttribute('aria-label', close.title);
+        close.appendChild(icon('x-lg'));
+        close.addEventListener('click', () => this._onBack?.());
+        bar.append(back, close);
+        this.el.appendChild(bar);
 
-        const head = el('div', 'console-details-head');
-        const thumb = LayerThumbnail.generate(live, 52, { interactive: false, layerDefaults: window.layerControl?._defaultStyles || {} });
-        thumb.classList.add('console-details-thumb');
-        const text = el('div', 'console-details-titles');
-        text.appendChild(el('h2', 'console-details-title', title));
         const path = [live._sourceAtlas && atlasName(live._sourceAtlas), ...(live.tags || [])].filter(Boolean).join(' › ');
-        if (path) text.appendChild(el('div', 'console-details-path', path));
-        head.append(thumb, text);
+        const toggle = () => setLayerActive(layer, !(isLayerActive(layer) || isLayerActive(this._live())));
+        const head = row({
+            thumb: layerThumb(live),
+            title,
+            meta: path,
+            trailing: eyeButton(on ? 'on' : 'off', toggle, on ? `Hide ${title}` : `Show ${title}`),
+            className: 'console-details-row' + (on ? ' selected' : ''),
+            onClick: toggle
+        });
+        head.title = on ? `${title} is on the map - click to hide it` : `Show ${title} on the map`;
         this.el.appendChild(head);
 
         const description = plainText(live.description);
@@ -108,7 +124,7 @@ export class LayerDetails {
             this.el.appendChild(desc);
         }
 
-        this.el.appendChild(this._visibilityRow(layer, live, on));
+        if (on) this.el.appendChild(this._opacityRow(live));
         this.el.appendChild(this._actions.render(live, on));
 
         const legend = LayerLegend.generate(live, { onPreview: on ? (ruleId) => this._previewRule(live, ruleId) : undefined });
@@ -124,17 +140,9 @@ export class LayerDetails {
         this.el.appendChild(this._about(live, on));
     }
 
-    _visibilityRow(layer, live, on) {
+    _opacityRow(live) {
         const wrap = el('div', 'console-visibility');
-        const toggle = el('button', 'console-switch' + (on ? ' on' : ''));
-        toggle.type = 'button';
-        toggle.setAttribute('role', 'switch');
-        toggle.setAttribute('aria-checked', String(on));
-        toggle.title = on ? 'Take this map off the map' : 'Put this map on the map';
-        toggle.addEventListener('click', () => setLayerActive(layer, !on));
-        wrap.append(toggle, el('span', 'console-visibility-label', on ? 'On map' : 'Off'));
-        if (!on) return wrap;
-
+        wrap.appendChild(el('span', 'console-visibility-label', 'Opacity'));
         const pct = Math.round((live.opacity ?? 1) * 100);
         const slider = el('input', 'console-opacity');
         slider.type = 'range';

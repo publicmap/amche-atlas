@@ -4,7 +4,10 @@
  * box, the layer stack and the map browser panel.
  *
  * It has two modes:
- * - explore: one bar row (home, atlas with its Find icon, On map, Pins and -
+ * The amche.in menu sits just above the card, as a small logo and name, so
+ * the bar row starts with the search field at the card's left edge.
+ *
+ * - explore: one bar row (the atlas field with its Find icon, On map, Pins and -
  *   once there is a route - Routes, with their counts) over a line naming the place at the map center -
  *   starting with the Share panel's link icon (js/share-view-panel.js), ending
  *   in the 3D terrain and location status icons - then, when opened, Share
@@ -96,7 +99,8 @@ export class MapControlBar {
         const logo = document.createElement('img');
         logo.src = LOGO_SRC;
         logo.alt = '';
-        home.appendChild(logo);
+        home.append(logo, Object.assign(document.createElement('span'), { className: 'console-home-name', textContent: 'amche.in' }));
+        this._home = home;
         if (window.amche?.isDevBuild) home.appendChild(Object.assign(document.createElement('span'), { className: 'console-home-dev', title: 'Development build' }));
         home.addEventListener('click', () => window.amche?.openNavMenu?.());
 
@@ -138,7 +142,7 @@ export class MapControlBar {
         this._field = document.createElement('div');
         this._field.className = 'map-control-bar-field when-explore';
         this._field.appendChild(this._main);
-        head.append(home, this._field);
+        head.append(this._field);
         if (searchEl) head.appendChild(searchEl);
         const settings = searchToggle?.sourcesEl || null;
         if (settings) {
@@ -164,6 +168,12 @@ export class MapControlBar {
 
         const body = document.createElement('div');
         body.className = 'map-console-body when-find';
+        // Sub-search options under the search field (the Goa survey number
+        // search, js/cadastral-search-ui.js, and any to come): each adds its
+        // link to the row with addSubSearch and opens its own fields beneath.
+        this._subSearch = document.createElement('div');
+        this._subSearch.className = 'console-subsearch';
+        body.appendChild(this._subSearch);
         this.find = new FindPanel({
             onSelect: (item) => {
                 window.searchControl?._selectSuggestion(item);
@@ -175,7 +185,7 @@ export class MapControlBar {
             onDone: () => this.setMode('explore', { keepQuery: true }),
             onViewChange: () => this._syncHead()
         });
-        this.find.mount(body, { stripEl, footerEl, onToggleHidden, map: this._map });
+        this.find.mount(body, { stripEl, footerEl, subSearchEl: this._subSearch, onToggleHidden, map: this._map });
 
         const explore = document.createElement('div');
         explore.className = 'map-console-explore when-explore';
@@ -183,7 +193,7 @@ export class MapControlBar {
         explore.appendChild(this.share.el);
 
         this._el.append(head, placeRow, explore, body);
-        hostEl.appendChild(this._el);
+        hostEl.append(home, this._el);
         hostEl.classList.add('has-map-control-bar');
 
         // Marker panels dock just below the console, so they follow its height
@@ -203,6 +213,15 @@ export class MapControlBar {
         document.addEventListener('keydown', this._onKeydown);
         this._map?.on?.('click', this._onMapClick);
         window.mapConsole = this;
+    }
+
+    /** Adds a sub-search option's link to the row under the search field. */
+    addSubSearch(linkEl) {
+        this._subSearch?.appendChild(linkEl);
+    }
+
+    get el() {
+        return this._el;
     }
 
     get mode() {
@@ -351,6 +370,7 @@ export class MapControlBar {
 
     setVisible(visible) {
         if (this._el) this._el.style.display = visible ? '' : 'none';
+        if (this._home) this._home.style.display = visible ? '' : 'none';
     }
 
     update(layers) {
@@ -448,9 +468,6 @@ export class MapControlBar {
         }
     }
 
-    get el() {
-        return this._el;
-    }
 
     destroy() {
         window.removeEventListener('atlasChanged', this._onAtlasChanged);
@@ -467,6 +484,7 @@ export class MapControlBar {
         document.body.classList.remove('console-find');
         this._el?.parentNode?.classList.remove('has-map-control-bar');
         this._el?.remove();
+        this._home?.remove();
         this._el = null;
         if (window.mapConsole === this) window.mapConsole = null;
     }

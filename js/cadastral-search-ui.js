@@ -54,12 +54,22 @@ export class CadastralSearchUI {
 
         this.searchBoxEl = searchBox
 
+        // Collapsed to one action until asked for: the village and survey
+        // fields open from it (see _setExpanded)
+        this.toggleBtn = document.createElement('button')
+        this.toggleBtn.type = 'button'
+        this.toggleBtn.className = 'cadastral-toggle'
+        this.toggleBtn.setAttribute('aria-expanded', 'false')
+        this.toggleBtn.hidden = true
+        this.toggleBtn.innerHTML = `<span>Search By Survey No.</span><sl-icon name="chevron-down" class="cadastral-toggle-chevron"></sl-icon>`
+        this._expanded = false
+
         this.panel = document.createElement('div')
         this.panel.className = 'cadastral-search-panel hidden'
         this.panel.innerHTML = `
             <sl-select id="cadastral-village-select"
                 class="cadastral-village-select cadastral-desktop-only"
-                title="Choose Village" placeholder="Search By Survey No." hoist clearable size="small">
+                title="Choose Village" placeholder="Village" hoist clearable size="small">
                 <sl-spinner slot="prefix" class="cadastral-spinner" hidden></sl-spinner>
             </sl-select>
             <sl-input id="cadastral-survey-input"
@@ -89,6 +99,7 @@ export class CadastralSearchUI {
 
         this.dropdown = document.createElement('div')
         this.dropdown.className = 'cadastral-dropdown hidden'
+        this.dropdown.appendChild(this.toggleBtn)
         this.dropdown.appendChild(this.panel)
         this.dropdown.appendChild(this.resultsEl)
 
@@ -120,7 +131,15 @@ export class CadastralSearchUI {
         this.consoleBody = this.searchBoxEl.closest('.map-console')?.querySelector('.map-console-body')
         const dropdownHost = this.consoleBody || this.searchBoxEl.closest('.mapboxgl-ctrl-top-left') ||
             this.searchBoxEl.closest('.mapboxgl-map') || document.body
-        dropdownHost.insertBefore(this.dropdown, dropdownHost.firstChild)
+        // Its link joins the console's sub-search row under the search field
+        // when there is one; its fields open just below that row.
+        const subSearch = this.consoleBody?.querySelector('.console-subsearch')
+        if (subSearch) {
+            subSearch.appendChild(this.toggleBtn)
+            subSearch.after(this.dropdown)
+        } else {
+            dropdownHost.insertBefore(this.dropdown, dropdownHost.firstChild)
+        }
         document.body.appendChild(this.pickerDrawer)
 
         // While the dropdown is open under the control bar the two read as one
@@ -128,6 +147,7 @@ export class CadastralSearchUI {
         const syncDocked = () => {
             const bar = this.searchBoxEl.closest('.map-control-bar')
             const open = !this.dropdown.classList.contains('hidden')
+            this.toggleBtn.hidden = !open
             bar?.classList.toggle('has-search-dropdown', open)
             if (open && this.visible) this._positionDropdown()
         }
@@ -149,7 +169,7 @@ export class CadastralSearchUI {
         this._villageLoading = loading
         this.villageSpinners?.forEach(el => { el.hidden = !loading })
         if (this.villageSelect) {
-            this.villageSelect.placeholder = loading ? 'Loading villages…' : 'Search By Survey No.'
+            this.villageSelect.placeholder = loading ? 'Loading villages…' : 'Village'
         }
         this._syncTriggerLabels()
     }
@@ -284,7 +304,7 @@ export class CadastralSearchUI {
             villageLabel.textContent = `${this.selectedVillage.village} — ${this.selectedVillage.taluka}`
             villageLabel.classList.add('cadastral-field-trigger__label--filled')
         } else {
-            villageLabel.textContent = this._villageLoading ? 'Loading villages…' : 'Search By Survey No.'
+            villageLabel.textContent = this._villageLoading ? 'Loading villages…' : 'Village'
             villageLabel.classList.remove('cadastral-field-trigger__label--filled')
         }
 
@@ -467,6 +487,11 @@ export class CadastralSearchUI {
     _bindEvents() {
         if (!this.dropdown) return
 
+        this.toggleBtn.addEventListener('click', () => {
+            this._setExpanded(!this._expanded)
+            if (this._expanded && !this._isMobileLayout()) this.villageSelect?.focus()
+        })
+
         this.dropdown.addEventListener('mousedown', e => {
             const interactive = e.target.closest(
                 'sl-input, sl-select, input, button, [tabindex], .cadastral-field-trigger',
@@ -588,7 +613,7 @@ export class CadastralSearchUI {
         searchEl.addEventListener('clear', () => {
             if (this.visible) {
                 this.dropdown.classList.remove('hidden')
-                this.panel.classList.remove('hidden')
+                this.panel.classList.toggle('hidden', !this._expanded)
             }
         })
 
@@ -604,7 +629,7 @@ export class CadastralSearchUI {
                     } else {
                         if (this.visible) {
                             this.dropdown.classList.remove('hidden')
-                            this.panel.classList.remove('hidden')
+                            this.panel.classList.toggle('hidden', !this._expanded)
                         }
                     }
                 })
@@ -633,7 +658,7 @@ export class CadastralSearchUI {
         this.visible = true
         this._positionDropdown()
         this.dropdown.classList.remove('hidden')
-        this.panel.classList.remove('hidden')
+        this.panel.classList.toggle('hidden', !this._expanded)
 
         if (this.userPickedVillage) {
             this._syncTriggerLabels()
@@ -650,8 +675,18 @@ export class CadastralSearchUI {
         this._syncTriggerLabels()
     }
 
+    /** Opens or closes the village and survey fields under the action. */
+    _setExpanded(expanded) {
+        this._expanded = expanded
+        this.toggleBtn.setAttribute('aria-expanded', String(expanded))
+        this.toggleBtn.classList.toggle('open', expanded)
+        this.panel.classList.toggle('hidden', !expanded)
+        if (!expanded) this._clearResults()
+    }
+
     _hide() {
         this.visible = false
+        this._setExpanded(false)
         this._closePicker()
         this.panel.classList.add('hidden')
         this._clearResults()

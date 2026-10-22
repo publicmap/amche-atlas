@@ -15,10 +15,11 @@
  * buttons. Results are built by js/console/find-results.js.
  */
 import { el, icon, sectionLabel, linkButton, hint, imageThumb } from './find-rows.js';
-import { atlasesForSelector, atlasCards, atlasName, atlasLayers, mapsTree, switchAtlas, clearPreview } from './find-browse.js';
-import { scoped, layerBbox, scopeToggle } from './find-scope.js';
+import { atlasesForSelector, atlasCards, atlasName, atlasLayers, layerRow, activeIds, switchAtlas, clearPreview } from './find-browse.js';
+import { scoped, layerBbox, scopeOption } from './find-scope.js';
 import { ResultsRenderer, mapResults, matchingLayers, pinResults, routeResults, placeResults } from './find-results.js';
 import { FeatureSync } from './feature-sync.js';
+import { tagFilterBar, filterByTags } from './tag-filter.js';
 import { OnMapActions } from './on-map-actions.js';
 import { LayerDetails } from './layer-details.js';
 
@@ -47,10 +48,10 @@ export class FindPanel {
         this._openAtlas = (atlasId) => this.openAtlas(atlasId);
         this._view = 'atlas';
         this._query = '';
+        this._tagPath = [];
         this._sections = [];
         this._entries = [];
         this._expanded = new Set();
-        this._seeded = new Set();
         this._selectedKey = null;
         this._visible = false;
         this._refreshTimer = null;
@@ -79,19 +80,21 @@ export class FindPanel {
         };
     }
 
-    mount(host, { stripEl = null, footerEl = null, onToggleHidden = null, map = null } = {}) {
+    mount(host, { stripEl = null, footerEl = null, subSearchEl = null, onToggleHidden = null, map = null } = {}) {
         this._map = map || window.map;
         this.el = el('div', 'console-find');
         this._body = el('div', 'console-find-body');
         this.onMapActions = new OnMapActions({ onToggleHidden });
         this._atlasHead = el('section', 'console-section console-atlas-selector');
-        this._scope = el('div', 'console-scope-row');
+        this._scope = scopeOption();
+        if (subSearchEl) subSearchEl.prepend(this._scope.el);
+        this._tags = el('div', 'console-tags');
         this._onMap = el('section', 'console-section console-onmap');
         this._onMap.append(sectionLabel('On the map', this.onMapActions.el));
         if (stripEl) this._onMap.appendChild(stripEl);
         this._content = el('div', 'console-find-content');
         this._title = el('div', 'console-view-title');
-        this._body.append(this._title, this._atlasHead, this._scope, this._onMap, this._content);
+        this._body.append(this._title, this._atlasHead, this._tags, this._onMap, this._content);
         this._body.addEventListener('mouseleave', () => {
             clearPreview();
             if (this._pendingRefresh) this.render();
@@ -140,7 +143,8 @@ export class FindPanel {
 
     /** A map's details page, over the list it was opened from. */
     showLayer(layer) {
-        const backLabel = this._query ? `Results for “${this._query}”` : (this._view === 'atlas' ? 'Find' : VIEWS[this._view].label);
+        const backLabel = this._query ? `Back to results for “${this._query}”`
+            : `Back to ${this._view === 'atlas' ? `maps in ${atlasName(window.layerRegistry?.getCurrentAtlas() || 'index')}` : VIEWS[this._view].label.toLowerCase()}`;
         clearPreview();
         this.details.open(layer, { backLabel });
         this.el.classList.add('showing-details');
@@ -184,6 +188,7 @@ export class FindPanel {
     setView(view) {
         this.closeDetails();
         this._view = viewFor(view);
+        this._tagPath = [];
         this._body.scrollTop = 0;
         this.render();
     }
@@ -235,7 +240,7 @@ export class FindPanel {
         this._content.replaceChildren();
         this._atlasHead.replaceChildren();
         this._renderTitle();
-        this._scope.replaceChildren();
+        this._tags.replaceChildren();
         this._atlasHead.hidden = this._view !== 'atlas';
         this._onMap.hidden = !(this._view === 'layers' && !this._query);
 
@@ -244,7 +249,7 @@ export class FindPanel {
         else if (this._view === 'layers') hidden = this._renderLayersView();
         else if (this._view === 'pins') hidden = this._renderPinsView();
         else if (this._view === 'routes') hidden = this._renderRoutesView();
-        if (this._view !== 'layers' || this._query) this._scope.appendChild(scopeToggle(hidden));
+        this._scope.sync(hidden);
 
         this.counts = this._query ? {
             layers: scoped(matchingLayers(this._query), layer => ({ bbox: layerBbox(layer) })).shown.length,
@@ -257,6 +262,9 @@ export class FindPanel {
 
     /** The heading naming the view and what it lists. */
     _renderTitle() {
+        // The atlas view opens straight onto its atlas selector, or its results
+        this._title.hidden = this._view === 'atlas';
+        if (this._title.hidden) return;
         const view = VIEWS[this._view];
         const atlasId = window.layerRegistry?.getCurrentAtlas() || 'index';
         const meta = window.layerRegistry?.getAtlasMetadata(atlasId);
@@ -271,34 +279,56 @@ export class FindPanel {
     }
 
     /**
-     * With a query the atlas view lists places first, then features on the
-     * map (under their maps), then atlases and maps by name, pins and routes.
+     * Shows the tag filter for the maps about to be listed and returns them
+     * narrowed to the chosen tags. `layerOf` reads the map from an item.
+     */
+    _tagFilter(items, layerOf = item => item) {
+        const layers = items.map(layerOf);
+        while (this._tagPath.length && !filterByTags(layers, this._tagPath).length) this._tagPath.pop();
+        const bar = tagFilterBar(layers, this._tagPath, (path) => {
+            this._tagPath = path;
+            this.render();
+        });
+        if (bar) this._tags.appendChild(bar);
+        return filterByTags(items, this._tagPath, layerOf);
+    }
+
+    /**
+     * With a query the atlas view lists features on the map (under their
+     * maps) first, then atlases and maps by name, places, pins and routes.
      */
     _renderAtlasView() {
         const { entries, hidden: hiddenAtlases } = atlasesForSelector(this._query);
-        const atlasSection = entries.length ? [sectionLabel('Atlases'), atlasCards(entries, this._openAtlas)] : [];
+        const cards = entries.length ? atlasCards(entries, this._openAtlas) : null;
+        const atlasSection = cards ? (this._query ? [sectionLabel('Atlases'), cards] : [cards]) : [];
         this._atlasHead.hidden = !!this._query || !entries.length;
         if (!this._query) {
             this._atlasHead.append(...atlasSection);
             const atlasId = window.layerRegistry?.getCurrentAtlas() || 'index';
-            const { shown, outside, hidden } = scoped(atlasLayers(atlasId), layer => ({ bbox: layerBbox(layer) }));
-            this._section(sectionLabel(`Maps in ${atlasName(atlasId)}`),
-                mapsTree(atlasId, this._expanded, this._seeded, { layers: shown, outside, empty: 'None of this atlas’s maps are in this view.' }));
+            const { shown: inScope, outside, hidden } = scoped(atlasLayers(atlasId), layer => ({ bbox: layerBbox(layer) }));
+            const byTitle = (a, b) => (a.title || a.id).localeCompare(b.title || b.id, undefined, { numeric: true, sensitivity: 'base' });
+            const shown = this._tagFilter(inScope).sort(byTitle);
+            // The same rows as the Maps view: each map with its themes (tags)
+            const active = activeIds();
+            const rows = shown.map(layer => this._track(layerRow(layer, { active, meta: (layer.tags || []).join(' › '), outside: outside.has(layer) }), { layer }));
+            this._section(sectionLabel(`Maps in ${atlasName(atlasId)}`), ...(rows.length ? rows : [hint('None of this atlas’s maps are in this view.')]));
             return hiddenAtlases + hidden;
         }
         const maps = mapResults(this._query, this._sections);
         const pins = pinResults(this._query);
         const routes = routeResults(this._query);
         const places = placeResults(this._sections);
-        const withFeatures = { ...maps, groups: maps.groups.slice(0, maps.featureGroups) };
-        const byName = { ...maps, groups: maps.groups.slice(maps.featureGroups) };
-        let shown = this._results.places(this._content, places)
-            + this._results.maps(this._content, withFeatures, { label: 'Features', key: 'features', source: 'on the map' });
+        const featureGroups = new Set(maps.groups.slice(0, maps.featureGroups));
+        const groups = this._tagFilter(maps.groups, group => group.layer);
+        const withFeatures = { ...maps, groups: groups.filter(group => featureGroups.has(group)) };
+        const byName = { ...maps, groups: groups.filter(group => !featureGroups.has(group)) };
+        let shown = this._results.maps(this._content, withFeatures, { label: 'Features', key: 'features', source: 'on the map' });
         if (atlasSection.length) {
             this._section(...atlasSection);
             shown += entries.length;
         }
         shown += this._results.maps(this._content, byName, { label: 'Maps' })
+            + this._results.places(this._content, places)
             + this._results.pins(this._content, pins)
             + this._results.routes(this._content, routes);
         if (!shown) this._content.appendChild(hint(`Nothing found for “${this._query}” in this view yet. Results from place search can take a moment.`));
@@ -307,7 +337,8 @@ export class FindPanel {
 
     _renderLayersView() {
         if (!this._query) return 0;
-        const { shown, outside, hidden } = scoped(matchingLayers(this._query), layer => ({ bbox: layerBbox(layer) }));
+        const { shown: inScope, outside, hidden } = scoped(matchingLayers(this._query), layer => ({ bbox: layerBbox(layer) }));
+        const shown = this._tagFilter(inScope);
         const count = this._results.mapsByAtlas(this._content, { groups: shown.map(layer => ({ layer })), outside });
         if (!count) this._content.appendChild(hint(`No maps named “${this._query}” in this view.`));
         return hidden;

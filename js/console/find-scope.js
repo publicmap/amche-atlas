@@ -130,21 +130,23 @@ export function scoped(items, where) {
         : { shown: inside, outside: new Set(), hidden: outside.length };
 }
 
-/** The switch at the head of Find's results: "Include N outside this view". */
-export function scopeToggle(hiddenCount) {
-    const button = el('button', 'console-scope' + (includeOutside ? ' on' : ''));
-    button.type = 'button';
-    button.setAttribute('role', 'switch');
-    button.setAttribute('aria-checked', String(includeOutside));
-    const track = el('span', 'console-scope-track');
-    track.appendChild(el('span', 'console-scope-knob'));
-    const label = includeOutside
-        ? 'Including results outside this view'
-        : (hiddenCount ? `Include ${hiddenCount} more outside this view` : 'Include results outside this view');
-    button.append(track, el('span', 'console-scope-label', label));
-    button.addEventListener('click', (e) => {
-        e.stopPropagation();
-        setIncludeOutside(!includeOutside);
-    });
-    return button;
+/**
+ * The "Search Within Map" sub-search option under the search field: checked
+ * keeps every list to the map view, unchecked includes what lies outside.
+ * `sync(hiddenCount)` keeps it in step and says how much the scope leaves out.
+ */
+export function scopeOption() {
+    const label = el('label', 'console-subsearch-option console-scope-option');
+    const box = el('input');
+    box.type = 'checkbox';
+    box.addEventListener('change', () => setIncludeOutside(!box.checked));
+    label.append(box, el('span', '', 'Search Within Map'));
+    const sync = (hiddenCount = 0) => {
+        box.checked = !includeOutside;
+        label.title = includeOutside
+            ? 'Including results outside the map view'
+            : (hiddenCount ? `${hiddenCount} more outside the map view - uncheck to include them` : 'Only results within the map view');
+    };
+    sync();
+    return { el: label, sync };
 }
