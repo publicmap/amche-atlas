@@ -882,15 +882,19 @@ export class MapBrowserControl {
     // until then the registry may still name the index atlas and the loading
     // atlas's layers aren't active yet, so they'd be missed here and come on
     // anyway on top of the new atlas once the load finishes.
-    switchAtlasLive(newAtlasId) {
+    //
+    // `viewBbox` is the view the atlas opens onto: a default map whose own
+    // bbox lies outside it is left off (and remembered in _skippedDefaults,
+    // which Find turns on when its scope is widened to include outside the view).
+    switchAtlasLive(newAtlasId, { viewBbox = null } = {}) {
         if (!window.layersInitialized) {
             const waiting = this._pendingAtlasSwitch !== undefined;
-            this._pendingAtlasSwitch = newAtlasId;
+            this._pendingAtlasSwitch = { atlasId: newAtlasId, viewBbox };
             if (!waiting) {
                 window.addEventListener('layersInitialized', () => {
-                    const atlasId = this._pendingAtlasSwitch;
+                    const pending = this._pendingAtlasSwitch;
                     delete this._pendingAtlasSwitch;
-                    this.switchAtlasLive(atlasId);
+                    this.switchAtlasLive(pending.atlasId, { viewBbox: pending.viewBbox });
                 }, { once: true });
             }
             return;
@@ -910,14 +914,36 @@ export class MapBrowserControl {
             }
         });
 
+        this._skippedDefaults = [];
         newDefaults.forEach(id => {
-            if (!activeLayers.has(id)) {
-                this._handleLayerToggle(id, true);
+            if (activeLayers.has(id)) return;
+            if (viewBbox && !this._layerOwnBboxInView(id, viewBbox)) {
+                this._skippedDefaults.push(id);
+                return;
             }
+            this._handleLayerToggle(id, true);
         });
 
         this._handleUpdateAtlasParam(newAtlasId);
         if (newAtlasId !== previousAtlasId) this._loadAtlasPins(newAtlasId);
+    }
+
+    _layerOwnBboxInView(layerId, view) {
+        const layer = window.layerRegistry?.getLayer(layerId);
+        const raw = layer?.bbox || layer?.bounds;
+        const bbox = typeof raw === 'string' ? raw.split(',').map(parseFloat) : raw;
+        if (!Array.isArray(bbox) || bbox.length !== 4 || !bbox.every(Number.isFinite)) return true;
+        return bbox[0] <= view[2] && bbox[2] >= view[0] && bbox[1] <= view[3] && bbox[3] >= view[1];
+    }
+
+    /** The default maps the last atlas switch left off for lying outside the view. */
+    showSkippedDefaults() {
+        const skipped = this._skippedDefaults || [];
+        this._skippedDefaults = [];
+        const active = this._getActiveLayers();
+        skipped.forEach(id => {
+            if (!active.has(id)) this._handleLayerToggle(id, true);
+        });
     }
 
     // An atlas's own pins and routes can't be added live - routes are layers

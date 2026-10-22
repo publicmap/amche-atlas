@@ -390,6 +390,10 @@
       "inspect": false
     },
     {
+      "id": "osm-places",
+      "initiallyChecked": true
+    },
+    {
       "id": "mapbox-streets",
       "initiallyChecked": false
     },

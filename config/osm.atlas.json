@@ -393,7 +393,7 @@
               "region",
               "province"
             ],
-            20,
+            28,
             [
               "city",
               "capital",
@@ -413,37 +413,37 @@
                 0
               ],
               0,
-              14,
+              30,
               100000,
-              16,
+              32,
               1000000,
-              18,
+              32,
               5000000,
-              20
+              34
             ],
             "town",
-            16,
+            30,
             "suburb",
-            15,
+            28,
             [
               "village",
               "quarter"
             ],
-            14,
+            24,
             [
               "hamlet",
               "neighbourhood"
             ],
-            13,
+            20,
             "island",
-            12,
+            20,
             [
               "locality",
               "isolated_dwelling",
               "farm"
             ],
-            12,
-            12
+            16,
+            16
           ]
         ],
         "text-color": [
@@ -470,29 +470,29 @@
             "town",
             "suburb"
           ],
-          "#e8e8e8",
+          "#f0f0f0",
           [
             "village",
             "hamlet"
           ],
-          "#d8d8d8",
+          "#fafafa",
           [
             "quarter",
             "neighbourhood"
           ],
-          "#c0c0c0",
+          "#e0e0e0",
           "island",
-          "#a9d0e8",
+          "#e0e0e0",
           [
             "locality",
             "isolated_dwelling",
             "farm"
           ],
-          "#b0b0b0",
-          "#d8d8d8"
+          "#e0e0e0",
+          "#e0e0e0"
         ],
-        "text-halo-color": "#1a1a1a",
-        "text-halo-blur": 0.2,
+        "text-halo-color": "#333",
+        "text-halo-blur": 4,
         "text-halo-width": [
           "match",
           [
@@ -507,13 +507,18 @@
             "capital",
             "state_capital"
           ],
-          2,
+          5,
           [
             "city",
             "town"
           ],
-          1.5,
-          1
+          4,
+          [
+            "suburb",
+            "quarter"
+          ],
+          3,
+          2
         ],
         "capital/circle-color": [
           "match",

@@ -1,11 +1,14 @@
 /**
- * What Find shows before anything is typed: the atlases that cover the view
- * and the current atlas's maps grouped by theme (their `tags`). Also the
+ * Find's atlas view (js/console/find-panel.js): the atlas selector - index,
+ * current, then the rest, matches for a query leading - and the current
+ * atlas's maps grouped by theme (their `tags`). Also the
  * layer/atlas actions every Find list shares - toggling a map, opening its
  * details, previewing its extent - which all go through MapBrowserControl so
  * Find behaves exactly as the old map browser panel did.
  */
 import { el, icon, row, eyeButton, layerThumb, imageThumb, hint } from './find-rows.js';
+import { matchRank } from './find-rank.js';
+import { viewBbox, bboxInView, parseBbox, layerBbox, isIncludingOutside, zoomButton } from './find-scope.js';
 
 const browser = () => window.browserControl;
 const registry = () => window.layerRegistry;
@@ -54,59 +57,73 @@ export function atlasMapCount(atlasId) {
     return registry()?.getAtlasLayers(atlasId)?.length || 0;
 }
 
-// getBounds() can throw mid camera transition with terrain on (an unprojectable
-// corner); Find then just ranks atlases without the view this time.
-function viewBbox() {
-    try {
-        const bounds = window.map?.getBounds?.();
-        return bounds ? [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()] : null;
-    } catch (error) {
-        return null;
-    }
-}
-
-function bboxInView(bbox, view = viewBbox()) {
-    if (!Array.isArray(bbox) || bbox.length !== 4 || !view) return false;
-    return bbox[0] <= view[2] && bbox[2] >= view[0] && bbox[1] <= view[3] && bbox[3] >= view[1];
+/**
+ * The atlas selector's order: the index atlas, the current atlas, then the
+ * rest - those covering the view first, smallest first, then by name. Atlases
+ * outside the view are left out unless Find includes outside the view (the
+ * index and current atlases always stay). With a `term`, only the atlases
+ * whose name matches, best match first.
+ */
+export function atlasesForSelector(term = '') {
+    const reg = registry();
+    if (!reg) return [];
+    const current = reg.getCurrentAtlas() || 'index';
+    const view = viewBbox();
+    const needle = term.toLowerCase();
+    const entries = reg.getAllAtlasMetadata().map(([id, meta]) => {
+        const inView = !parseBbox(meta?.bbox) || bboxInView(meta.bbox, view);
+        const nameRank = needle ? matchRank(meta?.name || id, needle, [id]) : 5;
+        return { id, meta, current: id === current, inView, match: nameRank < 5, nameRank, outside: !inView };
+    });
+    const rank = (e) => (e.id === 'index' ? 0 : e.current ? 1 : 2);
+    const sorted = entries
+        .filter(e => (needle ? e.match : (rank(e) < 2 || e.inView || isIncludingOutside())))
+        .sort((a, b) => (b.match - a.match) || (a.match && a.nameRank - b.nameRank) || (rank(a) - rank(b)) || (b.inView - a.inView) ||
+            (a.inView ? bboxArea(a.meta?.bbox) - bboxArea(b.meta?.bbox) : 0) ||
+            (a.meta?.name || a.id).localeCompare(b.meta?.name || b.id));
+    return { entries: sorted, hidden: needle ? 0 : entries.length - sorted.length };
 }
 
 function bboxArea(bbox) {
-    return Array.isArray(bbox) && bbox.length === 4 ? (bbox[2] - bbox[0]) * (bbox[3] - bbox[1]) : Infinity;
+    const box = parseBbox(bbox);
+    return box ? (box[2] - box[0]) * (box[3] - box[1]) : Infinity;
 }
 
-/** Current atlas first, then atlases covering the view (smallest first), then the rest by name. */
-export function atlasesByRelevance() {
-    const reg = registry();
-    if (!reg) return [];
-    const current = reg.getCurrentAtlas();
-    const view = viewBbox();
-    return reg.getAllAtlasMetadata()
-        .map(([id, meta]) => ({ id, meta, current: id === current, inView: bboxInView(meta?.bbox, view) }))
-        .sort((a, b) => (b.current - a.current) || (b.inView - a.inView) ||
-            (a.inView ? bboxArea(a.meta?.bbox) - bboxArea(b.meta?.bbox) : 0) ||
-            (a.meta?.name || a.id).localeCompare(b.meta?.name || b.id));
-}
-
+/**
+ * Switches atlas and, if it lies outside the view, flies to it. Its default
+ * maps are judged against the view it opens onto: those outside are left off
+ * unless Find includes outside the view.
+ */
 export function switchAtlas(atlasId) {
     const control = browser();
     if (!control || !atlasId) return;
     clearPreview();
-    control.switchAtlasLive(atlasId);
     const meta = registry()?.getAtlasMetadata(atlasId);
-    if (meta?.bbox && !bboxInView(meta.bbox)) control._handleResetView(meta.map || null, meta.bbox);
+    const atlasBox = parseBbox(meta?.bbox);
+    const moving = atlasBox && !bboxInView(atlasBox);
+    const target = moving ? atlasBox : viewBbox();
+    control.switchAtlasLive(atlasId, { viewBbox: isIncludingOutside() ? null : target });
+    if (moving) control._handleResetView(meta.map || null, meta.bbox);
 }
 
 export function atlasCards(entries, onPick = switchAtlas) {
     const strip = el('div', 'console-atlas-cards');
-    entries.forEach(({ id, meta, current, inView }) => {
+    entries.forEach(({ id, meta, current, outside }) => {
         const card = el('button', 'console-atlas-card' + (current ? ' current' : ''));
         card.type = 'button';
         card.title = current ? `${meta?.name || id} (current atlas)` : `Switch to ${meta?.name || id}`;
         if (meta?.headerImage) card.style.setProperty('--card-image', `url("${String(meta.headerImage).replace(/"/g, '%22')}")`);
+        card.appendChild(el('span', 'console-atlas-card-bg'));
         if (current) card.appendChild(el('span', 'console-atlas-card-tag', 'Current'));
+        else if (outside) {
+            const tag = el('span', 'console-atlas-card-tag console-atlas-card-outside');
+            tag.title = 'Outside this view - picking it zooms to it';
+            tag.appendChild(icon('zoom-in'));
+            card.appendChild(tag);
+        }
         card.appendChild(imageThumb(meta?.icon, 'map'));
         card.appendChild(el('span', 'console-atlas-card-name', meta?.name || id));
-        card.appendChild(el('span', 'console-atlas-card-meta', `${atlasMapCount(id)} maps${inView && !current ? ' · in view' : ''}`));
+        card.appendChild(el('span', 'console-atlas-card-meta', `${atlasMapCount(id)} maps`));
         card.addEventListener('click', () => onPick(id));
         card.addEventListener('mouseenter', () => previewAtlas(id));
         card.addEventListener('mouseleave', clearPreview);
@@ -115,48 +132,18 @@ export function atlasCards(entries, onPick = switchAtlas) {
     return strip;
 }
 
-export function atlasRow({ id, meta, current, inView }, onPick = switchAtlas) {
-    const where = current ? 'Current atlas' : (inView ? 'Covers this view' : '');
-    return row({
-        thumb: imageThumb(meta?.icon, 'map'),
-        title: meta?.name || id,
-        meta: [`${atlasMapCount(id)} maps`, where].filter(Boolean).join(' · '),
-        trailing: current ? el('span', 'console-tag', 'Current') : icon('chevron-right'),
-        className: current ? 'current' : '',
-        onClick: () => onPick(id),
-        onEnter: () => previewAtlas(id),
-        onLeave: clearPreview
-    });
-}
-
-/**
- * The current atlas at the head of Find: its name, description and how many
- * of its maps are on, so a picked atlas opens onto what it holds.
- */
-export function atlasHeader(atlasId) {
-    const meta = registry()?.getAtlasMetadata(atlasId) || {};
-    const layers = atlasLayers(atlasId);
-    const active = activeIds();
-    const onCount = layers.filter(layer => isLayerActive(layer, active)).length;
-    const header = el('div', 'console-atlas-header');
-    if (meta.headerImage) header.style.setProperty('--card-image', `url("${String(meta.headerImage).replace(/"/g, '%22')}")`);
-    const top = el('div', 'console-atlas-header-top');
-    top.append(imageThumb(meta.icon, 'map'), el('div', 'console-atlas-header-name', meta.name || atlasId));
-    header.appendChild(top);
-    const description = plainText(meta.description);
-    if (description) header.appendChild(el('div', 'console-atlas-header-desc', description));
-    header.appendChild(el('div', 'console-atlas-header-meta', `${layers.length} maps · ${onCount} on the map`));
-    return header;
-}
-
-export function layerRow(layer, { active = activeIds(), meta = null } = {}) {
+export function layerRow(layer, { active = activeIds(), meta = null, outside = false, className = '' } = {}) {
     const on = isLayerActive(layer, active);
     const title = layer.title || layer.name || layer.id;
+    const trailing = el('span', 'console-row-actions');
+    if (outside) trailing.appendChild(zoomButton({ bbox: layerBbox(layer) }, `${title} is outside this view - zoom to it`));
+    trailing.appendChild(eyeButton(on ? 'on' : 'off', () => setLayerActive(layer, !on), on ? `Hide ${title}` : `Show ${title}`));
     return row({
         thumb: layerThumb(layer),
         title,
         meta: meta ?? (plainText(layer.description) || (layer.tags || []).join(' › ')),
-        trailing: eyeButton(on ? 'on' : 'off', () => setLayerActive(layer, !on), on ? `Hide ${title}` : `Show ${title}`),
+        trailing,
+        className: [className, outside && 'outside'].filter(Boolean).join(' '),
         onClick: () => openLayerInfo(layer),
         onEnter: () => previewLayer(layer),
         onLeave: clearPreview
@@ -203,11 +190,10 @@ function nodeLayers(node) {
  * Set of open paths, kept across re-renders; on first sight of an atlas the
  * themes holding a visible map are opened for it.
  */
-export function mapsTree(atlasId, expanded, seeded) {
-    const layers = atlasLayers(atlasId);
+export function mapsTree(atlasId, expanded, seeded, { layers = atlasLayers(atlasId), outside = new Set(), empty = 'This atlas has no maps of its own yet.' } = {}) {
     const holder = el('div', 'console-tree');
     if (!layers.length) {
-        holder.appendChild(hint('This atlas has no maps of its own yet.'));
+        holder.appendChild(hint(empty));
         return holder;
     }
     const active = activeIds();
@@ -218,7 +204,7 @@ export function mapsTree(atlasId, expanded, seeded) {
             if (nodeLayers(node).some(l => isLayerActive(l, active))) expanded.add(`${atlasId}/${name}`);
         });
     }
-    const rerender = () => holder.replaceWith(mapsTree(atlasId, expanded, seeded));
+    const rerender = () => holder.replaceWith(mapsTree(atlasId, expanded, seeded, { layers, outside, empty }));
     renderNode(tree, [], 0);
     return holder;
 
@@ -253,8 +239,7 @@ export function mapsTree(atlasId, expanded, seeded) {
             holder.appendChild(header);
             if (!open) return;
             child.layers.forEach(layer => {
-                const item = layerRow(layer, { active });
-                item.classList.add('console-tree-leaf');
+                const item = layerRow(layer, { active, outside: outside.has(layer), className: 'console-tree-leaf' });
                 item.style.setProperty('--depth', depth + 1);
                 holder.appendChild(item);
             });

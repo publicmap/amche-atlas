@@ -94,7 +94,7 @@ export class MapSearchControl {
         this.searchBox.setAttribute('proximity', this._getMapProximity());
         this.searchBox.setAttribute('types', this._getSearchTypes());
         this.searchBox.setAttribute('language', this.options.language);
-        this.searchBox.setAttribute('placeholder', 'Atlases, maps, places');
+        this.searchBox.setAttribute('placeholder', 'Search place or map');
         this.searchBox.addEventListener('suggest', this.handleSuggest.bind(this));
         this.searchBox.addEventListener('retrieve', this.handleRetrieve.bind(this));
         this.searchBox.addEventListener('input', this.handleInput.bind(this));
@@ -472,6 +472,17 @@ export class MapSearchControl {
         return this.map.getZoom() >= 11
             ? `${base},street,address,poi`
             : base;
+    }
+
+    /**
+     * Find follows the map view (js/console/find-panel.js): the in-memory
+     * results that depend on what is in view are searched again once the map
+     * settles, without touching the place search already in flight.
+     */
+    refreshInViewResults() {
+        if (!this.currentQuery || this.isCoordinateInput) return;
+        this.mapFeatureSuggestions = on('features') ? this.featureInViewProvider.search(this.currentQuery) : [];
+        this._renderSuggestions();
     }
 
     handleMapMoveEnd() {

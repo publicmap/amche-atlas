@@ -3302,7 +3302,7 @@ export class MapMarkerManager {
         const markerData = this._markers.get(markerId);
         const address = markerData?.address;
         const fromDisplayName = address?.displayName?.split(',')[0]?.trim();
-        return address?.name || fromDisplayName || idToLabel(markerData?.urlId ?? '');
+        return markerData?.suggestedLabel || address?.name || fromDisplayName || idToLabel(markerData?.urlId ?? '');
     }
 
     /** Scroll/selection guards and the "show all properties" toggle inside a rendered feature table. */
@@ -4830,6 +4830,23 @@ export class MapMarkerManager {
     startIdEdit(markerId) {
         const el = this._markers.get(markerId)?.marker?.getElement();
         el?._openIdEditor?.();
+    }
+
+    /**
+     * Find's pin action on a feature result (js/console/feature-sync.js):
+     * selects the feature as a click on it would, then opens the new marker's
+     * label editor with `label` - the result's own label - as its name.
+     */
+    pinFeature(selection, label = '') {
+        if (!selection?.feature) return null;
+        const before = new Set(this._markers.keys());
+        this._stateManager.handleFeatureClicks([selection]);
+        const markerId = [...this._markers.keys()].find(id => !before.has(id));
+        const markerData = markerId ? this._markers.get(markerId) : null;
+        if (!markerData) return null;
+        if (label) markerData.suggestedLabel = label;
+        this.startIdEdit(markerId);
+        return markerId;
     }
 
     /** Moves an existing marker, e.g. to follow the waypoint it stands for. */

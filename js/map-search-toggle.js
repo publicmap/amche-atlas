@@ -24,9 +24,12 @@ export function placeLine(address, count = 3) {
 
 /**
  * The search field of the map console's Find mode (js/map-control-bar.js):
- * the <mapbox-search-box> host plus the "Search in" sources menu. The console
- * decides when Find is open; this only reflects it (the `searching` class
- * that shows the field) and offers focus/clear helpers.
+ * the <mapbox-search-box> host behind a search icon, which resets Find to its
+ * default atlas view, plus the "Search in" settings menu (`sourcesEl`), which
+ * the console places just outside the field, to its right.
+ * The console decides when Find is open; this only reflects it (the
+ * `searching` class that shows the field) and offers focus/clear/placeholder
+ * helpers.
  */
 export class MapSearchToggle {
     constructor() {
@@ -37,11 +40,16 @@ export class MapSearchToggle {
         this._el = document.createElement('div');
         this._el.className = 'map-search-control';
 
-        const glyph = document.createElement('sl-icon');
-        glyph.name = 'search';
-        glyph.className = 'map-search-glyph';
+        this._glyph = document.createElement('button');
+        this._glyph.type = 'button';
+        this._glyph.className = 'map-search-glyph';
+        this._glyph.title = 'Back to the atlas view';
+        this._glyph.setAttribute('aria-label', this._glyph.title);
+        this._glyph.innerHTML = '<sl-icon name="search"></sl-icon>';
+        this._glyph.addEventListener('click', () => window.mapConsole?.resetFind());
 
-        this._el.append(glyph, this._buildSourcesMenu());
+        this._el.append(this._glyph);
+        this.sourcesEl = this._buildSourcesMenu();
         this._el.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 e.stopPropagation();
@@ -65,9 +73,9 @@ export class MapSearchToggle {
         more.type = 'button';
         more.slot = 'trigger';
         more.className = 'console-btn map-search-sources-btn';
-        more.title = 'Choose what to search';
-        more.setAttribute('aria-label', 'Choose what to search');
-        more.innerHTML = '<sl-icon name="sliders"></sl-icon>';
+        more.title = 'Search settings: choose what to search';
+        more.setAttribute('aria-label', more.title);
+        more.innerHTML = '<sl-icon name="three-dots-vertical"></sl-icon>';
         const menu = document.createElement('sl-menu');
         const label = document.createElement('sl-menu-label');
         label.textContent = 'Search in';
@@ -92,6 +100,14 @@ export class MapSearchToggle {
 
     get value() {
         return this._searchInput()?.value || '';
+    }
+
+    setPlaceholder(text) {
+        const box = document.querySelector('mapbox-search-box');
+        if (!box || box.getAttribute('placeholder') === text) return;
+        box.setAttribute('placeholder', text);
+        const input = this._searchInput();
+        if (input) input.placeholder = text;
     }
 
     setSearching(on) {

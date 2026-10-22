@@ -9,9 +9,9 @@
  * (first = on top), so only the overlay/basemap split is applied - overlays
  * first, then basemaps - and the strip is painted top-to-bottom in that order.
  *
- * The column ends with three always-visible action rows: "More Options", which
- * opens the map/selection shortcuts shared with the long-press menu (see
- * LayerStackOptionsMenu), then "Import Map" and "Export Map".
+ * Its footer (LayerStackFooter: hover tooltips, comments, zoom, export and
+ * the options menu shared with the long-press menu) is built here but sits at
+ * the foot of Find, under whichever view is showing.
  *
  * Each thumbnail is a LayerThumbnail, and clicking a row opens that layer's
  * details page in Find (js/console/layer-details.js). Hovering a row isolates that layer through
@@ -101,12 +101,17 @@ export class LayerStackStrip {
             if (outside) this._clearDropIndicators();
         });
 
+        this._footer = new LayerStackFooter({
+            post: (message) => this._post(message),
+            getLayers: () => this._getVisibleLayers(),
+            onOptionsToggle: (open) => this._el?.classList.toggle('options-open', open)
+        });
         this._controlBar = new MapControlBar();
         this._controlBar.mount(hostEl, {
             map,
             searchToggle: window.searchBoxControl?.searchToggle || null,
             stripEl: this._el,
-            getOnMapLayers: () => this._getVisibleLayers(),
+            footerEl: this._footer.el,
             onModeChange: (mode) => this._setOpen(mode === 'find'),
             onToggleHidden: (show) => {
                 this._showHidden = show;
@@ -121,7 +126,7 @@ export class LayerStackStrip {
 
         this._map = map;
         this._mountBrowserProxy(browserButton, hostEl);
-        this._mountFooter(map);
+        this._footer.mount(map || window.map);
 
         // 'layersInitialized' is the signal that MapLayerControl has finished
         // building the groups this strip reads (it fires well after the control
@@ -242,12 +247,7 @@ export class LayerStackStrip {
             });
         });
 
-        // The footer belongs at the foot of the column, and the layer rows were
-        // just appended after it.
-        if (this._footer) {
-            this._el.appendChild(this._footer.el);
-            this._footer.sync();
-        }
+        this._footer?.sync();
     }
 
     /**
@@ -327,16 +327,6 @@ export class LayerStackStrip {
             this._resetShowHidden();
         }
         this.render({ force: true });
-    }
-
-    _mountFooter(map) {
-        this._footer = new LayerStackFooter({
-            post: (message) => this._post(message),
-            getLayers: () => this._getVisibleLayers(),
-            onOptionsToggle: (open) => this._el?.classList.toggle('options-open', open)
-        });
-        this._el.appendChild(this._footer.el);
-        this._footer.mount(map || window.map);
     }
 
     /**

@@ -1,4 +1,6 @@
-const MAX_RESULTS = 8
+import { matchRank } from '../../console/find-rank.js'
+
+const MAX_RESULTS = 40
 
 /**
  * Resolve a rendered feature's display label the same way
@@ -29,6 +31,8 @@ export function createFeatureInViewProvider() {
         return stateManager.getFeaturesInView()
             .map(f => ({ f, ...describeFeature(stateManager, f) }))
             .filter(({ label }) => label.toLowerCase().includes(term))
+            .map(entry => ({ ...entry, rank: matchRank(entry.label, term) }))
+            .sort((a, b) => a.rank - b.rank)
             .slice(0, MAX_RESULTS)
             .map(({ f, label, layerTitle }) => ({
                 _searchResultType: 'map-feature',
