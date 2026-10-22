@@ -267,7 +267,7 @@ export class LayerStyleControl {
                 line: ['line-color', 'line-width', 'line-opacity', 'line-dasharray'],
                 circle: ['circle-color', 'circle-radius', 'circle-opacity', 'circle-stroke-color', 'circle-stroke-width'],
                 symbol: ['text-color', 'text-halo-color', 'text-halo-width', 'text-opacity', 'icon-color', 'icon-opacity'],
-                raster: ['raster-opacity', 'raster-brightness-min', 'raster-brightness-max', 'raster-contrast', 'raster-saturation']
+                raster: ['raster-opacity', 'raster-brightness-min', 'raster-brightness-max', 'raster-contrast', 'raster-saturation', 'raster-hue-rotate']
             },
             layout: {
                 fill: [],

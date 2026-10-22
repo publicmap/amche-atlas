@@ -30,7 +30,7 @@ export const STYLE_PROPERTY_MAPPING = {
         line: ['line-color', 'line-width', 'line-opacity', 'line-dasharray', 'line-translate', 'line-offset'],
         symbol: ['icon-color', 'icon-opacity', 'icon-halo-color', 'icon-halo-width', 'icon-halo-blur', 'icon-translate', 'text-color', 'text-halo-color', 'text-halo-width', 'text-halo-blur', 'text-opacity', 'text-translate'],
         circle: ['circle-radius', 'circle-color', 'circle-opacity', 'circle-stroke-width', 'circle-stroke-color', 'circle-stroke-opacity', 'circle-blur', 'circle-translate', 'circle-translate-anchor', 'circle-pitch-scale', 'circle-pitch-alignment'],
-        raster: ['raster-opacity', 'raster-contrast', 'raster-saturation', 'raster-brightness-min', 'raster-brightness-max'],
+        raster: ['raster-opacity', 'raster-contrast', 'raster-saturation', 'raster-brightness-min', 'raster-brightness-max', 'raster-hue-rotate'],
         background: ['background-color', 'background-opacity'],
         hillshade: ['hillshade-exaggeration', 'hillshade-highlight-color', 'hillshade-shadow-color']
     }

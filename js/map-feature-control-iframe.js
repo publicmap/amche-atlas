@@ -5,7 +5,7 @@
  * pipeline, swipe-compare mode, and the selection APIs the shortcut menu,
  * search and URL restore drive. Also bridges a handful of postMessage types
  * (open-layer-info, zoom-to-layer, remove-layer, toggle-compare, toggle-mask,
- * reorder-layers, update-layer, update-layer-opacity, update-layer-style) sent
+ * reorder-layers, update-layer, update-layer-opacity, update-layer-paint, update-layer-style) sent
  * by layer-stack-strip.js and the layer editor (map-creator.html).
  */
 
@@ -188,6 +188,8 @@ export class MapFeatureControl {
         window.addEventListener('message', async (event) => {
             if (event.data.type === 'update-layer-opacity') {
                 this._updateLayerOpacity(event.data.layerId, event.data.opacity);
+            } else if (event.data.type === 'update-layer-paint') {
+                this._updateLayerPaint(event.data.layerId, event.data.paint);
             } else if (event.data.type === 'update-layer-style') {
                 this._updateLayerStyle(event.data.layerId, event.data.style, event.data.resetProperties, event.data.isDefaultStyle, event.data);
             } else if (event.data.type === 'update-layer') {
@@ -881,6 +883,45 @@ export class MapFeatureControl {
             if (window.urlManager) {
                 window.urlManager.updateURL({ updateLayers: true });
             }
+        }
+    }
+
+    /**
+     * Set individual paint properties on a layer's map layers - the layer
+     * editor's raster image adjustments (js/raster-adjust.js). Unlike
+     * _updateLayerStyle this doesn't re-apply the whole style with its
+     * defaults, so the opacity slider's value is left alone. A null value
+     * removes the property, putting it back to the spec default.
+     */
+    _updateLayerPaint(layerId, paint) {
+        const mapboxAPI = this._getMapboxAPI();
+        if (!mapboxAPI || !paint) return;
+
+        const layerData = this._getActiveLayersFromConfig().get(layerId);
+        if (!layerData) return;
+
+        const style = { ...(layerData.config.style || {}) };
+        Object.entries(paint).forEach(([property, value]) => {
+            if (value === null) delete style[property];
+            else style[property] = value;
+        });
+        layerData.config.style = style;
+        markEditedFields(layerData.config, ['style']);
+        this._refreshCustomLayerJson(layerData.config);
+
+        mapboxAPI.getLayerGroupIds(layerId, layerData.config).forEach(mapLayerId => {
+            if (!this._map.getLayer(mapLayerId)) return;
+            Object.entries(paint).forEach(([property, value]) => {
+                try {
+                    this._map.setPaintProperty(mapLayerId, property, value === null ? undefined : value);
+                } catch (error) {
+                    console.warn(`Failed to set ${property} on ${mapLayerId}:`, error);
+                }
+            });
+        });
+
+        if (window.urlManager) {
+            window.urlManager.updateURL({ updateLayers: true });
         }
     }
 

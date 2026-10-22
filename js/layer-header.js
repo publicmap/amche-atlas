@@ -13,16 +13,19 @@
 
 import { ZoomToParam } from './zoom-to-param.js';
 import { LayerOrderManager } from './layer-order-manager.js';
+import { RasterAdjust } from './raster-adjust.js';
 
 export class LayerHeader {
     /**
      * @param {Object} options
      * @param {() => void} options.onClose - Close the whole panel
      * @param {(opacity: number) => void} [options.onOpacity] - The opacity slider moved
+     * @param {(paint: Object) => void} [options.onPaint] - A raster adjustment slider moved
      */
-    constructor({ onClose, onOpacity } = {}) {
+    constructor({ onClose, onOpacity, onPaint } = {}) {
         this._onClose = onClose || (() => {});
         this._onOpacity = onOpacity || (() => {});
+        this.raster = new RasterAdjust({ onChange: onPaint });
         this.layer = null;
         this.layerId = null;
         this.feature = null;
@@ -45,6 +48,7 @@ export class LayerHeader {
         $('#lh-move-up').on('click', () => this._moveLayer(-1));
         $('#lh-move-down').on('click', () => this._moveLayer(1));
         $('#lh-opacity').on('input', () => this._handleOpacityInput());
+        this.raster.bind();
         $('#lh-zoom-feature').on('click', () => this._zoomToFeature());
         $('#lh-zoom-layer').on('click', (event) => this._zoomToLayer(event));
         document.querySelector('#lh-export-selected sl-menu')
@@ -68,6 +72,7 @@ export class LayerHeader {
 
         this._renderBadges(layer);
         this._updateOpacityUI(layer.opacity);
+        this.raster.render(layer);
         this._updateCompareButton();
         this._updateMaskButton();
         this._updateZoomToLayerLink(layer);
@@ -79,6 +84,7 @@ export class LayerHeader {
     setLayerId(id) {
         if (!id || id === this.layerId) return;
         this.layerId = id;
+        this.raster.setLayerId(id);
         this.applyIsolation();
         this.updateOrderButtons();
     }

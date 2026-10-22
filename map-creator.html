@@ -660,10 +660,33 @@
             background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
         }
 
-        #lh-opacity {
+        #lh-opacity, .lh-raster-input {
             accent-color: #3b82f6;
             height: 20px;
         }
+
+        .lh-raster-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .lh-raster-label {
+            width: 6.5rem;
+            flex-shrink: 0;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .lh-raster-value {
+            width: 2.25rem;
+            flex-shrink: 0;
+            text-align: right;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .lh-raster-input:disabled { opacity: 0.4; }
 
         /* The title bar's actions share one height; icon-only ones are square */
         #nav-actions button:not(.hidden) {
@@ -1570,6 +1593,13 @@
                     <input type="range" id="lh-opacity" min="0" max="100" value="100" class="flex-1">
                     <span id="lh-opacity-value" class="text-xs text-gray-400 flex-shrink-0" style="width: 2.25rem; text-align: right;">100%</span>
                 </div>
+                <details id="lh-raster" class="mt-1.5" style="display: none;">
+                    <summary class="text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-pointer select-none py-1">Image Adjustments</summary>
+                    <div id="lh-raster-sliders" class="mt-1"></div>
+                    <button type="button" class="info-header-action mt-1.5" id="lh-raster-reset" title="Put brightness, contrast, saturation and hue back to their defaults">
+                        <sl-icon name="arrow-counterclockwise"></sl-icon><span>Reset Adjustments</span>
+                    </button>
+                </details>
 
                 <div class="mt-2 flex items-center gap-1.5 flex-wrap">
                     <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide mr-1">Layer Order</span>

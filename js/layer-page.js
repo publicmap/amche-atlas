@@ -40,7 +40,8 @@ export class LayerPage {
         this._pending = null;
         this.header = new LayerHeader({
             onClose: () => creator.closeBrowser(),
-            onOpacity: () => this.refresh()
+            onOpacity: () => this.refresh(),
+            onPaint: () => this.refresh()
         });
     }
 
