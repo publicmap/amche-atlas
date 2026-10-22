@@ -8,6 +8,8 @@
  * and supporters. `data` - where the map data comes from.
  * `projects` - instances of the software run by others, shown as buttons
  * under the splash description; `maintainers` is the sub line.
+ * `goals` - the UN Sustainable Development Goals the project works towards,
+ * shown as badges in the goal's official colour.
  */
 export const SPLASH_CREDITS = {
     dedication: 'Dedicated to all those who shared their knowledge knowingly or unknowingly for training AI LLM models. May it be used to build a better world.',
@@ -48,5 +50,14 @@ export const SPLASH_CREDITS = {
             maintainers: 'OpenStreetMap and DataMeet India Community',
             url: 'https://www.openstreetmap.in/'
         }
+    ],
+    goals: [
+        { number: 6, name: 'Clean Water and Sanitation', color: '#26BDE2' },
+        { number: 11, name: 'Sustainable Cities and Communities', color: '#FD9D24' },
+        { number: 13, name: 'Climate Action', color: '#3F7E44' },
+        { number: 14, name: 'Life Below Water', color: '#0A97D9' },
+        { number: 15, name: 'Life on Land', color: '#56C02B' },
+        { number: 16, name: 'Peace, Justice and Strong Institutions', color: '#00689D' },
+        { number: 17, name: 'Partnerships for the Goals', color: '#19486A' }
     ]
 };

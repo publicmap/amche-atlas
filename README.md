@@ -54,6 +54,26 @@ In pursuant to this goal, the Government of India has supported the creation of 
 
 At the grassroots level, citizens continue to face difficulties in reliable access to these portals and datasets for effective use. The birth of amche-atlas has its roots in leveraging the best in class technology tools to simplify access to these public datasets in the state of Goa and empower grasroots level decentralized planning as envisaged by the Constitution.
 
+## UN Sustainable Development Goals
+
+amche-atlas contributes to the following [UN Sustainable Development Goals](https://sdgs.un.org/goals):
+
+[![SDG 6](https://img.shields.io/badge/SDG%206-Clean%20Water%20and%20Sanitation-26BDE2)](https://sdgs.un.org/goals/goal6)
+[![SDG 11](https://img.shields.io/badge/SDG%2011-Sustainable%20Cities%20and%20Communities-FD9D24)](https://sdgs.un.org/goals/goal11)
+[![SDG 13](https://img.shields.io/badge/SDG%2013-Climate%20Action-3F7E44)](https://sdgs.un.org/goals/goal13)
+[![SDG 14](https://img.shields.io/badge/SDG%2014-Life%20Below%20Water-0A97D9)](https://sdgs.un.org/goals/goal14)
+[![SDG 15](https://img.shields.io/badge/SDG%2015-Life%20on%20Land-56C02B)](https://sdgs.un.org/goals/goal15)
+[![SDG 16](https://img.shields.io/badge/SDG%2016-Peace%2C%20Justice%20and%20Strong%20Institutions-00689D)](https://sdgs.un.org/goals/goal16)
+[![SDG 17](https://img.shields.io/badge/SDG%2017-Partnerships%20for%20the%20Goals-19486A)](https://sdgs.un.org/goals/goal17)
+
+- **6 Clean Water and Sanitation** - waterbody, wetland, watershed and irrigation command area maps
+- **11 Sustainable Cities and Communities** - regional plans, cadastral and zoning layers for participatory spatial planning
+- **13 Climate Action** - disaster management, flood and terrain data for climate resilience
+- **14 Life Below Water** - coastal regulation zones, khazans and mangroves
+- **15 Life on Land** - forests, protected areas and the biodiversity of the Western Ghats
+- **16 Peace, Justice and Strong Institutions** - public access to government records and geospatial information
+- **17 Partnerships for the Goals** - open data and open source built with government, community and civil society partners
+
 ## Data 
 
 The various map layers are sourced from available open data published by government and community sources. Please check the individual layer details on amche.in for more complete source information. Please verify the accuracy of any dataset with the respective source. 

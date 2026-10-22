@@ -82,7 +82,7 @@ const MARKER_ANCHOR_GAP = 16;
 
 // The panel's rounded corners - all but the one the leader line meets, which is
 // squared off so the line reads as running into the panel.
-const MARKER_CORNER_RADIUS = 8;
+const MARKER_CORNER_RADIUS = 12; // --console-radius (css/map-console.css)
 
 // Half-extent of the leader line's drawing surface, centred on the point. The
 // panel can be dragged to either side of the point, so the line has to be able
@@ -114,20 +114,22 @@ const MARKER_LEADER_INSET = 3;
 const MARKER_PANEL_BG_RGB = '17, 24, 39'; // #111827, the map console's surface (css/map-console.css)
 const MARKER_PANEL_BG = `rgba(${MARKER_PANEL_BG_RGB}, 0.82)`;
 const MARKER_PANEL_BG_ACTIVE = `rgba(${MARKER_PANEL_BG_RGB}, 0.96)`;
-const MARKER_PANEL_BORDER = 'rgba(255, 255, 255, 0.2)';
+const MARKER_PANEL_BORDER = 'rgba(255, 255, 255, 0.26)'; // --console-line-strong
 const MARKER_SELECTED_BORDER = '#facc15';
 
 // Space between the map control bar and a marker panel docked beneath it.
 const MARKER_DOCK_GAP = 8;
-// Separator between rows inside the panel (see _buildMarkerSummaryHTML) -
-// translucent black rather than MARKER_PANEL_BORDER's fixed gray, which reads
-// lighter than the panel's own translucent fill wherever it sits over a dark
-// map. Black-with-alpha only ever darkens whatever is behind it, so it stays
-// a shade below the panel's fill regardless of what that fill is blended over.
-const MARKER_ROW_BORDER = 'rgba(0, 0, 0, 0.35)';
+// Separator between rows inside the panel (see _buildMarkerSummaryHTML) - the
+// same hairline the console's own lists use.
+const MARKER_ROW_BORDER = 'var(--console-line)';
 
-// The panel's resting shadow - unaffected by hover/selection, see MARKER_GLOW_FILTER below.
-const MARKER_PANEL_SHADOW = '0 4px 16px rgba(0, 0, 0, 0.35)';
+// The panel's resting shadow, the console's own - unaffected by hover/selection, see MARKER_GLOW_FILTER below.
+const MARKER_PANEL_SHADOW = 'var(--console-shadow)';
+
+// A summary row or property row while it is the one open/picked - the console
+// list's raised row (css/map-console.css) rather than a blue fill, since blue
+// there only ever means a link or focus.
+const MARKER_ROW_ACTIVE_BG = 'var(--console-raised)';
 
 // Hover/selected halo, the same yellow used for a hovered/selected feature
 // everywhere else in the app (see the feature-state "hover"/"selected" colors
@@ -447,20 +449,7 @@ export class MapMarkerManager {
                     if (id) apply();
                     else this._routeHoverTimer = setTimeout(apply, ROW_HOVER_END_DELAY_MS);
                 },
-                onToggle: (id) => {
-                    this._routeFilter = this._routeFilter === id ? null : id;
-                    const route = this._routeFilter ? routeStore.routes.find(r => r.id === id) : null;
-                    if (route) window.layerControl?.isolation?.isolate(route.groupId, false);
-                    else window.layerControl?.isolation?.clear();
-                    const geometry = route?.geojson?.features?.find(f => f.properties?.kind === 'route')?.geometry;
-                    if (geometry) {
-                        const { panelLeft = 0, width = 0 } = this._dockGeometry || {};
-                        fitToFeature(this._map, geometry, { left: panelLeft, right: panelLeft + width, width }, { padding: 48, extraLeft: 32 });
-                    } else {
-                        restoreFeatureFit(this._map);
-                    }
-                    this._layoutDockedPanels();
-                },
+                onToggle: (id) => this._toggleRouteFilter(id),
                 onReorder: (ids) => {
                     this._routeOrder = ids;
                     this._layoutDockedPanels();
@@ -503,6 +492,31 @@ export class MapMarkerManager {
             });
         }
         return this._routeDockStack;
+    }
+
+    _toggleRouteFilter(id) {
+        this._routeFilter = this._routeFilter === id ? null : id;
+        const route = this._routeFilter ? routeStore.routes.find(r => r.id === id) : null;
+        if (route) window.layerControl?.isolation?.isolate(route.groupId, false);
+        else window.layerControl?.isolation?.clear();
+        const geometry = route?.geojson?.features?.find(f => f.properties?.kind === 'route')?.geometry;
+        if (geometry) {
+            const { panelLeft = 0, width = 0 } = this._dockGeometry || {};
+            fitToFeature(this._map, geometry, { left: panelLeft, right: panelLeft + width, width }, { padding: 48, extraLeft: 32 });
+        } else {
+            restoreFeatureFit(this._map);
+        }
+        this._layoutDockedPanels();
+    }
+
+    /** Show only this route's stops in the dock and fit the map to it (the console's Routes list). */
+    selectRoute(id) {
+        if (this._routeFilter !== id) this._toggleRouteFilter(id);
+    }
+
+    /** Hover-isolate a route's layer, as hovering its dock button does. */
+    hoverRoute(id) {
+        this._routeStack()._handlers.onHover(id);
     }
 
     _orderedDockRoutes(docked) {
@@ -1004,7 +1018,7 @@ export class MapMarkerManager {
         if (pinBtn) pinBtn.title = markerData.pinned ? 'Unpin (auto-collapses when unfocused)' : 'Pin open (stays open when unfocused)';
         if (icon) {
             icon.setAttribute('name', markerData.pinned ? 'pin-angle-fill' : 'pin-angle');
-            icon.style.color = markerData.pinned ? '#facc15' : '#9ca3af';
+            icon.style.color = markerData.pinned ? 'var(--console-amber)' : 'var(--console-ink-2)';
         }
 
         if (el) {
@@ -1542,18 +1556,18 @@ export class MapMarkerManager {
             const actionsHTML = interactive ? `
                 <div class="feature-row-actions" style="display:none; gap:6px; padding-top:3px;">
                     <button type="button" class="feature-row-action" data-action="replace"
-                        style="display:inline-flex; align-items:center; gap:3px; font-size:8px; font-weight:600; color:#93c5fd; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.4); border-radius:4px; padding:2px 6px; cursor:pointer;">Replace Filter</button>
+                        style="display:inline-flex; align-items:center; gap:3px; font-size:10.5px; font-weight:600; color:var(--console-blue); background:rgba(124,180,255,0.1); border:1px solid rgba(124,180,255,0.35); border-radius:6px; padding:3px 8px; cursor:pointer;">Replace Filter</button>
                     <button type="button" class="feature-row-action" data-action="add"
-                        style="display:inline-flex; align-items:center; gap:3px; font-size:8px; font-weight:600; color:#93c5fd; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.4); border-radius:4px; padding:2px 6px; cursor:pointer;">
-                        <sl-icon name="plus-circle-dotted" style="font-size:9px;"></sl-icon>Add To Filter</button>
+                        style="display:inline-flex; align-items:center; gap:3px; font-size:10.5px; font-weight:600; color:var(--console-blue); background:rgba(124,180,255,0.1); border:1px solid rgba(124,180,255,0.35); border-radius:6px; padding:3px 8px; cursor:pointer;">
+                        <sl-icon name="plus-circle-dotted" style="font-size:11px;"></sl-icon>Add To Filter</button>
                     <button type="button" class="feature-row-action" data-action="remove"
-                        style="display:none; align-items:center; gap:3px; font-size:8px; font-weight:600; color:#93c5fd; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.4); border-radius:4px; padding:2px 6px; cursor:pointer;">
-                        <sl-icon name="dash-circle" style="font-size:9px;"></sl-icon>Remove From Filter</button>
+                        style="display:none; align-items:center; gap:3px; font-size:10.5px; font-weight:600; color:var(--console-blue); background:rgba(124,180,255,0.1); border:1px solid rgba(124,180,255,0.35); border-radius:6px; padding:3px 8px; cursor:pointer;">
+                        <sl-icon name="dash-circle" style="font-size:11px;"></sl-icon>Remove From Filter</button>
                 </div>` : '';
             return `<div class="feature-row" data-field-key="${this._escapeAttr(key ?? '')}"
-                    style="display:flex; flex-direction:column; align-items:stretch; padding:4px 0; border-bottom:1px solid #374151; ${interactive ? 'cursor:pointer;' : ''}">` +
-                `<div style="display:flex; align-items:flex-start; gap:10px; color:#fff; font-size:10px; line-height:1.35; font-weight:300;">` +
-                `<div class="feature-row-key"${original && original !== label ? ` title="${this._escapeAttr(original)}"` : ''} style="opacity:0.5; flex:0 0 38%; max-width:38%; min-width:0; word-break:break-word;">${this._escapeAttr(label)}</div>` +
+                    style="display:flex; flex-direction:column; align-items:stretch; padding:5px 0; border-bottom:1px solid var(--console-line); ${interactive ? 'cursor:pointer;' : ''}">` +
+                `<div style="display:flex; align-items:flex-start; gap:10px; color:var(--console-ink); font-size:11.5px; line-height:1.35;">` +
+                `<div class="feature-row-key"${original && original !== label ? ` title="${this._escapeAttr(original)}"` : ''} style="color:var(--console-ink-3); flex:0 0 38%; max-width:38%; min-width:0; word-break:break-word;">${this._escapeAttr(label)}</div>` +
                 `<div class="feature-row-value" style="flex:1; min-width:0; word-break:break-word; white-space:pre-line;">${valueHTML}</div>` +
                 `</div>` +
                 actionsHTML +
@@ -1585,7 +1599,7 @@ export class MapMarkerManager {
         }
 
         if (rows.length === 0 && !labelRow) {
-            rows = [`<div style="font-size:9px;color:#9ca3af;padding:2px 0;">No attributes</div>`];
+            rows = [`<div style="font-size:11.5px;color:var(--console-ink-3);padding:4px 0;">No attributes</div>`];
         }
         const shownCount = rows.length;
         if (labelRow) rows.unshift(labelRow);
@@ -1597,7 +1611,7 @@ export class MapMarkerManager {
         if (fields.length > 0 && validEntries.length > shownCount) {
             const allRows = validEntries.map(([k, v]) => buildRow(k, v, k));
             allPropertiesHTML = `<div class="badge-all-properties" style="display:none;">${allRows.join('')}</div>`;
-            const btnStyle = `margin-top:2px;padding:2px 0;background:transparent;color:#9ca3af;border:none;border-top:1px dashed #374151;font-size:9px;font-weight:600;cursor:pointer;width:100%;text-align:left;`;
+            const btnStyle = `margin-top:2px;padding:6px 0;background:transparent;color:var(--console-blue);border:none;font-size:11.5px;cursor:pointer;width:100%;text-align:left;`;
             showAllButton = `<button class="badge-show-all-props-btn" data-total="${validEntries.length}" style="${btnStyle}">Show all ${validEntries.length} properties</button>`;
         }
 
@@ -1689,10 +1703,10 @@ export class MapMarkerManager {
             <div class="marker-layer-info-row" data-layer-id="${this._escapeAttr(layerId)}"
                 title="Open details for ${layerName}"
                 style="display:none; flex:none; align-items:center; gap:6px; width:100%; cursor:pointer; box-sizing:border-box;
-                       padding:5px 7px; margin-top:4px; border-radius:6px; background:rgba(255,255,255,0.08);">
+                       padding:5px 7px; margin-top:4px; border-radius:6px; background:var(--console-raised); border:1px solid var(--console-line);">
                 ${thumbnailHTML}
-                <span style="flex:1; min-width:0; overflow-wrap:break-word; white-space:normal; line-height:1.15; font-size:10px; color:#9ca3af; font-weight:700; text-transform:uppercase; letter-spacing:0.02em;">${layerName}</span>
-                <sl-icon name="info-circle" style="font-size:10px;color:#6b7280;flex:none;"></sl-icon>
+                <span style="flex:1; min-width:0; overflow-wrap:break-word; white-space:normal; line-height:1.15; font-size:10.5px; color:var(--console-ink-3); font-weight:700; text-transform:uppercase; letter-spacing:0.1em;">${layerName}</span>
+                <sl-icon name="info-circle" style="font-size:12px;color:var(--console-ink-3);flex:none;"></sl-icon>
             </div>
         `;
     }
@@ -2112,12 +2126,12 @@ export class MapMarkerManager {
                 <button type="button" class="marker-id-action marker-id-move" title="Drag to reposition"
                     style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
                            background: transparent; border: none; border-radius: 50%; cursor: move; flex-shrink: 0;">
-                    <sl-icon name="arrows-move" style="font-size: 14px; color: #9ca3af; pointer-events: none;"></sl-icon>
+                    <sl-icon name="arrows-move" style="font-size: 14px; color: var(--console-ink-2); pointer-events: none;"></sl-icon>
                 </button>
                 <button type="button" class="marker-id-action marker-id-pin" title="${pinned ? 'Unpin (auto-collapses when unfocused)' : 'Pin open (stays open when unfocused)'}"
                     style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
                            background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
-                    <sl-icon name="${pinned ? 'pin-angle-fill' : 'pin-angle'}" style="font-size: 14px; color: ${pinned ? '#facc15' : '#9ca3af'}; pointer-events: none;"></sl-icon>
+                    <sl-icon name="${pinned ? 'pin-angle-fill' : 'pin-angle'}" style="font-size: 14px; color: ${pinned ? 'var(--console-amber)' : 'var(--console-ink-2)'}; pointer-events: none;"></sl-icon>
                 </button>
                 <button type="button" class="marker-id-badge" title="${this._escapeAttr(badgeLabel)}"
                     style="${labelStyle} display: flex; flex-direction: column; align-items: flex-start; white-space: normal; overflow-wrap: break-word; text-align: left; cursor: pointer;
@@ -2152,12 +2166,12 @@ export class MapMarkerManager {
                 <button type="button" class="marker-id-action marker-id-remove" title="Delete this marker"
                     style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
                            background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
-                    <sl-icon name="trash" style="font-size: 14px; color: #9ca3af; pointer-events: none;"></sl-icon>
+                    <sl-icon name="trash" style="font-size: 14px; color: var(--console-ink-2); pointer-events: none;"></sl-icon>
                 </button>
                 <button type="button" class="marker-id-action marker-id-shortcuts" title="Options for this point"
                     style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
                            background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
-                    <sl-icon name="three-dots-vertical" style="font-size: 14px; color: #9ca3af; pointer-events: none;"></sl-icon>
+                    <sl-icon name="three-dots-vertical" style="font-size: 14px; color: var(--console-ink-2); pointer-events: none;"></sl-icon>
                 </button>
             </div>
         `;
@@ -2402,13 +2416,13 @@ export class MapMarkerManager {
                         style="display: none; flex-shrink: 0; cursor: pointer; margin-left: 8px; accent-color: #3b82f6;" />
                     <button type="button" class="shortcut-menu-item marker-summary-chip ${extraClass}"
                         data-badge-index="${index}" aria-expanded="false"
-                        style="flex: 1; min-width: 0; flex-direction: column; align-items: stretch; gap: 3px; border-left: 1px solid transparent;"
+                        style="flex: 1; min-width: 0; flex-direction: column; align-items: stretch; gap: 3px; border-left: 2px solid transparent;"
                         title="${this._escapeAttr(fieldName ? `${fieldName}: ${label}` : label)}">
                         <div class="marker-summary-chip__main" style="display: flex; align-items: center; gap: 8px; width: 100%; flex: none;">
                             <span class="marker-summary-chip__icon" style="display: inline-flex; flex: none;">${iconHTML}</span>
                             <div style="display: flex; flex-direction: column; align-items: flex-start; flex: 1; min-width: 0; overflow: hidden;">
                                 <span class="marker-summary-chip__value" data-short="${this._escapeAttr(this._truncateName(label, 30))}" data-full="${this._escapeAttr(label)}" style="${valueColor ? `color: ${this._escapeAttr(valueColor)}; ` : ''}flex: none; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this._escapeAttr(this._truncateName(label, 30))}</span>
-                                ${fieldName ? `<span class="marker-summary-chip__field" style="flex: none; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; line-height: 1.3; color: #9ca3af;">${this._escapeAttr(fieldName)}</span>` : ''}
+                                ${fieldName ? `<span class="marker-summary-chip__field" style="flex: none; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 1.3; color: var(--console-ink-3);">${this._escapeAttr(fieldName)}</span>` : ''}
                                 ${actionsHTML}
                             </div>
                             <span class="marker-summary-close" role="button" aria-label="Close" title="Close" style="display: none; flex: none; align-self: flex-start; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; font-size: 14px; color: rgba(255, 255, 255, 0.72);"><sl-icon name="x-lg"></sl-icon></span>
@@ -2514,37 +2528,37 @@ export class MapMarkerManager {
                 box-sizing: border-box;
                 padding-bottom: 4px;
                 margin-bottom: 4px;
-                border-bottom: 1px solid #334155;
+                border-bottom: 1px solid var(--console-line);
             ">
-                <span style="font-size: 8px; line-height: 1.1; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.02em; display: block; margin-bottom: 2px;">Comment</span>
+                <span style="font-size: 10.5px; line-height: 1.1; font-weight: 700; color: var(--console-ink-3); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 4px;">Comment</span>
                 <textarea class="marker-comment-input" rows="1" placeholder="Add a comment..." style="
                     display: block;
                     width: 100%;
                     max-width: 100%;
                     box-sizing: border-box;
-                    background: #0a0a0a;
-                    color: #e2e8f0;
-                    border: 1px solid #334155;
-                    border-radius: 4px;
-                    padding: 4px 6px;
-                    font-size: 11px;
+                    background: var(--console-raised);
+                    color: var(--console-ink);
+                    border: 1px solid var(--console-line-strong);
+                    border-radius: var(--console-radius-sm);
+                    padding: 6px 8px;
+                    font-size: 12px;
                     font-family: inherit;
                     resize: none;
                     overflow: hidden;
                     line-height: 1.3;
                     cursor: text;
                 ">${this._escapeHtml(existingValue)}</textarea>
-                ${dateLabel ? `<span class="marker-comment-date" style="display: block; margin-top: 3px; font-size: 9px; color: #6b7280;">${this._escapeHtml(dateLabel)}</span>` : ''}
+                ${dateLabel ? `<span class="marker-comment-date" style="display: block; margin-top: 3px; font-size: 11px; color: var(--console-ink-3);">${this._escapeHtml(dateLabel)}</span>` : ''}
                 <button type="button" class="marker-comment-save-btn" style="
                     display: none;
                     width: 100%;
                     margin-top: 4px;
-                    background: #16a34a;
-                    border: none;
-                    color: #fff;
-                    padding: 4px 0;
-                    border-radius: 4px;
-                    font-size: 11px;
+                    background: var(--console-raised);
+                    border: 1px solid var(--console-line-strong);
+                    color: var(--console-ink);
+                    padding: 6px 0;
+                    border-radius: var(--console-radius-sm);
+                    font-size: 12px;
                     font-weight: 600;
                     cursor: pointer;
                 ">Save</button>
@@ -2835,7 +2849,7 @@ export class MapMarkerManager {
                 ? 'data-addr-point="1"'
                 : (part.osmType && part.osmId ? `data-osm-type="${part.osmType}" data-osm-id="${part.osmId}"` : '');
             const name = part.url
-                ? `<a href="${part.url}" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none;">${part.name}</a>`
+                ? `<a href="${part.url}" target="_blank" rel="noopener" style="color:var(--console-blue);text-decoration:none;">${part.name}</a>`
                 : `<span style="color:#f3f4f6;">${part.name}</span>`;
             return `
                 <div class="address-detail-row" ${place} style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:11px;">
@@ -3243,7 +3257,7 @@ export class MapMarkerManager {
             value.textContent = value.dataset.short;
             Object.assign(value.style, { fontSize: '', lineHeight: '', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', overflowWrap: '' });
             value.style.color = value.dataset.color || '';
-            if (field) Object.assign(field.style, { color: '#9ca3af', opacity: '', fontSize: '9px', fontWeight: '', lineHeight: '1.3' });
+            if (field) Object.assign(field.style, { color: 'var(--console-ink-3)', opacity: '', fontSize: '11px', fontWeight: '', lineHeight: '1.3' });
         }
     }
 
@@ -3257,19 +3271,19 @@ export class MapMarkerManager {
     _setActiveSummaryChip(el, activeChip, accentColor = null) {
         el.querySelectorAll('.marker-summary-chip').forEach(chip => {
             const isActive = chip === activeChip;
-            chip.style.background = isActive ? '#1e3a5f' : 'transparent';
+            chip.style.background = isActive ? MARKER_ROW_ACTIVE_BG : 'transparent';
             // Left border only, in the same color the layer's own paint
             // properties render its feature-state "selected" highlight in
             // (see _getLayerAccentColor) - falls back to the generic blue
             // accent when a layer has no color of its own to borrow (e.g.
             // the address row).
-            chip.style.borderLeft = isActive ? `1px solid ${accentColor || '#3b82f6'}` : '1px solid transparent';
-            chip.querySelector('.marker-summary-chip__value').style.color = isActive ? '#93c5fd' : '#f3f4f6';
+            chip.style.borderLeft = isActive ? `2px solid ${accentColor || 'var(--console-amber)'}` : '2px solid transparent';
+            chip.querySelector('.marker-summary-chip__value').style.color = 'var(--console-ink)';
             // The property list beneath an active chip carries the same fill,
             // so the two read as one highlighted block for this feature
             // rather than a plain list hanging off a highlighted label.
             const details = chip.closest('.marker-summary-item')?.querySelector('.marker-summary-details');
-            if (details) details.style.background = isActive ? '#1e3a5f' : 'transparent';
+            if (details) details.style.background = isActive ? MARKER_ROW_ACTIVE_BG : 'transparent';
         });
     }
 
@@ -3333,17 +3347,17 @@ export class MapMarkerManager {
         overlay.className = 'raster-legend-lightbox';
         overlay.style.cssText = `
             position: fixed; inset: 0; z-index: 10000;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.72);
             display: flex; align-items: center; justify-content: center;
             padding: 24px; cursor: zoom-out;
         `;
         overlay.innerHTML = `
             <img src="${this._escapeAttr(src)}" alt="${this._escapeAttr(alt)}"
-                style="max-width:100%; max-height:100%; border-radius:6px; box-shadow:0 10px 40px rgba(0,0,0,0.5); cursor:default;" />
+                style="max-width:100%; max-height:100%; border-radius:var(--console-radius); box-shadow:var(--console-shadow); cursor:default;" />
             <button type="button" class="raster-legend-lightbox-close" aria-label="Close"
                 style="position:absolute; top:16px; right:16px; width:32px; height:32px; border-radius:50%;
-                       background:rgba(255,255,255,0.15); border:none; color:white; font-size:18px; cursor:pointer;
-                       display:flex; align-items:center; justify-content:center;">✕</button>
+                       background:var(--console-surface); border:1px solid var(--console-line-strong); box-shadow:var(--console-shadow); color:var(--console-ink); font-size:16px; cursor:pointer;
+                       display:flex; align-items:center; justify-content:center;"><sl-icon name="x-lg"></sl-icon></button>
         `;
 
         const close = () => {
@@ -3402,9 +3416,9 @@ export class MapMarkerManager {
 
         const setHighlighted = (btn, on) => {
             if (!btn) return;
-            btn.style.background = on ? 'rgba(59, 130, 246, 0.35)' : 'rgba(59, 130, 246, 0.15)';
-            btn.style.borderColor = on ? '#3b82f6' : 'rgba(59, 130, 246, 0.4)';
-            btn.style.color = on ? '#ffffff' : '#93c5fd';
+            btn.style.background = on ? 'rgba(124, 180, 255, 0.3)' : 'rgba(124, 180, 255, 0.1)';
+            btn.style.borderColor = on ? 'var(--console-blue)' : 'rgba(124, 180, 255, 0.35)';
+            btn.style.color = on ? 'var(--console-ink)' : 'var(--console-blue)';
         };
 
         /**
@@ -3437,7 +3451,7 @@ export class MapMarkerManager {
             rows.forEach(row => {
                 const key = row.dataset.fieldKey;
                 const isSelected = key === selectedKey;
-                row.style.background = isSelected ? '#1e3a5f' : 'transparent';
+                row.style.background = isSelected ? 'var(--console-hover)' : 'transparent';
 
                 const actions = row.querySelector('.feature-row-actions');
                 if (!actions) return;
@@ -5178,9 +5192,9 @@ export class MapMarkerManager {
         badge.classList.add('badge-selected');
         const details = badge.querySelector('.feature-badge-details');
         if (details) details.style.display = 'block';
-        badge.style.background = '#1e3a5f';
+        badge.style.background = MARKER_ROW_ACTIVE_BG;
         const valueSpan = badge.querySelector('.badge-value');
-        if (valueSpan) valueSpan.style.color = '#93c5fd';
+        if (valueSpan) valueSpan.style.color = 'var(--console-ink)';
         this._expandBadgeValue(valueSpan);
     }
 
@@ -5305,7 +5319,7 @@ export class MapMarkerManager {
         const infoSize = 20;
         el.innerHTML = `
             <div class="marker-action-row" style="display: flex; flex-direction: row; align-items: center; gap: 4px; height: ${infoSize}px; flex-shrink: 0;"></div>
-            <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: 240px; background: ${MARKER_PANEL_BG}; border: 1px solid ${MARKER_PANEL_BORDER}; border-radius: 8px; box-shadow: ${MARKER_PANEL_SHADOW};">
+            <div class="marker-content" style="display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: 240px; background: ${MARKER_PANEL_BG}; border: 1px solid ${MARKER_PANEL_BORDER}; border-radius: ${MARKER_CORNER_RADIUS}px; box-shadow: ${MARKER_PANEL_SHADOW};">
                 ${this._buildMarkerBadgesHTML(features, lngLat)}
             </div>
         `;

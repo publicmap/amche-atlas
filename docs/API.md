@@ -815,7 +815,7 @@ The example above is equivalent to this URL:
 - Without either param the atlas's own pins and routes load. They are not written back into the URL unless the visitor moves, renames or removes one, so a plain atlas link stays short.
 - Switching to the atlas from the console's Find loads them too. Routes are layers resolved when the page loads, so the page reopens once on the new atlas with its pins in `?markers=` and its routes ahead of the other layers in `?layers=`. It doesn't reopen when the link already carries pins or routes, which take precedence as above.
 
-**Saving pins.** Saving a pin (naming it, or pinning its panel open) shows a prompt in the console's pins row, and **Share** there opens two places to keep the pins (`js/console/share-pins.js`):
+**Saving pins.** Saving a pin (naming it, or pinning its panel open) adds it to the console's Pins list (the pin button beside On map, with its count), and **Share** on that list opens two places to keep the pins (`js/console/share-pins.js`):
 - **Share link.** The pins are already in `?markers=` and the routes in `?layers=`. Copy the link to share it. Nothing outside the browser changes.
 - **Atlas config.** The `markers` and `routes` JSON for every pin and route the link carries, one per line, with a **Copy** button. Paste it at the top level of the atlas file, such as `config/goa.atlas.json`, in place of any `markers`/`routes` already there, and open a pull request. Once merged, the pins show for everyone who opens that atlas.
 

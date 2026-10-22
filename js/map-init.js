@@ -1619,6 +1619,10 @@ export class MapInitializer {
             if (!window.loadingStartupState?.manualOverlayControl &&
                 (window.loadingStartupState?.proceedNormally || window.loadingStartupState?.userLocation)) {
                 requestAnimationFrame(() => {
+                    if (window.closeLoadingScreen) {
+                        window.closeLoadingScreen();
+                        return;
+                    }
                     const loadingOverlay = document.getElementById('loading-overlay');
                     if (loadingOverlay) {
                         loadingOverlay.style.opacity = '0';

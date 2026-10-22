@@ -37,17 +37,16 @@ function markerLabel(stateManager, markerData) {
  * map-nearby-features-control.js, etc. all do this for related state).
  */
 export function createMarkerProvider() {
-    function search(query) {
-        const term = (query || '').trim().toLowerCase()
+    function list(term = '', limit = Infinity) {
         const markerManager = window.featureControl?._markerManager
-        if (!term || !markerManager?._markers) return []
+        if (!markerManager?._markers) return []
 
         const stateManager = window.featureControl?._stateManager
         const results = []
 
         for (const [markerId, markerData] of markerManager._markers) {
             const label = markerLabel(stateManager, markerData)
-            if (!label.toLowerCase().includes(term)) continue
+            if (term && !label.toLowerCase().includes(term)) continue
 
             results.push({
                 _searchResultType: 'marker',
@@ -56,11 +55,16 @@ export function createMarkerProvider() {
                 markerLngLat: markerData.lngLat,
                 properties: { name: label, place_name: 'Your marker' }
             })
-            if (results.length >= MAX_RESULTS) break
+            if (results.length >= limit) break
         }
 
         return results
     }
 
-    return { type: 'marker', search }
+    function search(query) {
+        const term = (query || '').trim().toLowerCase()
+        return term ? list(term, MAX_RESULTS) : []
+    }
+
+    return { type: 'marker', search, list }
 }

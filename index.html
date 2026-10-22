@@ -357,13 +357,24 @@
         }
 
         .nav-menu-hero .splash-logo {
-            width: 44px;
-            height: 44px;
+            width: 48px;
+            height: 48px;
             border-radius: 10px;
         }
 
         .nav-menu-hero .splash-brand-link {
+            display: block;
             font-size: 1.625rem;
+        }
+
+        .nav-menu-hero .splash-meaning-gloss {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: #e5e7eb;
+        }
+
+        .nav-menu-hero .splash-meaning-gloss::before {
+            content: none;
         }
 
         .nav-menu-logo {
@@ -428,7 +439,8 @@
             align-items: baseline;
             flex-wrap: wrap;
             gap: 0 6px;
-            margin-top: 6px;
+            margin-top: 4px;
+            line-height: 1.2;
             color: #e5e7eb;
             text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
         }
@@ -562,6 +574,50 @@
         .splash-credits a:hover {
             color: #fff;
             text-decoration: underline;
+        }
+
+        .splash-goals {
+            margin-top: 10px;
+        }
+
+        .splash-goals .splash-credits-heading {
+            display: block;
+        }
+
+        .splash-goal-badges {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(52px, 1fr));
+            gap: 4px;
+        }
+
+        .splash-credits a.splash-goal {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-height: 52px;
+            padding: 4px 5px;
+            border-radius: 3px;
+            color: #fff;
+            text-decoration: none;
+            transition: filter 0.15s;
+        }
+
+        .splash-credits a.splash-goal:hover {
+            filter: brightness(1.15);
+            text-decoration: none;
+        }
+
+        .splash-goal-number {
+            font-size: 1rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .splash-goal-name {
+            font-size: 0.5rem;
+            font-weight: 700;
+            line-height: 1.15;
+            text-transform: uppercase;
         }
 
         .splash-links {
@@ -1014,13 +1070,7 @@
                     return;
                 }
 
-                if (loadingOverlay) {
-                    loadingOverlay.style.opacity = '0';
-                    loadingOverlay.style.transition = 'opacity 0.3s ease';
-                    setTimeout(() => {
-                        loadingOverlay.style.display = 'none';
-                    }, 300);
-                }
+                closeLoadingScreen();
             }
 
             function cancelAutoProceed() {
@@ -1061,19 +1111,52 @@
                     loadingOverlayClose && loadingOverlayClose.style.display !== 'none';
             }
 
+            // Shrink the splash card into the console's home logo, fading the
+            // backdrop; a plain fade when the console isn't on screen or the
+            // visitor prefers reduced motion.
             function closeLoadingScreen() {
-                if (loadingOverlay) {
-                    loadingOverlay.style.opacity = '0';
-                    loadingOverlay.style.transition = 'opacity 0.3s ease';
-                    setTimeout(() => {
-                        loadingOverlay.style.display = 'none';
-                    }, 300);
-
-                    // Hide close button
-                    if (loadingOverlayClose) {
-                        loadingOverlayClose.style.display = 'none';
-                    }
+                if (!loadingOverlay || loadingOverlay.style.display === 'none' || loadingOverlay.dataset.closing) return;
+                loadingOverlay.dataset.closing = 'true';
+                if (loadingOverlayClose) {
+                    loadingOverlayClose.style.display = 'none';
                 }
+
+                const card = loadingOverlay.querySelector('.splash-card');
+                const logo = document.querySelector('.console-home');
+                const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                const from = card?.getBoundingClientRect();
+                const to = logo?.getBoundingClientRect();
+                const finish = () => {
+                    loadingOverlay.style.display = 'none';
+                    loadingOverlay.style.transition = '';
+                    loadingOverlay.style.background = '';
+                    delete loadingOverlay.dataset.closing;
+                };
+
+                if (reduceMotion || !card?.animate || !from?.width || !to?.width) {
+                    loadingOverlay.style.transition = 'opacity 0.3s ease';
+                    loadingOverlay.style.opacity = '0';
+                    setTimeout(finish, 300);
+                    return;
+                }
+
+                const dx = (to.left + to.width / 2) - (from.left + from.width / 2);
+                const dy = (to.top + to.height / 2) - (from.top + from.height / 2);
+                const scale = Math.max(to.width / from.width, to.height / from.height);
+                const duration = 500;
+                loadingOverlay.style.transition = `background ${duration}ms ease`;
+                loadingOverlay.style.background = 'transparent';
+                card.animate([
+                    { transform: 'none', opacity: 1, borderRadius: '12px' },
+                    { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 0.2, borderRadius: '50%' }
+                ], { duration, easing: 'cubic-bezier(0.5, 0, 0.75, 0)' }).finished.then(() => {
+                    finish();
+                    logo.animate([
+                        { transform: 'scale(1)' },
+                        { transform: 'scale(1.25)' },
+                        { transform: 'scale(1)' }
+                    ], { duration: 300, easing: 'ease-out' });
+                });
             }
 
             // Close button click handler
@@ -1342,7 +1425,14 @@
                 <div class="splash-art-content">
                     <div class="splash-brand">
                         <img class="splash-logo nav-menu-logo" src="assets/img/icon-192x192.png" alt="">
-                        <span class="splash-brand-link">amche.in</span>
+                        <div class="splash-brand-text">
+                            <span class="splash-brand-link">amche.in</span>
+                            <div class="splash-meaning">
+                                <span class="splash-meaning-word" lang="kok">आमचे.</span>
+                                <span class="splash-meaning-roman">Amche.</span>
+                                <span class="splash-meaning-gloss">Ours</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <button id="nav-menu-close" class="splash-close" aria-label="Close menu">&times;</button>

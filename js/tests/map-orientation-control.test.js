@@ -30,6 +30,9 @@ class GeolocateControlStub {
 
     onAdd(map) {
         this._map = map;
+        // GL JS sets this once its async support check passes; the watch
+        // waits on it before arming trigger() (see geolocation-watch.js).
+        this._setup = true;
         this._container.appendChild(this._button);
         return this._container;
     }
@@ -359,22 +362,24 @@ describe('MapOrientationControl', () => {
         const listener = (event, params) => { if (params?.geolocate !== undefined) updates.push(params.geolocate); };
         $(document).on('update_url', listener);
         try {
+            // Every state change reconciles the param (see GeolocationWatch._sync),
+            // so what matters is the value it is left at after each step.
             const { geolocate, button } = mount();
             button.click();
             await flush();
-            expect(updates).toEqual([true]);
+            expect(updates.at(-1)).toBe(true);
 
             geolocate.resolvePosition();
             await flush();
-            expect(updates).toEqual([true]);
+            expect(updates.at(-1)).toBe(true);
 
             geolocate.panAway();
             await flush();
-            expect(updates).toEqual([true, false]);
+            expect(updates.at(-1)).toBe(false);
 
             button.click(); // off
             await flush();
-            expect(updates).toEqual([true, false]);
+            expect(updates.at(-1)).toBe(false);
         } finally {
             $(document).off('update_url', listener);
         }

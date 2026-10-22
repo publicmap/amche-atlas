@@ -4,12 +4,12 @@
  * box, the layer stack and the map browser panel.
  *
  * It has two modes:
- * - explore: one bar row (home, atlas, Find, On map with its count) over a line naming the place at the map center - starting
- *   with the Share panel's link icon (js/share-view-panel.js), ending in the
- *   3D terrain and location status icons - then the pins
- *   row and, when opened, Share (js/console/share-pins.js). Marker panels dock
- *   in a column beneath the console (map-marker-manager.js), so the pins read
- *   as the console's own list.
+ * - explore: one bar row (home, atlas with its Find icon, On map, Pins and -
+ *   once there is a route - Routes, with their counts) over a line naming the place at the map center -
+ *   starting with the Share panel's link icon (js/share-view-panel.js), ending
+ *   in the 3D terrain and location status icons - then, when opened, Share
+ *   for the pins (js/console/share-pins.js). Marker panels dock in a column
+ *   beneath the console (map-marker-manager.js).
  * - find: the bar row becomes the search field and the console grows into
  *   Find (js/console/find-panel.js) - one list of atlases, maps, features and
  *   places, with a filter for what is on the map.
@@ -21,12 +21,23 @@
  * classes: map-marker-manager.js docks marker panels beneath that row.
  */
 import { FindPanel } from './console/find-panel.js';
-import { PinsRow, SharePanel } from './console/share-pins.js';
+import { SharePanel } from './console/share-pins.js';
+import { createMarkerProvider } from './search/providers/marker-provider.js';
+import { routeStore } from './search/route-store.js';
 import { placeLine } from './map-search-toggle.js';
 import { trackLog } from './gpx-log.js';
 import { MODE } from './map-orientation-modes.js';
 
 const LOGO_SRC = 'assets/img/icon-192x192.png';
+const markers = createMarkerProvider();
+
+function badge(node) {
+    const count = document.createElement('span');
+    count.className = 'console-badge';
+    count.hidden = true;
+    node.appendChild(count);
+    return count;
+}
 
 function button(className, iconName, title) {
     const node = document.createElement('button');
@@ -59,9 +70,10 @@ export class MapControlBar {
             else if (this.share?.isOpen) this.closeShare();
         };
         this._onUrlUpdated = () => {
-            this.pins?.render();
+            this._updatePins();
             this.share?.render();
         };
+        this._onRoutesChanged = () => setTimeout(() => this._updatePins());
     }
 
     mount(hostEl, { map = null, searchToggle = null, stripEl = null, getOnMapLayers = null, onModeChange = null, onToggleHidden = null } = {}) {
@@ -84,7 +96,7 @@ export class MapControlBar {
         if (window.amche?.isDevBuild) home.appendChild(Object.assign(document.createElement('span'), { className: 'console-home-dev', title: 'Development build' }));
         home.addEventListener('click', () => window.amche?.openNavMenu?.());
 
-        this._main = button('map-control-bar-main when-explore', null, 'Switch atlas or browse maps');
+        this._main = button('map-control-bar-main when-explore', null, 'Find atlases, maps and places ( / )');
         this._iconEl = document.createElement('span');
         this._iconEl.className = 'map-control-bar-icon';
         const iconWrap = document.createElement('span');
@@ -94,31 +106,33 @@ export class MapControlBar {
         iconWrap.append(this._iconEl, spinner);
         this._nameEl = document.createElement('span');
         this._nameEl.className = 'map-control-bar-name';
-        const chevron = document.createElement('sl-icon');
-        chevron.name = 'chevron-down';
-        chevron.className = 'map-control-bar-chevron';
-        this._main.append(iconWrap, this._nameEl, chevron);
+        const searchIcon = document.createElement('sl-icon');
+        searchIcon.name = 'search';
+        searchIcon.className = 'map-control-bar-search';
+        this._main.append(iconWrap, this._nameEl, searchIcon);
         this._main.addEventListener('click', () => this.setMode('find', { filter: 'all' }));
 
         const searchEl = searchToggle?._el || null;
         if (searchEl) searchEl.classList.add('when-find');
 
-        const findBtn = button('console-btn when-explore', 'search', 'Find atlases, maps and places ( / )');
-        findBtn.addEventListener('click', () => this.setMode('find', { filter: 'all' }));
-
         this._layersBtn = button('console-btn console-layers-btn when-explore', 'layers', 'Maps on the map');
-        this._badge = document.createElement('span');
-        this._badge.className = 'console-badge';
-        this._badge.hidden = true;
-        this._layersBtn.appendChild(this._badge);
+        this._badge = badge(this._layersBtn);
         this._layersBtn.addEventListener('click', () => this.setMode('find', { filter: 'onmap' }));
+
+        this._pinsBtn = button('console-btn console-pins-btn when-explore', 'pin-map', 'Pins');
+        this._pinsBadge = badge(this._pinsBtn);
+        this._pinsBtn.addEventListener('click', () => this.setMode('find', { filter: 'pins', focus: false }));
 
         const closeBtn = button('console-btn when-find', 'x-lg', 'Back to the map ( Esc )');
         closeBtn.addEventListener('click', () => this.setMode('explore'));
 
         head.append(home, this._main);
         if (searchEl) head.appendChild(searchEl);
-        head.append(findBtn, this._layersBtn, closeBtn);
+        this._routesBtn = button('console-btn console-routes-btn when-explore', 'signpost-split', 'Routes');
+        this._routesBadge = badge(this._routesBtn);
+        this._routesBtn.addEventListener('click', () => this.setMode('find', { filter: 'routes', focus: false }));
+
+        head.append(this._layersBtn, this._pinsBtn, this._routesBtn, closeBtn);
 
         // Opens the Share panel (js/share-view-panel.js)
         this.shareButton = button('map-console-share-btn', 'link-45deg', 'Share this view, map history and other maps');
@@ -139,6 +153,7 @@ export class MapControlBar {
             },
             onHover: (item, hovering) => window.searchControl?.handleSuggestionHover(item, hovering),
             getOnMapLayers,
+            onSharePins: () => this.openShare(),
             clearQuery: () => this._searchToggle?.clear(),
             onDone: () => this.setMode('explore', { keepQuery: true })
         });
@@ -146,8 +161,6 @@ export class MapControlBar {
 
         const explore = document.createElement('div');
         explore.className = 'map-console-explore when-explore';
-        this.pins = new PinsRow({ onShare: () => this.openShare() });
-        this.pins.mount(explore);
         this.share = new SharePanel({ onClose: () => this.closeShare() });
         explore.appendChild(this.share.el);
 
@@ -161,6 +174,9 @@ export class MapControlBar {
             this._resizeObserver.observe(this._el);
         }
         window.addEventListener('urlUpdated', this._onUrlUpdated);
+        window.addEventListener('marker-saved', this._onUrlUpdated);
+        ['routes-changed', 'layersInitialized'].forEach(type => window.addEventListener(type, this._onRoutesChanged));
+        this._updatePins();
 
         window.addEventListener('atlasChanged', this._onAtlasChanged);
         window.addEventListener('mapLocationChanged', this._onLocation);
@@ -255,7 +271,7 @@ export class MapControlBar {
 
         this._nameEl.textContent = name || 'Loading atlas';
         this._nameEl.classList.toggle('placeholder', !name);
-        this._main.title = name ? `${name}: switch atlas or browse maps` : 'Switch atlas or browse maps';
+        this._main.title = name ? `${name}: find atlases, maps and places ( / )` : 'Find atlases, maps and places ( / )';
         this._setIcon(metadata?.icon || null);
 
         const count = Array.isArray(layers) ? layers.filter(l => l.id !== 'selection').length : 0;
@@ -264,6 +280,22 @@ export class MapControlBar {
         this._layersBtn.title = count ? `${count} maps on the map ( Ctrl+L )` : 'Maps on the map';
         this.find.onMapActions.update(layers);
         this.find.refresh();
+    }
+
+    _updatePins() {
+        if (!this._pinsBtn) return;
+        const count = markers.list().length;
+        this._pinsBadge.hidden = !count;
+        this._pinsBadge.textContent = String(count);
+        this._pinsBtn.title = count ? `${count} pin${count === 1 ? '' : 's'} on the map` : 'Pins';
+        this._pinsBtn.setAttribute('aria-label', this._pinsBtn.title);
+
+        const routes = routeStore.routes.length;
+        this._routesBtn.hidden = !routes;
+        this._routesBadge.hidden = !routes;
+        this._routesBadge.textContent = String(routes);
+        this._routesBtn.title = `${routes} route${routes === 1 ? '' : 's'} on the map`;
+        this._routesBtn.setAttribute('aria-label', this._routesBtn.title);
     }
 
     setHidden(count, shown) {
@@ -337,9 +369,10 @@ export class MapControlBar {
         window.removeEventListener('geolocationModeChanged', this._onStatus);
         this._offTrackLog?.();
         window.removeEventListener('urlUpdated', this._onUrlUpdated);
+        window.removeEventListener('marker-saved', this._onUrlUpdated);
+        ['routes-changed', 'layersInitialized'].forEach(type => window.removeEventListener(type, this._onRoutesChanged));
         document.removeEventListener('keydown', this._onKeydown);
         this._resizeObserver?.disconnect();
-        this.pins?.destroy();
         this._map?.off?.('click', this._onMapClick);
         this.find?.destroy();
         document.body.classList.remove('console-find');

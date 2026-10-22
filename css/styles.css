@@ -1763,11 +1763,11 @@ body {
     position: fixed;
     z-index: 1100;
     min-width: 220px;
-    background: #1f2937;
-    border: 1px solid #374151;
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-    padding: 4px;
+    background: var(--console-surface);
+    border: 1px solid var(--console-line-strong);
+    border-radius: var(--console-radius);
+    box-shadow: var(--console-shadow);
+    padding: 6px;
 }
 
 /* The layer stack's own copy of this menu, opened from the column's options
@@ -1784,17 +1784,17 @@ body {
     width: 100%;
     background: transparent;
     border: none;
-    color: #f3f4f6;
-    font-size: 13px;
+    color: var(--console-ink);
+    font-size: 13.5px;
     text-align: left;
     padding: 8px 10px;
-    border-radius: 5px;
+    border-radius: var(--console-radius-sm);
     cursor: pointer;
 }
 
 .shortcut-menu-item sl-icon {
     font-size: 15px;
-    color: #9ca3af;
+    color: var(--console-ink-2);
     flex-shrink: 0;
 }
 
@@ -1811,24 +1811,24 @@ body {
 }
 
 .shortcut-menu-item:hover {
-    background: #374151;
+    background: var(--console-raised);
 }
 
 .shortcut-menu-item.is-checked {
-    color: #93c5fd;
-    background: rgba(59, 130, 246, 0.12);
+    color: var(--console-amber);
+    background: var(--console-amber-soft);
 }
 
 .shortcut-menu-item.is-checked:hover {
-    background: rgba(59, 130, 246, 0.2);
+    background: rgba(255, 191, 0, 0.22);
 }
 
 .shortcut-menu-item.is-checked sl-icon:not(.shortcut-menu-chevron) {
-    color: #3b82f6;
+    color: var(--console-amber);
 }
 
 .shortcut-menu-chevron {
-    color: #6b7280 !important;
+    color: var(--console-ink-3) !important;
     font-size: 12px !important;
 }
 
@@ -1837,17 +1837,17 @@ body {
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.04em;
-    color: #6b7280;
+    color: var(--console-ink-3);
 }
 
 .shortcut-menu-item.is-checked .shortcut-menu-state {
-    color: #3b82f6;
+    color: var(--console-amber);
 }
 
 .shortcut-menu-divider {
     height: 1px;
     margin: 4px 6px;
-    background: #374151;
+    background: var(--console-line);
 }
 
 /* Break between the "Route From" / "Route To" / "Navigation options" blocks
@@ -1855,8 +1855,8 @@ body {
    full-bleed and brighter than the in-section dividers, so each block reads
    as a separate section. */
 .shortcut-menu-divider.shortcut-menu-divider-section {
-    margin: 6px -4px;
-    background: #4b5563;
+    margin: 6px -6px;
+    background: var(--console-line-strong);
 }
 
 /* "Route From" / "Route To" section headings (see
@@ -1929,7 +1929,7 @@ body {
 
 .shortcut-menu-item-subtext {
     font-size: 10px;
-    color: #6b7280;
+    color: var(--console-ink-3);
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }

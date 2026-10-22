@@ -20,24 +20,29 @@ import {
 } from './find-browse.js';
 import { OnMapActions } from './on-map-actions.js';
 import { LayerDetails } from './layer-details.js';
+import { createMarkerProvider } from '../search/providers/marker-provider.js';
+import { matchingRoutes, routeRow } from './route-list.js';
 
 const FILTERS = [
     { id: 'all', label: 'All' },
     { id: 'onmap', label: 'On map' },
     { id: 'atlases', label: 'Atlases' },
     { id: 'maps', label: 'Maps' },
+    { id: 'pins', label: 'Pins' },
+    { id: 'routes', label: 'Routes' },
     { id: 'features', label: 'Features' },
     { id: 'places', label: 'Places' }
 ];
-const GROUP_ORDER = ['onmap', 'atlases', 'maps', 'features', 'places'];
-const GROUP_LABELS = { onmap: 'On the map', atlases: 'Atlases', maps: 'Maps', features: 'Features and pins', places: 'Places' };
-const GROUP_NOUNS = { onmap: 'maps on the map', atlases: 'atlases', maps: 'maps', features: 'features', places: 'places' };
+const GROUP_ORDER = ['onmap', 'atlases', 'maps', 'pins', 'routes', 'features', 'places'];
+const GROUP_LABELS = { onmap: 'On the map', atlases: 'Atlases', maps: 'Maps', pins: 'Pins', routes: 'Routes', features: 'Features', places: 'Places' };
+const GROUP_NOUNS = { onmap: 'maps on the map', atlases: 'atlases', maps: 'maps', pins: 'pins', routes: 'routes', features: 'features', places: 'places' };
+const markers = createMarkerProvider();
 const PREVIEW_COUNT = 3;
 const ATLAS_CARD_COUNT = 8;
 
 // Section labels from MapSearchControl._renderSuggestions -> Find type
 const SECTION_TYPE = {
-    'Atlases': 'atlases', 'Layers': 'maps', 'Features': 'features', 'Your markers': 'features',
+    'Atlases': 'atlases', 'Layers': 'maps', 'Features': 'features', 'Your markers': 'pins',
     'Directions': 'places', 'Countries': 'places', 'Mapbox': 'places', 'Nominatim': 'places',
     'Cadastral plots': 'places', 'Current location': 'places'
 };
@@ -47,8 +52,9 @@ const ITEM_ICONS = {
 };
 
 export class FindPanel {
-    constructor({ onSelect, onHover, getOnMapLayers, clearQuery, onDone } = {}) {
+    constructor({ onSelect, onHover, getOnMapLayers, clearQuery, onDone, onSharePins } = {}) {
         this._onSelect = onSelect;
+        this._onSharePins = onSharePins;
         this._onDone = onDone;
         this._clearQuery = clearQuery;
         this._openAtlas = (atlasId) => this.openAtlas(atlasId);
@@ -220,7 +226,9 @@ export class FindPanel {
             : {
                 onmap: this._getOnMapLayers().length,
                 atlases: window.layerRegistry?.getAllAtlasMetadata().length || 0,
-                maps: atlasLayers(this._currentAtlas()).length
+                maps: atlasLayers(this._currentAtlas()).length,
+                pins: markers.list().length,
+                routes: matchingRoutes().length
             };
         this._chipEls.forEach((chip, id) => {
             const count = id === 'all'
@@ -259,8 +267,20 @@ export class FindPanel {
             this._content.appendChild(node);
         } else if (this._filter === 'maps') {
             section(sectionLabel(`Maps in ${atlasName(atlasId)}`), mapsTree(atlasId, this._expanded, this._seeded));
+        } else if (this._filter === 'pins') {
+            const pins = markers.list();
+            const share = pins.length && this._onSharePins ? linkButton('Share', () => this._onSharePins()) : null;
+            section(sectionLabel('Pins', share), ...(pins.length
+                ? pins.map(item => this._resultRow('pins', item))
+                : [hint('No pins yet. Pins you save on the map are listed here.')]));
+        } else if (this._filter === 'routes') {
+            const routes = matchingRoutes();
+            const share = routes.length && this._onSharePins ? linkButton('Share', () => this._onSharePins()) : null;
+            section(sectionLabel('Routes', share), ...(routes.length
+                ? routes.map(route => this._resultRow('routes', route))
+                : [hint('No routes yet. Right-click the map and pick Route From, then Route To.')]));
         } else if (this._filter === 'features') {
-            section(hint('Type to search features on the visible maps and your pins. Click the map to see everything at one point.'));
+            section(hint('Type to search features on the visible maps. Click the map to see everything at one point.'));
         } else if (this._filter === 'places') {
             section(hint('Type a place, an address or coordinates, such as 15.4989, 73.8278.'));
         }
@@ -271,6 +291,7 @@ export class FindPanel {
         const term = this._query.toLowerCase();
         groups.onmap = this._getOnMapLayers().filter(layer =>
             [layer.title, layer.id, plainText(layer.description)].some(text => String(text || '').toLowerCase().includes(term)));
+        groups.routes = matchingRoutes(term);
         // A map already on the map is listed under On the map, not again under Maps
         const active = activeIds();
         this._sections.forEach(section => {
@@ -313,6 +334,7 @@ export class FindPanel {
     }
 
     _resultRow(type, item) {
+        if (type === 'routes') return this._track(routeRow(item, { onDone: this._onDone }), item);
         if (type === 'onmap') return this._track(layerRow(item, { meta: atlasName(item._sourceAtlas) }), item);
         if (item._searchResultType === 'layer') {
             const layer = item.layer;

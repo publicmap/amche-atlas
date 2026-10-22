@@ -1,9 +1,6 @@
 /**
- * The map console's pins row and Share panel (Explore mode, js/map-control-bar.js).
- *
- * The row under the place line counts the pins and routes on the map and opens
- * Share. Right after a pin is saved (the 'marker-saved' event from
- * map-marker-manager.js) it says so and asks where the pin should live.
+ * The map console's Share panel for pins (Explore mode, js/map-control-bar.js),
+ * opened from the Share link on Find's Pins list.
  *
  * Share offers the two homes docs/API.md describes ("Atlas-level markers and
  * routes"): the share link, which already carries every pin in `?markers=` and
@@ -16,7 +13,6 @@ import { parseMarkersParam } from '../marker-registry.js';
 import { URLUtils } from '../map-utils.js';
 import { atlasPinsJson } from '../atlas-pins.js';
 
-const SAVED_NOTICE_MS = 8000;
 const ROUTE_CALL_RE = /^([A-Za-z0-9-]*)\((.*)\)$/;
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
@@ -74,50 +70,6 @@ function copyButton(text, getText) {
     button.append(icon('clipboard'), el('span', '', text));
     button.addEventListener('click', () => copy(getText(), button));
     return button;
-}
-
-export class PinsRow {
-    constructor({ onShare } = {}) {
-        this._onShare = onShare;
-        this._saved = null;
-        this._timer = null;
-        this.el = el('div', 'console-pins');
-        this.el.hidden = true;
-        this._onSaved = (e) => this.noteSaved(e.detail?.urlId);
-    }
-
-    mount(host) {
-        host.appendChild(this.el);
-        window.addEventListener('marker-saved', this._onSaved);
-    }
-
-    noteSaved(urlId) {
-        if (!urlId) return;
-        this._saved = urlId;
-        clearTimeout(this._timer);
-        this._timer = setTimeout(() => { this._saved = null; this.render(); }, SAVED_NOTICE_MS);
-        this.render();
-    }
-
-    render() {
-        const { markers, routes } = currentPins();
-        this.el.hidden = !markers.length && !this._saved;
-        this.el.classList.toggle('just-saved', !!this._saved);
-        this.el.replaceChildren();
-        if (this.el.hidden) return;
-        const text = this._saved
-            ? `Saved “${this._saved.replace(/_/g, ' ')}”. Keep it in the link or the atlas?`
-            : [plural(markers.length, 'pin'), routes.length ? plural(routes.length, 'route') : ''].filter(Boolean).join(' · ');
-        const share = el('button', 'console-link', 'Share');
-        share.type = 'button';
-        share.addEventListener('click', () => this._onShare?.(this._saved));
-        this.el.append(icon(this._saved ? 'bookmark-check' : 'geo-alt'), el('span', 'console-pins-text', text), share);
-    }
-
-    destroy() {
-        clearTimeout(this._timer);
-        window.removeEventListener('marker-saved', this._onSaved);
-    }
 }
 
 export class SharePanel {

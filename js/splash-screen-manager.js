@@ -191,7 +191,39 @@ export class SplashScreenManager {
         dataLine.append('Data contributed from ');
         list(SPLASH_CREDITS.data, dataLine);
         dataLine.append('.');
-        host.append(heading, dedication, dataLine, line);
+        host.append(heading, dedication, dataLine, line, this.renderGoals());
+    }
+
+    renderGoals() {
+        const section = document.createElement('div');
+        section.className = 'splash-goals';
+        const heading = document.createElement('a');
+        heading.className = 'splash-credits-heading';
+        heading.href = 'https://sdgs.un.org/goals';
+        heading.target = '_blank';
+        heading.rel = 'noopener';
+        heading.textContent = 'UN Sustainable Development Goals';
+        const badges = document.createElement('div');
+        badges.className = 'splash-goal-badges';
+        SPLASH_CREDITS.goals.forEach(({ number, name, color }) => {
+            const badge = document.createElement('a');
+            badge.className = 'splash-goal';
+            badge.href = `https://sdgs.un.org/goals/goal${number}`;
+            badge.target = '_blank';
+            badge.rel = 'noopener';
+            badge.title = `Goal ${number}: ${name}`;
+            badge.style.background = color;
+            const num = document.createElement('span');
+            num.className = 'splash-goal-number';
+            num.textContent = number;
+            const label = document.createElement('span');
+            label.className = 'splash-goal-name';
+            label.textContent = name;
+            badge.append(num, label);
+            badges.appendChild(badge);
+        });
+        section.append(heading, badges);
+        return section;
     }
 
     showSplashSection() {
@@ -715,6 +747,10 @@ export class SplashScreenManager {
     }
 
     closeLoadingOverlay() {
+        if (window.closeLoadingScreen) {
+            window.closeLoadingScreen();
+            return;
+        }
         const overlay = document.getElementById('loading-overlay');
         if (!overlay) return;
         overlay.style.transition = 'opacity 0.3s ease';

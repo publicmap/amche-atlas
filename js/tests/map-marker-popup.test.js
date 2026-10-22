@@ -487,7 +487,7 @@ describe('marker popup layout', () => {
 
             chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-            expect(chip.style.borderLeft).toBe('1px solid rgb(59, 130, 246)');
+            expect(chip.style.borderLeft).toBe('2px solid var(--console-amber)');
             expect(chip.getAttribute('aria-expanded')).toBe('true');
             expect(chip.querySelector('.marker-summary-close').style.display).not.toBe('none');
         });
@@ -515,7 +515,7 @@ describe('marker popup layout', () => {
             chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
             expect(details.style.display).toBe('none');
-            expect(chip.style.borderLeft).toBe('1px solid transparent');
+            expect(chip.style.borderLeft).toBe('2px solid transparent');
             expect(chip.getAttribute('aria-expanded')).toBe('false');
             expect(chip.querySelector('.marker-summary-close').style.display).toBe('none');
         });
@@ -613,7 +613,7 @@ describe('marker popup layout', () => {
             surveyRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
             expect(writeText).toHaveBeenCalledWith('survey\t17');
-            expect(surveyRow.style.background).toBe('rgb(30, 58, 95)');
+            expect(surveyRow.style.background).toBe('var(--console-hover)');
             // Merely selecting it is not itself a filter action.
             expect(manager._map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'plot'], '17/1']]);
         });
@@ -735,12 +735,12 @@ describe('marker popup layout', () => {
             surveyRow.dispatchEvent(new MouseEvent('mouseenter'));
             expect(manager._map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'survey'], '17']]);
             const replaceBtn = surveyRow.querySelector('[data-action="replace"]');
-            expect(replaceBtn.style.background).toBe('rgba(59, 130, 246, 0.35)');
+            expect(replaceBtn.style.background).toBe('rgba(124, 180, 255, 0.3)');
 
             surveyRow.dispatchEvent(new MouseEvent('mouseleave'));
             // Reverted - the preview was never saved.
             expect(manager._map._filters.get('plots-fill')).toEqual(committed);
-            expect(replaceBtn.style.background).toBe('rgba(59, 130, 246, 0.15)');
+            expect(replaceBtn.style.background).toBe('rgba(124, 180, 255, 0.1)');
 
             replaceBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
             expect(manager._map._filters.get('plots-fill')).toEqual(['all', ['==', ['get', 'survey'], '17']]);
