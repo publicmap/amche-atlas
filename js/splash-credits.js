@@ -6,10 +6,8 @@
  *
  * `tools` - the tools it is built with. `thanks` - the community, partners
  * and supporters. `data` - where the map data comes from.
- * `projects` - instances of the software run by others, shown as buttons
- * under the splash description; `maintainers` is the sub line. `home` is
- * listed first on any site other than amche.in itself (a fork or an embed).
- * `goals` - the UN Sustainable Development Goals the project works towards,
+ * The "More Atlases" list of other instances lives in
+ * config/splash-projects.json. `goals` - the UN Sustainable Development Goals the project works towards,
  * shown as badges in the goal's official colour.
  */
 export const SPLASH_CREDITS = {
@@ -39,23 +37,6 @@ export const SPLASH_CREDITS = {
         { name: 'Mapbox', url: 'https://www.mapbox.com/about/maps' },
         { name: 'Maxar', url: 'https://www.maxar.com' },
         { name: 'NASA', url: 'https://www.nasa.gov' }
-    ],
-    home: {
-        name: 'amche.in',
-        maintainers: 'Amche Atlas, the original instance from Goa',
-        url: 'https://amche.in/'
-    },
-    projects: [
-        {
-            name: 'Goa Disaster Resource Atlas',
-            maintainers: 'Directorate of Fire & Emergency Services, Govt Of Goa',
-            url: 'https://dfesdmp.online/'
-        },
-        {
-            name: 'OpenStreetMap India Atlas',
-            maintainers: 'OpenStreetMap and DataMeet India Community',
-            url: 'https://www.openstreetmap.in/'
-        }
     ],
     goals: [
         { number: 6, name: 'Clean Water and Sanitation', color: '#26BDE2' },

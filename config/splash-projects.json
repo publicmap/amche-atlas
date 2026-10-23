@@ -1,0 +1,21 @@
+{
+  "home": {
+    "name": "amche.in",
+    "maintainers": "Amche Atlas, the original instance from Goa",
+    "url": "https://amche.in/",
+    "icon": "../assets/img/icon-192x192.png"
+  },
+  "projects": [
+    {
+      "name": "Goa Disaster Resource Atlas",
+      "maintainers": "Directorate of Fire & Emergency Services, Govt Of Goa",
+      "url": "https://dfesdmp.online/"
+    },
+    {
+      "name": "OpenStreetMap India Atlas",
+      "maintainers": "OpenStreetMap and DataMeet India Community",
+      "url": "https://www.openstreetmap.in/",
+      "icon": "../docs/guides/embed-osm-india/osm-india-stamp-2026.svg"
+    }
+  ]
+}

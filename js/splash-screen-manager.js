@@ -140,33 +140,55 @@ export class SplashScreenManager {
     }
 
     /**
-     * amche.in leads the list anywhere but amche.in itself, so a fork or an
-     * embed points back at it; a project is left out on its own site, where
-     * its branding already heads the card. Redrawn once an embedding page
-     * names itself (js/embed-host.js).
+     * The "More Atlases" list, from config/splash-projects.json (`icon` is
+     * relative to that file). amche.in (`home`) leads the list anywhere but
+     * amche.in itself, so a fork or an embed points back at it; a project is
+     * left out on its own site, where its branding already heads the card.
+     * Redrawn once an embedding page names itself (js/embed-host.js).
      */
-    renderProjects() {
+    async renderProjects() {
         const host = this.elements.projects;
         if (!host) return;
         if (!this._projectsWatched) {
             this._projectsWatched = true;
             window.addEventListener('amche:embed-host', () => this.renderProjects());
         }
+        const configUrl = new URL('config/splash-projects.json', window.location.href).href;
+        const config = await fetchConfigJson(configUrl);
         host.replaceChildren();
-        const projects = isAmcheSite() ? SPLASH_CREDITS.projects : [SPLASH_CREDITS.home, ...SPLASH_CREDITS.projects];
-        projects.filter(({ url }) => !isCurrentSite(url)).forEach(({ name, maintainers, url }) => {
+        if (!config) return;
+        const all = isAmcheSite() ? config.projects || [] : [config.home, ...(config.projects || [])];
+        const projects = all.filter((project) => project?.url && !isCurrentSite(project.url));
+        if (!projects.length) return;
+
+        const heading = document.createElement('div');
+        heading.className = 'splash-projects-heading';
+        heading.textContent = 'More Atlases';
+        host.appendChild(heading);
+        projects.forEach(({ name, maintainers, url, icon }) => {
             const link = document.createElement('a');
             link.className = 'splash-project';
             link.href = url;
             link.target = '_blank';
             link.rel = 'noopener';
+            if (icon) {
+                const img = document.createElement('img');
+                img.className = 'splash-project-icon';
+                img.src = new URL(icon, configUrl).href;
+                img.alt = '';
+                img.addEventListener('error', () => img.remove(), { once: true });
+                link.appendChild(img);
+            }
+            const text = document.createElement('span');
+            text.className = 'splash-project-text';
             const title = document.createElement('span');
             title.className = 'splash-project-name';
             title.textContent = name;
             const sub = document.createElement('span');
             sub.className = 'splash-project-maintainers';
-            sub.textContent = maintainers;
-            link.append(title, sub);
+            sub.textContent = maintainers || '';
+            text.append(title, sub);
+            link.appendChild(text);
             host.appendChild(link);
         });
     }
