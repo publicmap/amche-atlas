@@ -2183,8 +2183,15 @@ body.console-find .marker-dock-routes {
 .place-tabs {
     display: flex;
     align-items: center;
+    min-width: 0;
     margin-right: auto;
+    overflow-x: auto;
+    scrollbar-width: none;
     white-space: nowrap;
+}
+
+.place-tabs::-webkit-scrollbar {
+    display: none;
 }
 
 .place-tabs .place-tab {
@@ -2224,6 +2231,30 @@ body.console-find .marker-dock-routes {
 .place-tabs .place-tab[aria-selected="true"] {
     color: var(--console-ink);
     cursor: default;
+}
+
+/* Closes the menu from its tab row (js/location-tabs.js addCloseButton) */
+.place-close {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin: -6px -6px -6px 0;
+    padding: 0;
+    border: 0;
+    border-radius: var(--console-radius-sm);
+    background: transparent;
+    color: var(--console-ink-2);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.place-close:hover,
+.place-close:focus-visible {
+    background: var(--console-hover);
+    color: var(--console-ink);
 }
 
 .place-tabpanel[hidden] {

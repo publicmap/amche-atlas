@@ -37,7 +37,7 @@ import { queryNominatim, lookupNominatimPlaces, fetchNominatimAddressParts } fro
 import { activePart, buildAddressBlock, linkOsmObjects, nearestOnLine } from './location-address.js';
 import { directionTo, drawHoverPreview } from './location-hover.js';
 import { buildOsmFooter, showOsmDialog } from './location-osm.js';
-import { buildTabs } from './location-tabs.js';
+import { addCloseButton, buildTabs } from './location-tabs.js';
 import { buildLanguageControl } from './location-language.js';
 import { buildDevicePanel } from './location-device.js';
 import { buildViewPanel } from './location-view.js';
@@ -258,6 +258,7 @@ export class MapLocationMenuControl {
             this._clearHoverPreview();
         }, label);
         this._bindLocateTab(label.querySelector('#place-tab-locate'));
+        addCloseButton(label, this._hide);
         this._device = buildDevicePanel(panels.locate, this._map);
         this._addressSection = panels.address;
         this._osmFooter = this._addressSection.appendChild(buildOsmFooter());

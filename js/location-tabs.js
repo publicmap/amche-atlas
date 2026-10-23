@@ -72,3 +72,24 @@ export function buildTabs(section, tabs, selected, onSelect = () => {}, stripHos
     select(tabs.some(tab => tab.id === selected) ? selected : tabs[0].id);
     return panels;
 }
+
+/**
+ * A close button at the end of a menu's tab strip, so the menu shows how to
+ * close it rather than relying on its trigger being clicked again.
+ *
+ * @param {HTMLElement} host - the row holding the tab strip
+ * @param {() => void} onClose
+ */
+export function addCloseButton(host, onClose) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'place-close';
+    button.title = 'Close ( Esc )';
+    button.setAttribute('aria-label', 'Close');
+    const icon = document.createElement('sl-icon');
+    icon.setAttribute('name', 'x-lg');
+    button.appendChild(icon);
+    button.addEventListener('click', onClose);
+    host.appendChild(button);
+    return button;
+}

@@ -18,7 +18,7 @@
  */
 import { ShareUrlPanel } from './share-url-panel.js';
 import { buildHistoryControls } from './location-history.js';
-import { buildTabs } from './location-tabs.js';
+import { addCloseButton, buildTabs } from './location-tabs.js';
 import { buildExternalLinksSection } from './share-external-links.js';
 
 const LIVE_REFRESH_MS = 500;
@@ -155,6 +155,7 @@ export class ShareViewPanel {
         if (window.mapHistory) tabs.push({ id: 'history', label: 'History' });
         const panels = buildTabs(share, tabs, this._tab, (id) => { this._tab = id; }, label);
         label.querySelector('#place-tab-history')?.classList.add('share-view-history-tab');
+        addCloseButton(label, this.close);
         panels.share.appendChild(this._sharePanel.buildInlineSection({ onOpenModal: this.close }));
         if (window.mapHistory) this._history = buildHistoryControls(window.mapHistory, panels.history);
 

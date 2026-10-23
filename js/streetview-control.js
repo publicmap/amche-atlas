@@ -123,14 +123,14 @@ export class StreetviewControl {
         this._panel.style.cssText = `
             display: none;
             position: absolute;
-            top: 40px;
-            left: 8px;
+            top: 8px;
+            right: 8px;
             width: 480px;
             height: 360px;
             min-width: 280px;
             min-height: 200px;
-            max-width: calc(100vw - 20px);
-            max-height: calc(100vh - 60px);
+            max-width: calc(100% - 16px);
+            max-height: calc(100% - 16px);
             background: #111827;
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -173,7 +173,20 @@ export class StreetviewControl {
             this._iframe.src = 'streetview.html';
             this._iframeSrcLoaded = true;
         }
+        this._anchorPanelToTrigger();
         this._panel.style.display = 'flex';
+    }
+
+    _anchorPanelToTrigger() {
+        const mapRect = this._map.getContainer().getBoundingClientRect();
+        const triggerRect = this._container.getBoundingClientRect();
+        if (!triggerRect.width) return;
+        const top = Math.max(0, triggerRect.top - mapRect.top);
+        const right = Math.max(0, mapRect.right - triggerRect.right);
+        this._panel.style.top = `${top}px`;
+        this._panel.style.right = `${right}px`;
+        this._panel.style.maxWidth = `calc(100% - ${right + 8}px)`;
+        this._panel.style.maxHeight = `calc(100% - ${top + 8}px)`;
     }
 
     _hidePanel() {

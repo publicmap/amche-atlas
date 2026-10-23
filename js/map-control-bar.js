@@ -21,9 +21,10 @@
  *   view. With a query their badges count the view's results instead of what
  *   is on the map.
  *
- * Esc, the active view's button again, a map click or picking a place result
- * return to explore. A map click keeps the query and view, so clicking the
- * collapsed console reopens Find where it was. `window.mapConsole` is this instance.
+ * Esc, the close button at the end of the row, the active view's button again,
+ * a map click or picking a place result return to explore. The close button
+ * and a map click keep the query and view, so clicking the collapsed console
+ * reopens Find where it was. `window.mapConsole` is this instance.
  *
  * The bar row keeps the `.map-control-bar-head` / `.map-control-bar-main`
  * classes: map-marker-manager.js docks marker panels beneath that row.
@@ -152,6 +153,10 @@ export class MapControlBar {
             settings.classList.add('when-find');
             head.appendChild(settings);
         }
+        // On a phone Find covers the map, so there is no map left to click to close it
+        const close = button('console-btn console-close-btn when-find', 'x-lg', 'Close ( Esc )');
+        close.addEventListener('click', () => this.setMode('explore', { keepQuery: true }));
+        head.appendChild(close);
         this._routesBtn = button('console-btn console-routes-btn', 'signpost-split', 'Routes');
         this._routesBadge = badge(this._routesBtn);
         this._routesBtn.addEventListener('click', () => this.toggleFind('routes'));

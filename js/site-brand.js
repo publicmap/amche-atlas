@@ -116,7 +116,6 @@ function applyLogo(img, brand) {
     if (!img || !brand.logo) return;
     img.src = brand.logo;
     img.alt = brand.name || '';
-    img.style.borderRadius = '0';
     img.style.objectFit = 'contain';
 }
 
