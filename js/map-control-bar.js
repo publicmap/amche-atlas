@@ -4,8 +4,9 @@
  * box, the layer stack and the map browser panel.
  *
  * It has two modes:
- * The amche.in menu sits just above the card, as a small logo and name, so
- * the bar row starts with the search field at the card's left edge.
+ * The amche.in menu sits just above the card, as a small logo and name (an
+ * atlas's own `site.brand` instead, see js/site-brand.js), so the bar row
+ * starts with the search field at the card's left edge.
  *
  * - explore: one bar row (the atlas field with its Find icon, On map, Pins and -
  *   once there is a route - Routes, with their counts) over a line naming the place at the map center -
@@ -34,6 +35,7 @@ import { routeStore } from './search/route-store.js';
 import { placeLine } from './map-search-toggle.js';
 import { trackLog } from './gpx-log.js';
 import { MODE } from './map-orientation-modes.js';
+import { applyConsoleBrand } from './site-brand.js';
 
 const LOGO_SRC = 'assets/img/icon-192x192.png';
 const markers = createMarkerProvider();
@@ -103,6 +105,7 @@ export class MapControlBar {
         this._home = home;
         if (window.amche?.isDevBuild) home.appendChild(Object.assign(document.createElement('span'), { className: 'console-home-dev', title: 'Development build' }));
         home.addEventListener('click', () => window.amche?.openNavMenu?.());
+        applyConsoleBrand(home);
 
         this._main = button('map-control-bar-main', null, 'Find atlases, maps and places ( / )');
         this._nameEl = document.createElement('span');

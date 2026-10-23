@@ -1582,13 +1582,19 @@ body.console-find .marker-dock-routes {
 
 
 /* Sub-search options (js/map-control-bar.js addSubSearch): a row of links
-   tucked just under the search field and lined up with its left edge (the
-   bar's 6px padding and the field's border), with no rule between them. Each option's fields open beneath the row. */
+   tucked just under the search field, starting where its placeholder text
+   starts (past the search icon) and ending at its right edge, with no rule
+   between them. Each option's fields open beneath the row. */
 .console-subsearch {
     display: flex;
     flex-wrap: wrap;
     gap: 4px 14px;
-    padding: 0 12px 4px 7px;
+    padding: 0 var(--subsearch-right, 34px) 4px 43px;
+}
+
+/* Area-specific searches (the Goa survey number search) sit at the right end */
+.console-subsearch > .cadastral-toggle {
+    margin-left: auto;
 }
 
 /* The atlas selector opens Find straight under the search field */

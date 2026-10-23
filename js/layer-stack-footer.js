@@ -57,7 +57,11 @@ export class LayerStackFooter {
         const right = document.createElement('div');
         right.className = 'layer-stack-footer-group';
         this._moreBtn = this._button('three-dots-vertical', '', 'Map and selection options', () => this._menu?.toggle());
-        right.append(this._button('download', 'Export Map', 'Export map', () => this._post({ type: 'toggle-export' })), this._moreBtn);
+        right.append(
+            this._button('plus-lg', 'Add Map', 'Add a map from a file, link or atlas (map-creator.html)', () => this._toggleImport()),
+            this._button('download', 'Export', 'Export map', () => this._post({ type: 'toggle-export' })),
+            this._moreBtn
+        );
 
         footer.append(left, right);
         return footer;
@@ -79,6 +83,14 @@ export class LayerStackFooter {
             onClick();
         });
         return button;
+    }
+
+    /** Opens the map creator in the side panel, or closes it if it is open. */
+    _toggleImport() {
+        const browser = window.browserControl;
+        if (!browser) return;
+        if (browser._isOpen) browser.closeBrowser();
+        else browser.openCreator();
     }
 
     _toggleHover() {

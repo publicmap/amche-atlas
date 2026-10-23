@@ -72,7 +72,10 @@ const GLYPHS = {
     }
 };
 
-const WORD = ['M', 'a', 'p', ' ', 'M', 'a', 'k', 'e', 'r'];
+// Two lines, so the wordmark fits the narrow side panel the creator opens in
+const LINES = [['M', 'a', 'p'], ['M', 'a', 'k', 'e', 'r']];
+// Baseline to baseline: cap height plus the descender of the p and a gap
+const LINE_HEIGHT = 144;
 
 function el(name, attrs = {}) {
     const node = document.createElementNS(SVG_NS, name);
@@ -204,26 +207,29 @@ function bindInteraction(target) {
     });
 }
 
-/** Fills `target` (an SVG <g>) with the wordmark, centred on `centerX`. */
-export function renderTitle(target, { centerX = 360, baseline = 262 } = {}) {
-    const total = WORD.reduce((sum, ch) => sum + (ch === ' ' ? SPACE_WIDTH : GLYPHS[ch].width + LETTER_GAP), -LETTER_GAP);
-    let x = centerX - (total * SCALE) / 2;
+/** Fills `target` (an SVG <g>) with the wordmark, each line centred on `centerX`. */
+export function renderTitle(target, { centerX = 360, baseline = 200 } = {}) {
     let index = 0;
 
     target.replaceChildren();
-    WORD.forEach((ch) => {
-        if (ch === ' ') {
-            x += SPACE_WIDTH * SCALE;
-            return;
-        }
-        const glyph = GLYPHS[ch];
-        const group = el('g', { class: 'ch-letter' });
-        group.__letter = { x, y: 0, homeX: x, baseline };
-        placeLetter(group);
-        glyph.parts.forEach((part) => drawPart(group, part, SKINS[index % SKINS.length]));
-        target.appendChild(group);
-        x += (glyph.width + LETTER_GAP) * SCALE;
-        index++;
+    LINES.forEach((word, line) => {
+        const lineBaseline = baseline + line * LINE_HEIGHT;
+        const total = word.reduce((sum, ch) => sum + (ch === ' ' ? SPACE_WIDTH : GLYPHS[ch].width + LETTER_GAP), -LETTER_GAP);
+        let x = centerX - (total * SCALE) / 2;
+        word.forEach((ch) => {
+            if (ch === ' ') {
+                x += SPACE_WIDTH * SCALE;
+                return;
+            }
+            const glyph = GLYPHS[ch];
+            const group = el('g', { class: 'ch-letter' });
+            group.__letter = { x, y: 0, homeX: x, baseline: lineBaseline };
+            placeLetter(group);
+            glyph.parts.forEach((part) => drawPart(group, part, SKINS[index % SKINS.length]));
+            target.appendChild(group);
+            x += (glyph.width + LETTER_GAP) * SCALE;
+            index++;
+        });
     });
     if (!target.__bound) {
         target.__bound = true;

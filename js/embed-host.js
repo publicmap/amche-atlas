@@ -30,25 +30,34 @@ if (isEmbedded) {
             // A page may name itself, not somewhere else: the URL it claims has
             // to match the origin the message actually came from.
             const url = new URL(event.data.href);
-            if (url.origin === event.origin) declaredHostHref = url.href;
+            if (url.origin !== event.origin) return;
+            declaredHostHref = url.href;
+            window.dispatchEvent(new CustomEvent('amche:embed-host', { detail: { href: url.href } }));
         } catch (error) {
             console.debug('[EmbedHost] Ignoring unparseable host URL:', error);
         }
     });
 }
 
-/** The embedding page's origin + path, or null when not embedded. */
-function embedHostBase() {
+/** The embedding page's URL, or null when not embedded. */
+export function embedHostHref() {
     if (!isEmbedded) return null;
     const href = declaredHostHref || document.referrer;
     if (!href) return null;
     try {
         const url = new URL(href);
-        if (url.href === window.location.href) return null;
-        return url.origin + url.pathname;
+        return url.href === window.location.href ? null : url.href;
     } catch (error) {
         return null;
     }
+}
+
+/** The embedding page's origin + path, or null when not embedded. */
+function embedHostBase() {
+    const href = embedHostHref();
+    if (!href) return null;
+    const url = new URL(href);
+    return url.origin + url.pathname;
 }
 
 /**

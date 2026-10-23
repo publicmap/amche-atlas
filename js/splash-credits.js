@@ -7,7 +7,8 @@
  * `tools` - the tools it is built with. `thanks` - the community, partners
  * and supporters. `data` - where the map data comes from.
  * `projects` - instances of the software run by others, shown as buttons
- * under the splash description; `maintainers` is the sub line.
+ * under the splash description; `maintainers` is the sub line. `home` is
+ * listed first on any site other than amche.in itself (a fork or an embed).
  * `goals` - the UN Sustainable Development Goals the project works towards,
  * shown as badges in the goal's official colour.
  */
@@ -39,6 +40,11 @@ export const SPLASH_CREDITS = {
         { name: 'Maxar', url: 'https://www.maxar.com' },
         { name: 'NASA', url: 'https://www.nasa.gov' }
     ],
+    home: {
+        name: 'amche.in',
+        maintainers: 'Amche Atlas, the original instance from Goa',
+        url: 'https://amche.in/'
+    },
     projects: [
         {
             name: 'Goa Disaster Resource Atlas',

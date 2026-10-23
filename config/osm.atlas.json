@@ -44,6 +44,10 @@
     {
       "id": "office-govt",
       "title": "Government Offices",
+      "tags": [
+        "Amenities",
+        "Government"
+      ],
       "type": "overpass",
       "description": "Live OSM features matching <code>office=government</code> <code>amenity=townhall</code> <code>amenity=courthouse</code>, fetched from the Overpass API as the viewport changes. Source query: <a href='https://overpass-turbo.eu/s/2wnj' target='_blank'>https://overpass-turbo.eu/s/2wn6</a>.",
       "query": "[out:json][timeout:125];\n(\n  nwr[\"office\"=\"government\"]({{bbox}});\n  nwr[\"amenity\"=\"townhall\"]({{bbox}});\n  nwr[\"amenity\"=\"courthouse\"]({{bbox}});\n);\nout geom center;",
@@ -64,6 +68,10 @@
     {
       "id": "places",
       "title": "Places",
+      "tags": [
+        "Places",
+        "Place Names"
+      ],
       "description": "Places from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Place'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
@@ -787,6 +795,10 @@
     {
       "id": "airport",
       "title": "Airports",
+      "tags": [
+        "Transport",
+        "Air"
+      ],
       "description": "Airport locations from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/Tag:aeroway%3Daerodrome'>OSM Wiki</a> for details.",
       "type": "vector",
       "url": "https://tiles.openstreetmap.us/vector/openmaptiles/{z}/{x}/{y}.mvt",
@@ -854,6 +866,10 @@
     {
       "id": "public-transport",
       "title": "Public Transport",
+      "tags": [
+        "Transport",
+        "Public Transport"
+      ],
       "description": "Public transport POIs from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/Public_transport'>OSM Public Transport Wiki</a> for details.",
       "type": "vector",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
@@ -894,6 +910,10 @@
     {
       "id": "pois",
       "title": "Points of Interest",
+      "tags": [
+        "Amenities",
+        "Points of Interest"
+      ],
       "description": "POIs from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/Points_of_interest'>OSM Wiki</a> for details.",
       "type": "vector",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
@@ -942,6 +962,10 @@
     {
       "id": "addresses",
       "title": "Addresses",
+      "tags": [
+        "Places",
+        "Addresses"
+      ],
       "description": "House numbers and house names from the OpenStreetMap project. See <a href='https://shortbread-tiles.org/schema/1.1/#layer-addresses'>Shortbread addresses layer</a> and <a href='https://wiki.openstreetmap.org/wiki/Key:addr:*'>OSM Wiki</a> for details.",
       "type": "vector",
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
@@ -981,6 +1005,10 @@
     },
     {
       "title": "OpenInfraMap Power Lines",
+      "tags": [
+        "Infrastructure",
+        "Power"
+      ],
       "description": "Power lines from the OpenInfraMap project. See <a href='https://openinframap.org'>OpenInfraMap</a> for details.",
       "type": "vector",
       "id": "openinframap-power",
@@ -1018,6 +1046,10 @@
     },
     {
       "title": "Railways",
+      "tags": [
+        "Transport",
+        "Rail"
+      ],
       "description": "Railway network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",
       "id": "railways",
@@ -1108,6 +1140,10 @@
     },
     {
       "title": "Paths",
+      "tags": [
+        "Transport",
+        "Walking & Cycling"
+      ],
       "description": "Footpaths and trails from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",
       "id": "paths",
@@ -1166,6 +1202,10 @@
     },
     {
       "title": "Street Areas",
+      "tags": [
+        "Transport",
+        "Walking & Cycling"
+      ],
       "description": "Areas with pedestrian access from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",
       "id": "road-areas",
@@ -1224,6 +1264,10 @@
     },
     {
       "title": "Road Names",
+      "tags": [
+        "Transport",
+        "Roads"
+      ],
       "description": "Road network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",
       "id": "road-names",
@@ -1279,6 +1323,10 @@
     },
     {
       "title": "Roads",
+      "tags": [
+        "Transport",
+        "Roads"
+      ],
       "description": "Road network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",
       "id": "roads",
@@ -1466,6 +1514,10 @@
     {
       "id": "construction-landfill",
       "title": "Construction and Landfill Sites",
+      "tags": [
+        "Land & Nature",
+        "Land Use"
+      ],
       "type": "overpass",
       "description": "Live OSM features matching <code>landuse=construction</code> and <code>landuse=landfill</code>, fetched from the Overpass API as the viewport changes.",
       "query": "/*\nThis has been generated by the overpass-turbo wizard.\nThe original search was:\n“landuse=landfill”\n*/\n[out:json][timeout:25];\n// gather results\nnwr[\"landuse\"=\"landfill\"]({{bbox}});\nnwr[\"landuse\"=\"construction\"]({{bbox}});\n// print results\nout geom;",
@@ -1491,6 +1543,10 @@
       "id": "food",
       "type": "overpass",
       "title": "Restaurants and Cafes",
+      "tags": [
+        "Amenities",
+        "Food & Drink"
+      ],
       "description": "Cafes and Restaurants from OpenStreetMap",
       "query": "[out:json][timeout:25];  (   nwr[amenity=cafe]({{bbox}});   nwr[amenity=restaurant]({{bbox}}); );  out geom;",
       "minzoom": 10,
@@ -1510,6 +1566,10 @@
     },
     {
       "title": "Motorable Roads Outline",
+      "tags": [
+        "Transport",
+        "Roads"
+      ],
       "description": "Road network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",
       "id": "roads-outline",
@@ -1696,6 +1756,10 @@
     {
       "id": "aeroway",
       "title": "Aeroway",
+      "tags": [
+        "Transport",
+        "Air"
+      ],
       "type": "overpass",
       "description": "Live OSM features matching <code>aeroway=*</code>, fetched from the Overpass API as the viewport changes. Source query: <a href='https://overpass-turbo.eu/s/2wDM' target='_blank'>https://overpass-turbo.eu/s/2wDM</a>.",
       "query": "[out:json][timeout:25];\n// gather results\nnwr[\"aeroway\"]({{bbox}});\n// print results\nout geom;",
@@ -1749,6 +1813,10 @@
     {
       "id": "protected-areas",
       "title": "Protected Area Boundaries",
+      "tags": [
+        "Land & Nature",
+        "Protected Areas"
+      ],
       "type": "overpass",
       "description": "Live OSM features matching <code>boundary=protected_area</code>, fetched from the Overpass API as the viewport changes. Source query: <a href='https://overpass-turbo.eu/s/2wuR' target='_blank'>https://overpass-turbo.eu/s/2wuR</a>.",
       "query": "/*\nThis has been generated by the overpass-turbo wizard.\nThe original search was:\n“boundary=protected_area”\n*/\n[out:json][timeout:225];\n// gather results\nnwr[\"boundary\"=\"protected_area\"]({{bbox}});\n// print results\nout geom;",
@@ -1825,6 +1893,10 @@
     {
       "id": "boundaries-india",
       "title": "Boundaries (India)",
+      "tags": [
+        "Boundaries",
+        "Administrative"
+      ],
       "description": "Boundaries from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/Tag:boundary%3Dadministrative'>OSM Wiki</a> for details.",
       "type": "geojson",
       "url": "https://gist.githubusercontent.com/planemad/73e70f0937db02845c577386d560f65c/raw/85d8c87797b54290867014691f9f766227971663/osm-india-boundary-additions.geojson",
@@ -1859,11 +1931,11 @@
     },
     {
       "id": "3d-buildings",
-      "tags": [
-        "buildings"
-      ],
       "type": "vector",
       "title": "3D Buildings",
+      "tags": [
+        "Buildings"
+      ],
       "description": "Building footprints extruded to their mapped height, straight from OpenStreetMap via the <a href='https://openmaptiles.org/schema/#building' target='_blank'>OpenMapTiles building layer</a>. Very few buildings carry a surveyed <code>height</code> tag, so heights are almost always estimated from <code>building:levels</code> - OpenMapTiles assumes a 3.66 m (12 ft) storey plus a roof allowance, which runs tall for Indian buildings, so the level count is recovered and re-derived at 3.1 m a storey to match the Mapbox Streets source. Faces are shaded from light to dark with height.",
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
       "url": "https://tiles.openstreetmap.us/vector/openmaptiles/{z}/{x}/{y}.mvt",
@@ -2068,6 +2140,10 @@
     {
       "id": "boundaries",
       "title": "Boundaries",
+      "tags": [
+        "Boundaries",
+        "Administrative"
+      ],
       "description": "Boundaries from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/Tag:boundary%3Dadministrative'>OSM Wiki</a> for details.",
       "type": "vector",
       "url": "https://tiles.openstreetmap.us/vector/openmaptiles/{z}/{x}/{y}.mvt",
@@ -2307,6 +2383,10 @@
     {
       "id": "historic-boundaries",
       "title": "Historic Boundaries",
+      "tags": [
+        "Boundaries",
+        "Historic"
+      ],
       "description": "Boundaries from the OpenHistoricalMap project. See <a href='https://wiki.openstreetmap.org/wiki/Tag:boundary%3Dadministrative'>OSM Wiki</a> for details.",
       "type": "vector",
       "url": "https://vtiles.openhistoricalmap.org/maps/ohm_admin/{z}/{x}/{y}.pbf",
@@ -2337,6 +2417,10 @@
     },
     {
       "title": "Water Bodies",
+      "tags": [
+        "Water",
+        "Lakes & Rivers"
+      ],
       "description": "Water body polygons data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",
       "id": "waterbodies",
@@ -2362,6 +2446,10 @@
     },
     {
       "title": "Waterways",
+      "tags": [
+        "Water",
+        "Lakes & Rivers"
+      ],
       "description": "Waterways network data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",
       "id": "waterways",
@@ -2417,6 +2505,10 @@
     },
     {
       "title": "Landuse Sites",
+      "tags": [
+        "Land & Nature",
+        "Land Use"
+      ],
       "description": "High resolution landuse polygons for institutional sites and amenities from the OpenStreetMap project.",
       "type": "vector",
       "id": "sites",
@@ -2573,6 +2665,10 @@
     },
     {
       "title": "Landuse",
+      "tags": [
+        "Land & Nature",
+        "Land Use"
+      ],
       "description": "High resolution landuse polygons from the OpenStreetMap project.",
       "type": "vector",
       "id": "landuse",
@@ -2847,6 +2943,10 @@
     },
     {
       "title": "OpenRailwayMap (Raster)",
+      "tags": [
+        "Transport",
+        "Rail"
+      ],
       "description": "Railway network features including tracks and stations, from the <a href='https://www.openrailwaymap.org/' target='_blank'>OpenRailwayMap project</a>.",
       "type": "tms",
       "id": "openrailwaymap",
@@ -2873,6 +2973,10 @@
     },
     {
       "title": "Oceans",
+      "tags": [
+        "Water",
+        "Oceans"
+      ],
       "description": "Water body polygons data from the OpenStreetMap project. See <a href='https://wiki.openstreetmap.org/wiki/India/Tags/Highway'>OpenStreetMap India Wiki</a> for details.",
       "type": "vector",
       "id": "ocean",
@@ -2890,11 +2994,12 @@
     },
     {
       "initiallyChecked": true,
-      "tags": [
-        "basemap"
-      ],
       "id": "topo",
       "title": "Tracestack Topo",
+      "tags": [
+        "basemap",
+        "Topographic"
+      ],
       "description": "Topographic maps for trail navigation",
       "headerImage": "assets/map-layers/osm/map-layer-osm.png",
       "type": "tms",
@@ -2924,11 +3029,12 @@
       }
     },
     {
-      "tags": [
-        "basemap"
-      ],
       "id": "mapnik",
       "title": "OpenStreetMap Carto Standard Style",
+      "tags": [
+        "basemap",
+        "Street Map"
+      ],
       "description": "Map data contributed by the <a href='https://www.openstreetmap.org/'>OpenStreetMap Community</a> rendered in the deafult <a href='https://wiki.openstreetmap.org/wiki/OpenStreetMap_Carto'>OSM Carto style</a>. See <a href='https://wiki.openstreetmap.org/wiki/OpenStreetMap_Carto/Symbols'>legend</a> for details.",
       "headerImage": "assets/map-layers/osm/map-layer-osm.png",
       "type": "tms",
@@ -2958,11 +3064,12 @@
       }
     },
     {
-      "tags": [
-        "basemap"
-      ],
       "id": "maptiler-satellite",
       "title": "Maptiler Satellite",
+      "tags": [
+        "basemap",
+        "Satellite"
+      ],
       "description": "Satellite imagery from <a href='https://cloud.maptiler.com/tiles/>Maptiler</a>",
       "type": "tms",
       "maxzoom": 19,

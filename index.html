@@ -388,6 +388,96 @@
             box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
         }
 
+        .splash-brand-pending .splash-art-content {
+            visibility: hidden;
+        }
+
+        /* An atlas's own site menu, above the amche.in items (js/site-brand.js) */
+        .nav-site:empty {
+            display: none;
+        }
+
+        .nav-site {
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #374151;
+        }
+
+        .nav-site-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .nav-site-action {
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.375rem;
+            background: #059669;
+            color: #fff;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .nav-site-action:hover {
+            background: #047857;
+        }
+
+        .nav-site-section {
+            margin-bottom: 1rem;
+        }
+
+        .nav-site-heading {
+            margin-bottom: 0.25rem;
+            padding: 0 0.5rem;
+            color: #6b7280;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .nav-site-item {
+            display: flex;
+            flex-direction: column;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            color: #f9fafb;
+            text-decoration: none;
+        }
+
+        .nav-site-item:hover {
+            background: #374151;
+        }
+
+        .nav-site-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .nav-site-note {
+            color: #9ca3af;
+            font-size: 0.75rem;
+        }
+
+        .nav-site-foot-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            padding: 0 0.5rem;
+        }
+
+        .nav-site-foot {
+            color: #9ca3af;
+            font-size: 0.75rem;
+            text-decoration: none;
+        }
+
+        .nav-site-foot:hover {
+            color: #f9fafb;
+        }
+
         /* The splash's amche.in resets to the home map */
         #splash-brand-link:hover,
         #splash-brand-link:focus-visible {
@@ -826,6 +916,17 @@
 <body class="flex flex-col full-viewport-height">
     <!-- Loading Overlay: a centered splash card over the map as it loads -->
     <div id="loading-overlay" class="splash-overlay">
+        <script>
+            // A remote or inline atlas may carry its own site.brand: keep the
+            // card's amche.in branding hidden until js/splash-screen-manager.js
+            // has read it, so it never flashes up first
+            (function () {
+                var atlas = new URLSearchParams(window.location.search).get('atlas') || '';
+                if (/^https?:/.test(atlas) || atlas.charAt(0) === '{') {
+                    document.getElementById('loading-overlay').classList.add('splash-brand-pending');
+                }
+            })();
+        </script>
         <div class="splash-card" role="dialog" aria-label="amche.in">
             <!-- Close Button (shown only when manually opened) -->
             <button id="loading-overlay-close" class="splash-close" aria-label="Close" style="display: none;">&times;</button>
@@ -1461,6 +1562,9 @@
 
             <!-- Menu Items -->
             <div style="padding: 1rem;">
+                <!-- An atlas's own site.actions / site.menu links (js/site-brand.js) -->
+                <div id="nav-menu-site-slot" class="nav-site"></div>
+
                 <!-- Location Settings (js/settings-menu-control.js) -->
                 <div id="nav-menu-settings-slot" class="nav-menu-settings"></div>
 

@@ -13,6 +13,7 @@
 import { DataUtils } from './map-utils.js';
 import { fetchConfigJson, fetchConfigResult } from './config-cache.js';
 import { SPLASH_CREDITS } from './splash-credits.js';
+import { isAmcheSite, isCurrentSite, setSite } from './site-brand.js';
 
 export class SplashScreenManager {
     constructor() {
@@ -138,10 +139,22 @@ export class SplashScreenManager {
         host.appendChild(link);
     }
 
+    /**
+     * amche.in leads the list anywhere but amche.in itself, so a fork or an
+     * embed points back at it; a project is left out on its own site, where
+     * its branding already heads the card. Redrawn once an embedding page
+     * names itself (js/embed-host.js).
+     */
     renderProjects() {
         const host = this.elements.projects;
         if (!host) return;
-        SPLASH_CREDITS.projects.forEach(({ name, maintainers, url }) => {
+        if (!this._projectsWatched) {
+            this._projectsWatched = true;
+            window.addEventListener('amche:embed-host', () => this.renderProjects());
+        }
+        host.replaceChildren();
+        const projects = isAmcheSite() ? SPLASH_CREDITS.projects : [SPLASH_CREDITS.home, ...SPLASH_CREDITS.projects];
+        projects.filter(({ url }) => !isCurrentSite(url)).forEach(({ name, maintainers, url }) => {
             const link = document.createElement('a');
             link.className = 'splash-project';
             link.href = url;
@@ -413,6 +426,7 @@ export class SplashScreenManager {
             color: config.color || '#3b82f6',
             headerImage: config.headerImage || null,
             brand,
+            site: brand ? { ...config.site, brand } : null,
             center: config.map?.center,
             zoom: config.map?.zoom,
             bbox: config.bbox
@@ -421,12 +435,16 @@ export class SplashScreenManager {
 
     /**
      * Swap the splash's logo/title/description for a config-authored
-     * `site.brand` (logo, name, tagline), if the loaded atlas defines one.
-     * Left untouched (default amche.in branding) otherwise.
+     * `site.brand` (logo, name, tagline), if the loaded atlas defines one,
+     * along with the main menu and console (js/site-brand.js). Left untouched
+     * (default amche.in branding) otherwise. The card's branding stays hidden
+     * until then for a remote config (index.html), so amche.in never flashes.
      */
     applyBranding() {
+        document.getElementById('loading-overlay')?.classList.remove('splash-brand-pending');
         const brand = this.state.atlas?.brand;
         if (!brand) return;
+        setSite(this.state.atlas.site);
 
         if (this.elements.logoImg && brand.logo) {
             this.elements.logoImg.src = brand.logo;
