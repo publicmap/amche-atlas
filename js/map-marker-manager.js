@@ -1455,6 +1455,11 @@ export class MapMarkerManager {
     _getBadgeLabelInfo(f) {
         if (f.isStyleInspection) return { fieldName: f.styleTitle, value: f.featureId };
         const layerConfig = this._stateManager.getLayerConfig(f.layerId);
+        if (f.isRasterInspection) {
+            const title = layerConfig?.title || f.layerId;
+            if (f.featureId !== f.pixelHex) return { fieldName: title, value: f.featureId };
+            return { fieldName: layerConfig?.legendImage ? 'View Legend' : null, value: title };
+        }
         const inspectConfig = layerConfig?.inspect || {};
         const labelField = inspectConfig.label || inspectConfig.id || 'id';
         const value = this._localizedValue(f.feature?.properties, labelField) ?? f.featureId;
@@ -1579,7 +1584,9 @@ export class MapMarkerManager {
         const labelKey = inspectConfig.label || inspectConfig.id || 'id';
         const { fieldName: labelTitle, value: labelValue } = this._getBadgeLabelInfo(f);
         const hasLabel = labelValue !== null && labelValue !== undefined && labelValue !== '';
-        const labelRow = hasLabel ? buildRow(labelTitle, labelValue, labelKey in properties ? labelKey : '', labelKey) : '';
+        const labelRow = f.isRasterInspection && f.featureId === f.pixelHex
+            ? buildRow('Color', f.pixelHex, '')
+            : hasLabel ? buildRow(labelTitle, labelValue, labelKey in properties ? labelKey : '', labelKey) : '';
 
         const validEntries = Object.entries(properties)
             .filter(([k, v]) => v !== null && v !== undefined && v !== '' && !(hasLabel && k === labelKey));

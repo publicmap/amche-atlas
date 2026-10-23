@@ -1884,7 +1884,7 @@
         "title": "Name",
         "label": "Class"
       },
-      "initiallyChecked": true
+      "initiallyChecked": false
     },
     {
       "tags": [
