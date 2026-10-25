@@ -573,9 +573,9 @@
 
 /* Orientation button: one control covering both GPS tracking and map bearing
    (see js/map-orientation-control.js), stacked in the bottom-right corner
-   above the attribution. The compass rose reports the map bearing, the dial
-   reports the GPS mode, and `data-mode` on the button is the single switch
-   driving both.
+   above the attribution. The compass base turns with the map, the needle
+   points at real north, the dial on the base reports the GPS mode, and
+   `data-mode` on the button is the single switch driving the dial.
 
    Size and idle/hover chrome match the top-right tool rail
    (css/map-console.css), which the shared corner-control theme further down
@@ -584,21 +584,18 @@
    the button reads as the same object as the dot it is holding the map to. */
 /* Its own card beside the scale card (js/map-scale-control.js addBeside),
    the same height, with the button at the scale card's 26px tool size. The
-   row has no room for the 60px reorient enlargement, so the button stays put
-   and the drag handles that need it are hidden there. */
+   card keeps that width when the compass opens: the open compass floats over
+   the row (see .map-orientation-control--expanded below) rather than pushing
+   the scale card aside. */
 .map-scale-control > .map-orientation-control {
-    padding: 0 3px;
-}
-
-.map-scale-control .map-orientation-btn,
-.map-scale-control .map-orientation-control.map-orientation-control--reorient .map-orientation-btn {
-    width: 26px !important;
-    height: 26px !important;
-    border-radius: 4px !important;
-    box-shadow: none;
+    --compass-size: 26px;
+    width: calc(var(--compass-size) + 6px);
+    justify-content: center;
 }
 
 .map-scale-control .map-orientation-btn {
+    border-radius: 4px !important;
+    box-shadow: none;
     background-color: transparent !important;
 }
 
@@ -606,21 +603,9 @@
     background-color: var(--console-raised) !important;
 }
 
-.map-scale-control .map-orientation-control .map-orientation-icon {
-    width: 22px;
-    height: 22px;
-}
-
-.map-scale-control .map-orientation-track,
-.map-scale-control .map-orientation-ring {
-    display: none !important;
-}
-
 @media (max-width: 480px) {
-    .map-scale-control .map-orientation-btn,
-    .map-scale-control .map-orientation-control.map-orientation-control--reorient .map-orientation-btn {
-        width: 32px !important;
-        height: 32px !important;
+    .map-scale-control > .map-orientation-control {
+        --compass-size: 32px;
     }
 }
 
@@ -867,91 +852,126 @@
     flex-shrink: 0;
 }
 
+/* --compass-btn is the button's size: --compass-size closed, double that
+   open. The icon, the drag ring over the N and the tilt column all scale off
+   it. */
+.map-orientation-control {
+    --compass-size: 36px;
+    --compass-btn: var(--compass-size);
+    position: relative;
+}
+
+.map-orientation-control.map-orientation-control--expanded {
+    --compass-btn: calc(var(--compass-size) * 2);
+}
+
 .map-orientation-btn {
-    width: 36px !important;
-    height: 36px !important;
+    width: var(--compass-btn) !important;
+    height: var(--compass-btn) !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     padding: 0 !important;
     border: none !important;
     background-color: var(--console-surface) !important;
+    transition: width 0.2s ease, height 0.2s ease;
 }
 
 .map-orientation-btn:hover {
     background-color: var(--console-raised) !important;
 }
 
-@media (max-width: 480px) {
-    .map-orientation-btn {
-        width: 40px !important;
-        height: 40px !important;
-    }
-}
-
 .map-orientation-icon {
-    width: 28px;
-    height: 28px;
+    width: calc(var(--compass-btn) * 0.85);
+    height: calc(var(--compass-btn) * 0.85);
     display: block;
     transition: width 0.2s ease, height 0.2s ease;
 }
 
-/* Rotated off north-up or tilted off flat: double the button so the tap that
-   undoes it (js/map-orientation-control.js's _faceNorth) is easy to land,
-   especially on a phone. The base 36px square above is set with !important,
-   so this needs the same to win. */
-.map-orientation-control.map-orientation-control--reorient .map-orientation-btn,
-.map-orientation-control.mapboxgl-ctrl-group:hover .map-orientation-btn {
-    width: 60px !important;
-    height: 60px !important;
-    transition: width 0.2s ease, height 0.2s ease;
+.map-orientation-panel {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
 }
 
-.map-orientation-control--reorient .map-orientation-icon,
-.map-orientation-control:hover .map-orientation-icon {
-    width: 56px;
-    height: 56px;
+.map-orientation-face {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
 }
 
-.map-orientation-control {
+.map-orientation-rose {
     position: relative;
+    display: flex;
 }
 
-.map-orientation-track,
+.map-orientation-pitch,
+.map-orientation-pitch-value,
 .map-orientation-ring {
     display: none;
-    position: absolute;
-    z-index: 1;
 }
 
-.map-orientation-control--reorient .map-orientation-track,
-.map-orientation-control--reorient .map-orientation-ring,
-.map-orientation-control:hover .map-orientation-track,
-.map-orientation-control:hover .map-orientation-ring {
+/* Open: the compass at double size, on its own card anchored to the
+   bottom-right of its slot so it grows up and to the left over the map, with
+   the tilt column beside it. */
+.map-orientation-control--expanded .map-orientation-panel {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    padding: 4px;
+    border-radius: 6px;
+    background: var(--console-surface);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.map-orientation-control.map-orientation-control--expanded .map-orientation-btn {
+    border-radius: 50% !important;
+}
+
+.map-orientation-control--expanded .map-orientation-pitch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+
+.map-orientation-control--expanded .map-orientation-pitch-value {
+    display: block;
+    font-size: 10px;
+    line-height: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--console-ink-2);
+}
+
+.map-orientation-control--expanded .map-orientation-ring {
     display: block;
 }
 
-.map-orientation-thumb {
-    position: absolute;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #ef4444;
-    box-shadow: 0 0 0 2px #ffffff;
-    touch-action: none;
+.map-orientation-control .map-orientation-tilt {
+    width: 18px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--console-ink);
+    cursor: pointer;
 }
 
-.map-orientation-thumb::before {
-    content: '';
-    position: absolute;
-    inset: -6px;
+.map-orientation-control .map-orientation-tilt:hover {
+    background: var(--console-raised);
 }
 
 .map-orientation-track {
-    left: 2px;
-    top: 10px;
-    bottom: 10px;
+    position: relative;
+    flex: 1;
     width: 2px;
+    min-height: 24px;
     border-radius: 1px;
     background: #6b7280;
 }
@@ -974,44 +994,62 @@
     bottom: 0;
 }
 
+.map-orientation-thumb {
+    position: absolute;
+    touch-action: none;
+}
+
+.map-orientation-thumb::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
+}
+
 .map-orientation-track .map-orientation-thumb {
-    left: -3px;
+    left: 50%;
     bottom: calc(var(--pos, 0) * 100%);
-    width: 8px;
-    height: 2px;
-    border-radius: 1px;
+    width: 10px;
+    height: 3px;
+    border-radius: 1.5px;
     background: #ffffff;
-    box-shadow: none;
-    transform: translateY(50%);
+    transform: translate(-50%, 50%);
     cursor: ns-resize;
 }
 
+/* Sized so its top edge runs through the N on the compass base, and turned
+   with the map by OrientationHandles.sync, so its thumb is an invisible grip
+   over the N: drag the N round to rotate the map. */
 .map-orientation-ring {
-    left: 10px;
-    top: 10px;
-    width: 40px;
-    height: 40px;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: calc(var(--compass-btn) * 0.64);
+    height: calc(var(--compass-btn) * 0.64);
+    margin: calc(var(--compass-btn) * -0.32) 0 0 calc(var(--compass-btn) * -0.32);
     border-radius: 50%;
     pointer-events: none;
 }
 
 .map-orientation-ring .map-orientation-thumb {
     left: 50%;
-    top: -3px;
-    margin-left: -3px;
+    top: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
     pointer-events: auto;
     cursor: grab;
 }
 
-/* At a steep pitch the leaning rose is wider than the 30px button (the scale
-   term in _pitchTransform grows as the tilt flattens it), so let it spill over
+/* At a steep pitch the leaning compass is wider than its button (the scale
+   term in pitchTransform grows as the tilt flattens it), so let it spill over
    the button edge rather than have Mapbox's control group crop the needle. */
 .map-orientation-control.mapboxgl-ctrl-group,
 .map-orientation-btn {
     overflow: visible;
 }
 
-/* The needle, its red/white split and the heading cone are painted by
+/* The needle, its red/white split, the N and the index mark are painted by
    presentation attributes on the SVG itself (see js/map-orientation-control.js)
    so the symbol survives without this stylesheet. Only the dial changes with
    the GPS mode, so only the dial is styled here. */
@@ -2611,7 +2649,7 @@ main {
    ButtonExternalMapLinks, MeasureControl,
    and Mapbox's own NavigationControl (compass, used by the export map) and
    ScaleControl chrome. */
-.mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib) button:not(.map-orientation-btn) {
+.mapboxgl-ctrl-group:not(.mapboxgl-ctrl-attrib) button:not(.map-orientation-btn):not(.map-orientation-tilt) {
     width: 30px !important;
     height: 30px !important;
     display: flex !important;
@@ -2623,7 +2661,7 @@ main {
     border: none !important;
 }
 
-.mapboxgl-ctrl:not(.mapboxgl-ctrl-attrib) button:not(:disabled):not(.map-orientation-btn):hover {
+.mapboxgl-ctrl:not(.mapboxgl-ctrl-attrib) button:not(:disabled):not(.map-orientation-btn):not(.map-orientation-tilt):hover {
     background-color: #374151 !important;
     color: var(--primary-hover) !important;
 }

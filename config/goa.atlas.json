@@ -423,7 +423,7 @@
             "zoom"
           ],
           "",
-          9,
+          11,
           [
             "to-string",
             [
@@ -448,9 +448,9 @@
           3,
           4
         ],
-        "text-color": "white",
+        "text-color": "purple",
         "text-halo-color": "purple",
-        "text-halo-width": 2,
+        "text-halo-width": 0,
         "text-padding": 5,
         "text-transform": "uppercase",
         "text-size": [
@@ -558,8 +558,7 @@
           "Villages",
           "Ward Count",
           "Sub District",
-          "District",
-          "LGD Code"
+          "District"
         ]
       }
     },

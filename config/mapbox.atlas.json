@@ -212,10 +212,6 @@
           "sourceLayer": "admin"
         },
         {
-          "title": "Country Boundaries",
-          "sourceLayer": "country_boundaries"
-        },
-        {
           "title": "Bathymetry",
           "sourceLayer": "depth"
         },

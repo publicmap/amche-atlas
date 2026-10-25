@@ -84,6 +84,10 @@ function createMap(initial = {}) {
         getBearing: () => state.bearing,
         getPitch: () => state.pitch,
         getMaxPitch: () => 85,
+        jumpTo: vi.fn(({ bearing, pitch }) => {
+            if (bearing != null) state.bearing = bearing;
+            if (pitch != null) state.pitch = pitch;
+        }),
         easeTo: vi.fn(({ bearing, pitch }) => {
             if (bearing != null) state.bearing = bearing;
             if (pitch != null) state.pitch = pitch;
@@ -100,15 +104,18 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
 let mounted = [];
 
-function mount(map = createMap()) {
+// Opened by default: clicks on the open compass are the ones that walk the GPS
+// cycle, which is what most of these tests exercise.
+function mount(map = createMap(), { expanded = true } = {}) {
     const control = new MapOrientationControl();
     const container = control.onAdd(map);
     document.body.appendChild(container);
     // Nothing in the test URL asks for tracking, so drop the 15s poll the
     // splash hand-off would otherwise leave running.
     control._watch.cancelAutoActivate();
+    if (expanded) control.expand();
     mounted.push(control);
-    return { control, map, container, geolocate: control._watch._control, button: container.querySelector('button') };
+    return { control, map, container, geolocate: control._watch._control, button: container.querySelector('.map-orientation-btn') };
 }
 
 function sendHeading(heading) {
@@ -195,8 +202,9 @@ describe('tooltip lines', () => {
 });
 
 describe('MapOrientationControl', () => {
-    it('renders the map bearing on the needle', () => {
+    it('turns the base with the map, and the needle with it when there is no device compass', () => {
         const { control, map } = mount(createMap({ bearing: 90 }));
+        expect(control._base.getAttribute('transform')).toBe('rotate(-90 18 18)');
         expect(control._needle.getAttribute('transform')).toBe('rotate(-90 18 18)');
         expect(tooltipOf(control)[0]).toBe('Map Bearing E 90');
         expect(map.on).toHaveBeenCalledWith('rotate', control._render);
@@ -204,22 +212,70 @@ describe('MapOrientationControl', () => {
 
     it('leans the rose back with the map pitch', () => {
         const { control, map } = mount(createMap({ pitch: 60 }));
-        // NavigationControl's visualizePitch transform: rotateX by the pitch,
-        // scaled by 1/sqrt(cos(pitch)) to counter the foreshortening.
-        const [, scale] = control._icon.style.transform.match(/^scale\(([\d.]+)\) rotateX\(60deg\)$/);
-        expect(Number(scale)).toBeCloseTo(Math.SQRT2, 6);
+        // NavigationControl's visualizePitch transform, eased off: rotateX by
+        // 0.6 of the pitch, scaled by 1/sqrt(cos) to counter the
+        // foreshortening, but never past the edge of the button.
+        const scaleAt = () => Number(control._icon.style.transform.match(/^scale\(([\d.]+)\) rotateX\([\d.]+deg\)$/)[1]);
+        map.state.pitch = 20;
+        control._render();
+        expect(control._icon.style.transform).toContain('rotateX(12deg)');
+        expect(scaleAt()).toBeCloseTo(1 / Math.sqrt(Math.cos(12 * Math.PI / 180)), 6);
+
+        map.state.pitch = 85;
+        control._render();
+        expect(control._icon.style.transform).toContain('rotateX(51deg)');
+        expect(scaleAt()).toBe(1.15);
 
         map.state.pitch = 0;
         control._render();
         expect(control._icon.style.transform).toBe('');
     });
 
-    it('shows the device heading on the ring without following it', () => {
+    it('points the needle at real north from the device compass without following it', () => {
         const { control, map } = mount(createMap({ bearing: 90 }));
         sendHeading(168);
         expect(control.deviceBearing).toBe(168);
-        expect(control._headingTick.getAttribute('transform')).toBe('rotate(78 18 18)');
+        expect(control._needle.getAttribute('transform')).toBe('rotate(-168 18 18)');
+        expect(control._base.getAttribute('transform')).toBe('rotate(-90 18 18)');
         expect(map.easeTo).not.toHaveBeenCalled();
+    });
+
+    it('opens on the first click without touching GPS', async () => {
+        const { control, container, geolocate, button } = mount(createMap(), { expanded: false });
+        expect(tooltipOf(control).at(-1)).toBe('Click to open the compass and tilt controls');
+
+        button.click();
+        await flush();
+        expect(control.expanded).toBe(true);
+        expect(container.classList.contains('map-orientation-control--expanded')).toBe(true);
+        expect(button.getAttribute('aria-expanded')).toBe('true');
+        expect(geolocate._watchState).toBe('OFF');
+    });
+
+    it('folds away on a pointer outside it or Escape', () => {
+        const { control, button } = mount();
+        button.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        expect(control.expanded).toBe(true);
+
+        document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        expect(control.expanded).toBe(false);
+
+        control.expand();
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        expect(control.expanded).toBe(false);
+    });
+
+    it('tilts the map from the open compass without unlocking GPS', () => {
+        const { control, map, container } = mount(createMap({ pitch: 80 }));
+        const [up, down] = container.querySelectorAll('.map-orientation-tilt');
+
+        up.click();
+        expect(map.easeTo).toHaveBeenLastCalledWith({ pitch: 85, duration: 300 }, { geolocateSource: true });
+        down.click();
+        expect(map.easeTo).toHaveBeenLastCalledWith({ pitch: 70, duration: 300 }, { geolocateSource: true });
+
+        control._render();
+        expect(container.querySelector('.map-orientation-pitch-value').textContent).toBe('70°');
     });
 
     it('reads the true heading iOS reports', () => {

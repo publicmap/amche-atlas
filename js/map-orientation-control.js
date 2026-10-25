@@ -4,9 +4,16 @@
  * Replaces the pair of buttons that used to sit side by side in the top-left
  * row (a GeolocateControl subclass and a NavigationControl compass), which had
  * to reach across to each other to keep the bearing lock in sync. The symbol is
- * a compass rose inside a ring: the rose reports the map bearing, the ring
- * reports the GPS mode, and one click walks the cycle described in
- * js/map-orientation-modes.js.
+ * a handheld compass: a base marked N that turns with the map, so it sits N-up
+ * on a north-up map and swings round to the needle when the map follows the
+ * device heading, and a needle that always points at real north - from the
+ * device compass where there is one, the map's north otherwise. The dial on the
+ * base reports the GPS mode.
+ *
+ * The first click opens the compass at double size with the tilt controls
+ * beside it (js/map-orientation-handles.js); clicks on the open compass walk
+ * the cycle described in js/map-orientation-modes.js, and a click anywhere
+ * else or Escape folds it away again.
  *
  * The GPS engine underneath is js/geolocation-watch.js; everything here is the
  * button, the bearing, and the device compass that can drive it.
@@ -36,17 +43,29 @@ const WATCH_MODES = {
 // is legible even before css/styles.css lands; the stylesheet only repaints the
 // dial per mode. Rotation uses SVG's own transform attribute, which carries its
 // centre of rotation with it and so needs no transform-box support.
-const BUTTON_HTML = `
-    <button type="button" class="map-orientation-btn" data-mode="off">
-        <svg class="map-orientation-icon" width="28" height="28" viewBox="0 0 36 36" aria-hidden="true">
-            <circle class="map-orientation-dial" cx="18" cy="18" r="13" fill="none" stroke="#6b7280" stroke-width="2"></circle>
-            <g class="map-orientation-heading"><path d="M18 0.5 L20.8 5 L15.2 5 Z" fill="#ffffff"></path></g>
-            <g class="map-orientation-needle">
-                <path d="M18 8.5 L21.2 18 L14.8 18 Z" fill="#ef4444"></path>
-                <path d="M18 27.5 L21.2 18 L14.8 18 Z" fill="#ffffff"></path>
-            </g>
-        </svg>
-    </button>
+const CONTROL_HTML = `
+    <div class="map-orientation-panel">
+        <div class="map-orientation-pitch"></div>
+        <div class="map-orientation-face">
+            <span class="map-orientation-pitch-value"></span>
+            <div class="map-orientation-rose">
+                <button type="button" class="map-orientation-btn" data-mode="off" aria-expanded="false">
+                    <svg class="map-orientation-icon" width="28" height="28" viewBox="0 0 36 36" aria-hidden="true">
+                        <g class="map-orientation-base">
+                            <circle class="map-orientation-dial" cx="18" cy="18" r="16" fill="none" stroke="#6b7280" stroke-width="2"></circle>
+                            <path d="M33 18 H30 M18 33 V30 M3 18 H6" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.7"></path>
+                            <text x="18" y="7.1" text-anchor="middle" font-size="7" font-weight="800" font-family="system-ui, -apple-system, sans-serif" fill="#ffffff" stroke="#111827" stroke-width="1.6" paint-order="stroke">N</text>
+                        </g>
+                        <g class="map-orientation-needle">
+                            <path d="M18 8 L21.4 18 L14.6 18 Z" fill="#ef4444"></path>
+                            <path d="M18 25.5 L20.6 18 L15.4 18 Z" fill="#ffffff" fill-opacity="0.45"></path>
+                            <circle cx="18" cy="18" r="1.4" fill="#ffffff"></circle>
+                        </g>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
 `;
 
 export class MapOrientationControl {
@@ -57,6 +76,7 @@ export class MapOrientationControl {
         this._wantDeviceLock = false;
         this._orientationPermissionAsked = false;
         this._lastDeviceEaseAt = 0;
+        this._expanded = false;
         this._watch = new GeolocationWatch(this._onWatchState, options);
     }
 
@@ -65,6 +85,10 @@ export class MapOrientationControl {
     get lastPosition() { return this._watch.lastPosition; }
     get lockedToDevice() { return this._lockedToDevice; }
     get deviceBearing() { return this._deviceBearing; }
+    get expanded() { return this._expanded; }
+
+    expand() { this._setExpanded(true); }
+    collapse() { this._setExpanded(false); }
 
     // Event surface kept compatible with the GeolocateControl this replaced -
     // map-nearby-features-control.js subscribes to 'geolocate' through
@@ -113,13 +137,17 @@ export class MapOrientationControl {
 
         this._container = document.createElement('div');
         this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group map-orientation-control';
-        this._container.innerHTML = BUTTON_HTML;
+        this._container.innerHTML = CONTROL_HTML;
         this._button = this._container.querySelector('.map-orientation-btn');
         this._icon = this._container.querySelector('.map-orientation-icon');
+        this._base = this._container.querySelector('.map-orientation-base');
         this._needle = this._container.querySelector('.map-orientation-needle');
-        this._headingTick = this._container.querySelector('.map-orientation-heading');
+        this._pitchValue = this._container.querySelector('.map-orientation-pitch-value');
         this._button.addEventListener('click', this._onClick);
-        this._handles = new OrientationHandles(map, this._container, () => this._render());
+        this._handles = new OrientationHandles(map, {
+            pitchParent: this._container.querySelector('.map-orientation-pitch'),
+            ringParent: this._container.querySelector('.map-orientation-rose')
+        }, () => this._render());
 
         CAMERA_EVENTS.forEach(type => map.on(type, this._render));
         map.on('moveend', this._onMoveEnd);
@@ -131,6 +159,7 @@ export class MapOrientationControl {
     }
 
     onRemove() {
+        this.collapse();
         CAMERA_EVENTS.forEach(type => this._map?.off(type, this._render));
         this._map?.off('moveend', this._onMoveEnd);
         $(window).off('deviceorientationabsolute deviceorientation', this._onDeviceOrientation);
@@ -158,7 +187,25 @@ export class MapOrientationControl {
         window.dispatchEvent(new CustomEvent('geolocationModeChanged', { detail: { mode } }));
     }
 
+    _setExpanded(expanded) {
+        if (expanded === this._expanded) return;
+        this._expanded = expanded;
+        const method = expanded ? 'addEventListener' : 'removeEventListener';
+        document[method]('pointerdown', this._onOutsidePointer, true);
+        document[method]('keydown', this._onKeyDown);
+        this._render();
+    }
+
+    _onOutsidePointer = (event) => {
+        if (!this._container.contains(event.target)) this.collapse();
+    }
+
+    _onKeyDown = (event) => {
+        if (event.key === 'Escape') this.collapse();
+    }
+
     _onClick = () => {
+        if (!this._expanded) return this.expand();
         // A tap is an explicit "now", so drop any pending auto-activation and
         // act on the state the control is actually in.
         this._watch.cancelAutoActivate();
@@ -271,29 +318,20 @@ export class MapOrientationControl {
         this._render();
     }
 
-    // The tilt NavigationControl's visualizePitch used to give this symbol: the
-    // whole rose lies back with the map, with the scale term countering the
-    // vertical foreshortening rotateX introduces. Applied to the <svg> box, so
-    // it composes over the in-plane rotations the needle and heading tick carry
-    // as SVG transform attributes.
-    _pitchTransform() {
-        return pitchTransform(this._map ? this._map.getPitch() : 0);
-    }
-
-    // Rotated or tilted away from north-up/flat, the button's only job is
-    // getting the user back there - so it doubles in size to make that tap
-    // easy to land, especially on a phone screen.
-    _needsReorient(mapBearing) {
-        const pitch = this._map ? this._map.getPitch() : 0;
-        return this._handles?.active || Math.abs(normalizeBearing(mapBearing + 180) - 180) > 0.5 || pitch > 0.5;
-    }
-
     _render = () => {
         if (!this._button) return;
         const mapBearing = this._map ? this._map.getBearing() : 0;
-        this._icon.style.transform = this._pitchTransform();
+        const pitch = this._map ? this._map.getPitch() : 0;
+        // The tilt NavigationControl's visualizePitch used to give this
+        // symbol: the whole compass lies back with the map, with the scale
+        // term countering the vertical foreshortening rotateX introduces.
+        // Applied to the <svg> box, so it composes over the in-plane rotations
+        // the base and needle carry as SVG transform attributes.
+        this._icon.style.transform = pitchTransform(pitch);
         this._handles?.sync();
-        this._container.classList.toggle('map-orientation-control--reorient', this._needsReorient(mapBearing));
+        this._pitchValue.textContent = `${Math.round(pitch)}°`;
+        this._container.classList.toggle('map-orientation-control--expanded', this._expanded);
+        this._button.setAttribute('aria-expanded', String(this._expanded));
 
         // A pending auto-activation is a visual state only: the click cycle
         // still runs off the real mode, which is still OFF.
@@ -301,13 +339,12 @@ export class MapOrientationControl {
             ? MODE.LOCATING
             : this._mode;
         this._button.setAttribute('aria-pressed', String(this.isTracking));
-        this._needle.setAttribute('transform', `rotate(${-normalizeBearing(mapBearing)} 18 18)`);
-        if (this._deviceBearing == null) {
-            this._headingTick.setAttribute('display', 'none');
-        } else {
-            this._headingTick.removeAttribute('display');
-            this._headingTick.setAttribute('transform', `rotate(${normalizeBearing(this._deviceBearing - mapBearing)} 18 18)`);
-        }
+        this._base.setAttribute('transform', `rotate(${-normalizeBearing(mapBearing)} 18 18)`);
+        // Like a real compass the needle answers to the earth, not the map: it
+        // reads the device compass whatever the GPS mode, and only falls back
+        // to the map's north where the device has no compass to read.
+        const north = this._deviceBearing ?? mapBearing;
+        this._needle.setAttribute('transform', `rotate(${-normalizeBearing(north)} 18 18)`);
 
         const lines = buildOrientationTooltipLines({
             mode: this._mode,
@@ -316,6 +353,7 @@ export class MapOrientationControl {
             lockedToDevice: this._lockedToDevice,
             canOfferDeviceLock: this._canOfferDeviceLock()
         });
+        if (!this._expanded) lines[lines.length - 1] = 'Click to open the compass and tilt controls';
         this._button.setAttribute('title', lines.join('\n'));
         this._button.setAttribute('aria-label', lines.join('. '));
     }
