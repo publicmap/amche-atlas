@@ -1,48 +1,37 @@
 /**
- * MapLocationMenuControl - the place menu, opened from the map console's
- * place line and styled as part of the console (css/map-console.css):
+ * MapLocationMenuControl - the Address panel, opened from the place name on
+ * the map console's place line (one of the console's panels,
+ * js/console-panel.js):
  *
- * - "Current location", in three tabs (js/location-tabs.js):
- *   - "Address": the reverse-geocoded address (js/location-address.js)
- *     as a breadcrumb of admin areas, then the rest of the address and the
- *     postcode. Every part is a button: hovering previews its extent on the
- *     map, clicking flies there. The menu stays open while the map moves - it
- *     closes from the place line, Esc, or a click on other UI - and the
- *     address follows the map. Under it, beside the OSM
- *     credit, the languages it is in (js/location-language.js).
- *   - "Map view": the camera and the 3D terrain, each value dragged to
- *     change it (js/location-view.js); the tools rail's 3D button opens it.
- *   - "Locate Me": a tab that is also the trigger - selecting it centres the
- *     map on the device - with the device's GPS fix and its track log
- *     (js/location-device.js, js/gpx-log.js).
- * - Under the address, its OpenStreetMap credit (js/location-osm.js). Each
- *   address part shows its OSM icon on hover and while it is the current
- *   level; it opens the OSM data explorer on that part's object.
+ * - The reverse-geocoded address (js/location-address.js) as a breadcrumb of
+ *   admin areas, then the rest of the address and the postcode. Every part is
+ *   a button: hovering previews its extent on the map, clicking flies there.
+ *   The panel stays open while the map moves and the address follows the map.
+ * - Under it, its OpenStreetMap credit (js/location-osm.js) and the languages
+ *   it is in (js/location-language.js). Each address part shows its OSM icon
+ *   on hover and while it is the current level; it opens the OSM data
+ *   explorer on that part's object.
+ *
+ * The map view and the device's location are panels of their own
+ * (js/map-view-panel.js, js/locate-panel.js), as is Share
+ * (js/share-view-panel.js).
  *
  * The address is read from window.attributionControl (see
  * map-attribution-control.js `setLocation()` / map-init.js
  * `updateAttributionLocation()`) rather than issued as a fresh reverse geocode
- * here - that already runs on every `moveend`. Opening the menu makes one
+ * here - that already runs on every `moveend`. Opening the panel makes one
  * Nominatim details request for the OSM objects behind the address parts, so
  * a part with one is located by that object, and any other part by a forward
  * geocode of its name scoped to its parents ("Panaji, Goa, India"). Hover and
  * click share one lookup (and its cache).
- *
- * Sharing the view, its history and links to other maps are in the Share
- * panel (js/share-view-panel.js); opening one closes the other.
- *
- * Not a mapboxgl control of its own - it lives in the map console's bar.
  */
 import { queryNominatim, lookupNominatimPlaces, fetchNominatimAddressParts } from './nominatim-search.js';
 import { activePart, buildAddressBlock, linkOsmObjects, nearestOnLine } from './location-address.js';
 import { directionTo, drawHoverPreview } from './location-hover.js';
 import { buildOsmFooter, showOsmDialog } from './location-osm.js';
-import { addCloseButton, buildTabs } from './location-tabs.js';
 import { buildLanguageControl } from './location-language.js';
-import { buildDevicePanel } from './location-device.js';
-import { buildViewPanel } from './location-view.js';
+import { ConsolePanel } from './console-panel.js';
 
-const LIVE_REFRESH_MS = 500;
 // A movestart this soon after a pick is the pick's own camera move.
 const OWN_MOVE_MS = 300;
 const HOVER_PREVIEW_DEBOUNCE_MS = 150;
@@ -51,14 +40,9 @@ function extent(osmType, bbox) {
     return ['way', 'relation', 'W', 'R'].includes(osmType) ? bbox : null;
 }
 
-export class MapLocationMenuControl {
+export class MapLocationMenuControl extends ConsolePanel {
     constructor() {
-        this._map = null;
-        this._container = null;
-        this._button = null;
-        this._menu = null;
-        this._isOpenState = false;
-        this._refreshTimer = null;
+        super({ title: 'Address', icon: 'geo-alt', className: 'address-panel' });
 
         // part query -> {center, bbox} (or null), shared by hover preview and
         // click-to-navigate so hovering a part before clicking it doesn't
@@ -67,227 +51,57 @@ export class MapLocationMenuControl {
         this._hoverDebounceTimer = null;
         this._hoverRequestToken = 0;
         this._renderToken = 0;
-        this._locationTab = 'address';
 
-        this._handleOutsideEvent = this._handleOutsideEvent.bind(this);
-        this._handleKeydown = this._handleKeydown.bind(this);
-        this._hide = this._hide.bind(this);
         this._handleLocationChanged = () => {
-            if (this._isOpenState) this._renderAddress();
+            if (this._isOpen) this._renderAddress();
         };
         // A pick's own camera move keeps its trail; any other move ends it.
         this._handleMoveStart = () => {
             if (performance.now() - (this._ownMoveAt || 0) < OWN_MOVE_MS) return;
             if (!this._trail) return;
             this._trail = null;
-            if (this._isOpenState) this._renderAddress();
+            if (this._isOpen) this._renderAddress();
         };
     }
 
-    /**
-     * @param {HTMLElement|null} hostEl - where to put this control's own button
-     * @param {Object} map
-     * @param {{button?: HTMLElement}} [options] - an existing trigger to use
-     *   instead (the map console's place line), in which case hostEl is unused
-     */
-    mount(hostEl, map, { button = null } = {}) {
-        if ((!hostEl && !button) || !map) return;
-        this._map = map;
-
-        if (button) {
-            this._button = button;
-            this._ownButton = false;
-        } else {
-            this._container = document.createElement('div');
-            this._container.className = 'header-shortcut-menu';
-            this._button = document.createElement('button');
-            this._button.type = 'button';
-            this._button.className = 'header-shortcut-menu-btn';
-            this._button.setAttribute('aria-label', 'Map location and share');
-            this._button.innerHTML = '<sl-icon name="qr-code"></sl-icon>';
-            this._ownButton = true;
-            this._container.appendChild(this._button);
-            hostEl.appendChild(this._container);
-        }
-        this._button.addEventListener('click', () => this.toggle());
-
-        this._menu = document.createElement('div');
-        this._menu.className = 'map-location-menu';
-        this._menu.setAttribute('role', 'dialog');
-        this._menu.setAttribute('aria-label', 'Current location');
-        this._menu.style.display = 'none';
-        document.body.appendChild(this._menu);
-
-        document.addEventListener('mousedown', this._handleOutsideEvent, true);
-        document.addEventListener('keydown', this._handleKeydown);
-        window.addEventListener('resize', this._hide);
+    mount(map, options) {
+        super.mount(map, options);
         window.addEventListener('mapLocationChanged', this._handleLocationChanged);
-        map.on('movestart', this._handleMoveStart);
+        map?.on('movestart', this._handleMoveStart);
+        window.mapLocationMenuControl = this;
     }
 
     unmount() {
         window.removeEventListener('mapLocationChanged', this._handleLocationChanged);
         this._map?.off('movestart', this._handleMoveStart);
-        document.removeEventListener('mousedown', this._handleOutsideEvent, true);
-        document.removeEventListener('keydown', this._handleKeydown);
-        window.removeEventListener('resize', this._hide);
-
-        this._clearRefreshTimer();
-        this._clearHoverPreview();
-        this._container?.parentNode?.removeChild(this._container);
-        this._menu?.parentNode?.removeChild(this._menu);
-        this._container = null;
-        this._button = null;
-        this._menu = null;
-        this._map = null;
+        super.unmount();
+        if (window.mapLocationMenuControl === this) window.mapLocationMenuControl = null;
     }
 
-    toggle() {
-        if (this._isOpenState) this._hide();
-        else this._open();
+    _build(section) {
+        this._addressSection = section;
+        this._osmFooter = section.appendChild(buildOsmFooter());
+        this._language = buildLanguageControl();
+        this._osmFooter.appendChild(this._language.toggle);
+        section.appendChild(this._language.panel);
+        this._renderAddress();
     }
 
-    /** Opens the menu on one of the Current location tabs ('address', 'view', 'locate'). */
-    openTab(id) {
-        this._locationTab = id;
-        if (this._isOpenState) this._render();
-        else this._open();
-    }
-
-    /** The console's status icons: open the menu on a tab, or close it when it is already showing. */
-    toggleTab(id) {
-        if (this._isOpenState && this._locationTab === id) this._hide();
-        else this.openTab(id);
-    }
-
-    close() {
-        if (this._isOpenState) this._hide();
-    }
-
-    _open() {
-        if (!this._map || !this._button || !this._menu) return;
-        window.shareViewPanel?.close();
-        this._isOpenState = true;
-        this._button.classList.add('active');
-        if (this._ownButton) this._button.querySelector('sl-icon')?.setAttribute('name', 'qr-code-scan');
-
-        this._render();
-
-        // Hangs under the console card it is opened from, at the same width.
-        const anchor = this._button.closest('.map-console') || this._button;
-        const rect = anchor.getBoundingClientRect();
-        this._menu.style.display = 'block';
-        this._menu.style.width = anchor === this._button ? '' : `${rect.width}px`;
-        const maxLeft = window.innerWidth - this._menu.getBoundingClientRect().width - 8;
-        this._menu.style.left = `${Math.max(8, Math.min(rect.left, maxLeft))}px`;
-        this._menu.style.top = `${rect.bottom + 8}px`;
-
-        this._clearRefreshTimer();
-        this._refreshTimer = setInterval(() => this._refreshLiveValues(), LIVE_REFRESH_MS);
-    }
-
-    _hide() {
-        this._isOpenState = false;
-        if (this._menu) this._menu.style.display = 'none';
-        this._button?.classList.remove('active');
-        if (this._ownButton) this._button?.querySelector('sl-icon')?.setAttribute('name', 'qr-code');
-        this._clearRefreshTimer();
+    _teardown() {
         this._clearHoverPreview();
         this._language?.destroy();
         this._language = null;
-        this._device?.destroy();
-        this._device = null;
-        this._view?.destroy();
-        this._view = null;
     }
 
-    _clearRefreshTimer() {
-        if (this._refreshTimer) {
-            clearInterval(this._refreshTimer);
-            this._refreshTimer = null;
-        }
+    // The language fields' suggestions open in <body>, outside the panel.
+    _keepsOpen(target) {
+        return !!target.closest?.('.ac-badge-input-list');
     }
 
-    _handleOutsideEvent(e) {
-        if (!this._isOpenState) return;
-        if (this._container?.contains(e.target)) return;
-        if (this._button?.contains(e.target)) return;
-        if (e.target.closest?.('.map-console-status')) return;
-        if (this._menu?.contains(e.target)) return;
-        // The language fields' suggestions open in <body>, outside the menu.
-        if (e.target.closest?.('.ac-badge-input-list')) return;
-        // Stays open while the map is panned or zoomed under it.
-        if (this._map?.getCanvasContainer().contains(e.target)) return;
-        this._hide();
-    }
-
+    // Escape in a language field leaves the field, not the panel.
     _handleKeydown(e) {
-        // Escape in a language field leaves the field, not the menu.
-        if (e.key === 'Escape' && !e.target.closest?.('.ac-badge-input')) this._hide();
-    }
-
-    _section(label) {
-        const section = document.createElement('section');
-        section.className = 'place-section';
-        if (label) {
-            const heading = document.createElement('div');
-            heading.className = 'place-label';
-            heading.textContent = label;
-            section.appendChild(heading);
-        }
-        this._menu.appendChild(section);
-        return section;
-    }
-
-    _render() {
-        this._menu.innerHTML = '';
-        this._language?.destroy();
-        this._device?.destroy();
-        this._view?.destroy();
-
-        const location = this._section(' ');
-        const label = location.querySelector('.place-label');
-        label.textContent = '';
-        label.setAttribute('aria-label', 'Current location');
-        const panels = buildTabs(location, [
-            { id: 'address', label: 'Address', icon: 'geo-alt' },
-            { id: 'view', label: 'Map view', icon: 'badge-3d' },
-            { id: 'locate', label: 'Locate Me', icon: 'crosshair' }
-        ], this._locationTab, (id) => {
-            this._locationTab = id;
-            this._clearHoverPreview();
-        }, label);
-        this._bindLocateTab(label.querySelector('#place-tab-locate'));
-        addCloseButton(label, this._hide);
-        this._device = buildDevicePanel(panels.locate, this._map);
-        this._addressSection = panels.address;
-        this._osmFooter = this._addressSection.appendChild(buildOsmFooter());
-        this._language = buildLanguageControl();
-        this._osmFooter.appendChild(this._language.toggle);
-        this._addressSection.appendChild(this._language.panel);
-        this._renderAddress();
-
-        this._view = buildViewPanel(panels.view, this._map);
-    }
-
-    // Clicking the Locate Me tab also locks the camera onto the device's
-    // position (starting GPS if needed); while it is locked the tab says so.
-    _bindLocateTab(button) {
-        button.classList.add('place-locate');
-        button.addEventListener('click', () => {
-            window.geolocationControl?.locate();
-            this._updateLocateButton();
-        });
-        this._locate = { button, label: button.querySelector('.place-tab-text') };
-        this._updateLocateButton();
-    }
-
-    _updateLocateButton() {
-        if (!this._locate) return;
-        const locked = !!window.geolocationControl?.isLockedToLocation;
-        this._locate.button.classList.toggle('active', locked);
-        this._locate.label.textContent = locked ? 'Tracking' : 'Locate Me';
-        this._locate.button.title = locked ? 'The map is following your location' : 'Centre the map on where you are';
+        if (e.target.closest?.('.ac-badge-input')) return;
+        super._handleKeydown(e);
     }
 
     // The address block, redrawn in place as the map moves under the open menu.
@@ -328,22 +142,15 @@ export class MapLocationMenuControl {
         }
     }
 
-    // The OSM data explorer for a part's object; it replaces the menu.
+    // The OSM data explorer for a part's object; it replaces the panel.
     _openOsm(part) {
         const center = this._map.getCenter();
         const context = {
             view: { lat: center.lat, lng: center.lng, zoom: this._map.getZoom() },
             country: window.attributionControl?._address?.country || null
         };
-        this._hide();
+        this.close();
         showOsmDialog(context, { ...part.osm, name: part.value });
-    }
-
-    _refreshLiveValues() {
-        if (!this._isOpenState || !this._map) return;
-        this._updateLocateButton();
-        this._device?.refresh();
-        this._view?.refresh();
     }
 
     /**

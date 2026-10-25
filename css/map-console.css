@@ -612,7 +612,8 @@ mapbox-search-box [class$='--Container'] {
 }
 
 .map-console .map-console-status-btn:hover,
-.map-console .map-console-status-btn:focus-visible {
+.map-console .map-console-status-btn:focus-visible,
+.map-console .map-console-status-btn.active {
     background: var(--console-hover);
     color: var(--console-ink);
     opacity: 1;
@@ -2139,7 +2140,7 @@ body.console-find .marker-dock-routes {
 }
 
 
-/* ---------- Place menu (js/map-location-menu-control.js) ---------- */
+/* ---------- Console panels (js/console-panel.js): Address, Map view, Location, Share ---------- */
 
 .map-location-menu {
     position: fixed;
@@ -2231,6 +2232,48 @@ body.console-find .marker-dock-routes {
 .place-tabs .place-tab[aria-selected="true"] {
     color: var(--console-ink);
     cursor: default;
+}
+
+/* A single panel's header (js/console-panel.js): its icon and title, any
+   header action, then the close button */
+.place-panel-head {
+    justify-content: flex-start;
+}
+
+.place-panel-title {
+    display: inline-flex;
+    align-items: center;
+    margin-right: auto;
+    color: var(--console-ink);
+}
+
+/* The Locate panel's Locate Me (js/locate-panel.js), blue while the map is
+   following the device */
+.place-locate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    background: none;
+    border: 1px solid var(--console-line);
+    border-radius: var(--console-radius-sm);
+    box-shadow: none;
+    color: var(--console-ink-2);
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    cursor: pointer;
+}
+
+.place-locate-btn:hover,
+.place-locate-btn:focus-visible {
+    background: var(--console-hover);
+    color: var(--console-ink);
+}
+
+.place-locate-btn.is-on {
+    border-color: #1da1f2;
+    color: #1da1f2;
 }
 
 /* Closes the menu from its tab row (js/location-tabs.js addCloseButton) */
@@ -3506,19 +3549,6 @@ body.console-find .marker-dock-routes {
     color: inherit;
 }
 
-.place-tabs .place-tab.place-locate {
-    margin-left: auto;
-}
-
-.place-tabs .place-tab.place-locate::before {
-    content: none;
-}
-
-/* The blue of GL JS's own location dot (.mapboxgl-user-location-dot) */
-.place-tabs .place-tab.place-locate.active {
-    color: #1da1f2;
-}
-
 /* Locate Me: the track log under the device's readouts */
 
 .place-log {
@@ -3601,6 +3631,64 @@ body.console-find .marker-dock-routes {
     border-radius: var(--console-radius-sm);
     color: var(--console-ink);
     font: inherit;
+}
+
+/* How the map follows the device: the orientation button's modes, picked
+   directly (js/location-device.js). Blue for the one in use, as on Log Track. */
+.place-follow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.place-follow-label {
+    font-size: 12px;
+    color: var(--console-ink-3);
+}
+
+.place-segments {
+    display: flex;
+    flex: 1;
+    padding: 2px;
+    gap: 2px;
+    border: 1px solid var(--console-line);
+    border-radius: var(--console-radius-sm);
+}
+
+.place-segments .place-segment {
+    flex: 1;
+    padding: 3px 4px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    box-shadow: none;
+    color: var(--console-ink-2);
+    font: inherit;
+    font-size: 12px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.place-segments .place-segment:hover:not(:disabled) {
+    background: var(--console-hover);
+    color: var(--console-ink);
+}
+
+.place-segments .place-segment[aria-checked="true"] {
+    background: #1da1f2;
+    color: #ffffff;
+}
+
+.place-segments .place-segment:disabled {
+    color: var(--console-ink-3);
+    opacity: 0.5;
+    cursor: default;
+}
+
+.place-segments .place-segment:focus-visible {
+    outline: 2px solid var(--console-blue);
+    outline-offset: 1px;
 }
 
 .place-log-error {

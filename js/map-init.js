@@ -22,6 +22,8 @@ import { MapContextMessagesControl } from './map-context-messages-control.js';
 import { ShortcutMenu } from './shortcut-menu.js';
 import { RouteDragHandler } from './search/directions-layer.js';
 import { MapLocationMenuControl } from './map-location-menu-control.js';
+import { MapViewPanel } from './map-view-panel.js';
+import { LocatePanel } from './locate-panel.js';
 import { ShareViewPanel } from './share-view-panel.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { MapMaskManager } from './map-mask-manager.js';
@@ -1024,12 +1026,14 @@ export class MapInitializer {
             window.featureControl = new MapFeatureControl();
             window.featureControl.onAdd(map);
 
-            // Map location menu: the reverse-geocoded address, map view and
-            // device location for the current map center (see
-            // map-location-menu-control.js), opened from the place line
-            // under the console bar.
-            window.mapLocationMenuControl = new MapLocationMenuControl();
-            window.mapLocationMenuControl.mount(null, map, { button: window.mapConsole?.placeButton });
+            // The console's panels, each toggled by its own trigger on the
+            // place line under the console bar (see console-panel.js): the
+            // address of the map center, from the place name; the camera and
+            // 3D terrain, from the 3D icon; the device's location, from the
+            // location icon.
+            new MapLocationMenuControl().mount(map, { button: window.mapConsole?.placeButton });
+            new MapViewPanel().mount(map, { button: window.mapConsole?.terrainButton });
+            new LocatePanel().mount(map, { button: window.mapConsole?.locationButton });
             // Share panel: the share link and QR, map history and the view in
             // other maps (see share-view-panel.js), opened from the link icon
             // at the start of the place line.

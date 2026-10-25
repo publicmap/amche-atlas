@@ -1,14 +1,22 @@
 /**
- * The place menu's Locate Me tab (js/map-location-menu-control.js): where the
+ * The Locate panel (js/locate-panel.js): where the
  * device is - its latest GPS fix, accuracy, altitude, speed, heading and the
  * compass bearing it faces - and
- * its track log (js/gpx-log.js): Log Track and how often it logs, then the
- * tracks of this and past sessions, each to fit the map to, download as GPX or
- * delete, and Clear all.
+ * its track log (js/gpx-log.js): Log Track and how often it logs, how the map
+ * follows the device (the orientation button's modes, js/map-orientation-control.js),
+ * then the tracks of this and past sessions, each to fit the map to, download
+ * as GPX or delete, and Clear all.
  */
 import { INTERVALS, formatDistance, trackDistance, trackName, trackToGpx, trackLog } from './gpx-log.js';
 
 const DASH = '—';
+
+const ORIENTATION_OPTIONS = [
+    ['off', 'Off', 'Turn GPS off'],
+    ['north', 'North up', 'Follow your location with north at the top'],
+    ['heading', 'Heading', 'Follow your location and turn the map with the way the device faces'],
+    ['free', 'Free', 'Keep GPS on and leave the map where you put it']
+];
 
 function el(tag, className, text) {
     const node = document.createElement(tag);
@@ -56,7 +64,7 @@ function fitTrack(map, track) {
 }
 
 /**
- * @param {HTMLElement} panel - the tab's panel
+ * @param {HTMLElement} panel - where the readouts and log go
  * @param {Object} map
  * @returns {{refresh: () => void, destroy: () => void}} - `refresh()` updates
  *   the live readouts, `destroy()` stops following the log
@@ -94,10 +102,28 @@ export function buildDevicePanel(panel, map) {
     every.appendChild(select);
     log.append(toggle, every);
 
+    const follow = el('div', 'place-follow');
+    const options = el('div', 'place-segments');
+    options.setAttribute('role', 'radiogroup');
+    options.setAttribute('aria-label', 'Map follows');
+    const optionButtons = ORIENTATION_OPTIONS.map(([id, label, title]) => {
+        const button = el('button', 'place-segment', label);
+        button.type = 'button';
+        button.title = title;
+        button.setAttribute('role', 'radio');
+        button.addEventListener('click', () => {
+            window.geolocationControl?.setOrientationOption(id);
+            refresh();
+        });
+        options.appendChild(button);
+        return [id, button, title];
+    });
+    follow.append(el('span', 'place-follow-label', 'Map'), options);
+
     const error = el('div', 'place-log-error');
     const tracks = el('section', 'place-compartment place-tracks');
     tracks.setAttribute('aria-label', 'Tracks on this device');
-    panel.append(grid, log, error, tracks);
+    panel.append(grid, log, follow, error, tracks);
 
     const renderTracks = () => {
         tracks.innerHTML = '';
@@ -154,6 +180,13 @@ export function buildDevicePanel(panel, map) {
         values.heading.textContent = fix?.heading != null && !Number.isNaN(fix.heading) ? `${Math.round(fix.heading)}°` : DASH;
         values.compass.textContent = control?.deviceBearing != null ? `${Math.round(control.deviceBearing)}°` : DASH;
         values.updated.textContent = fix ? ago(fix.timestamp) : (control?.isTracking ? 'Locating' : 'GPS off');
+        const option = control?.orientationOption ?? 'off';
+        optionButtons.forEach(([id, button, title]) => {
+            const noCompass = id === 'heading' && !control?.canFollowHeading;
+            button.setAttribute('aria-checked', String(id === option));
+            button.disabled = noCompass || (id === 'free' && !control?.isTracking);
+            button.title = noCompass ? 'This device has no compass to follow' : title;
+        });
         const message = trackLog.error || (trackLog.paused ? 'Paused while location is off. Click Locate Me to resume.' : '');
         error.textContent = message;
         error.hidden = !message;

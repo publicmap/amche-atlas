@@ -11,15 +11,17 @@
  *   list of other map services the view can be opened in
  *   (js/share-external-links.js, links in js/external-map-links.js).
  *
- * It hangs under the console like the place menu (js/map-location-menu-control.js)
- * and shares its look (css/map-console.css); opening one closes the other. It
- * stays open while the map moves under it - it closes from the link icon, Esc,
- * or a click on other UI. `window.shareViewPanel` is this instance.
+ * It hangs under the console like the console's other panels
+ * (js/console-panel.js) and shares their look (css/map-console.css); opening
+ * one closes the others. It
+ * stays open while the map is panned or zoomed under it - it closes from the
+ * link icon, Esc, a click on other UI, or a click on the map itself. `window.shareViewPanel` is this instance.
  */
 import { ShareUrlPanel } from './share-url-panel.js';
 import { buildHistoryControls } from './location-history.js';
 import { addCloseButton, buildTabs } from './location-tabs.js';
 import { buildExternalLinksSection } from './share-external-links.js';
+import { claimConsolePanel, registerConsolePanel, releaseConsolePanel } from './console-panel.js';
 
 const LIVE_REFRESH_MS = 500;
 
@@ -59,16 +61,20 @@ export class ShareViewPanel {
         document.addEventListener('keydown', this._handleKeydown);
         window.addEventListener('resize', this.close);
         map.on('moveend', this._handleMoveEnd);
+        map.on('click', this.close);
+        registerConsolePanel(this);
         window.shareViewPanel = this;
     }
 
     unmount() {
         this.close();
         this._map?.off('moveend', this._handleMoveEnd);
+        this._map?.off('click', this.close);
         document.removeEventListener('mousedown', this._handleOutsideEvent, true);
         document.removeEventListener('keydown', this._handleKeydown);
         window.removeEventListener('resize', this.close);
         this._sharePanel.destroy();
+        releaseConsolePanel(this);
         this._panel?.remove();
         this._panel = null;
         this._map = null;
@@ -91,7 +97,7 @@ export class ShareViewPanel {
      */
     open({ point = null } = {}) {
         if (!this._map || !this._panel) return;
-        window.mapLocationMenuControl?.close();
+        claimConsolePanel(this);
         if (!this._isOpen) {
             this._isOpen = true;
             this._button?.classList.add('active');

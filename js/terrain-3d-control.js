@@ -666,13 +666,13 @@ export class Terrain3DControl {
 
     // The auto-enable message's "Vertical Scale" link:
     // turns terrain on, tilts a flat map to 50° so the relief shows, and
-    // opens the place menu's Map view tab where its controls are.
+    // opens the Map view panel where its controls are.
     showPanel() {
         this._closeAutoEnabledMessage();
         if (!this._enabled) this.setEnabled(true);
         const currentPitch = this._map ? this._map.getPitch() : this._pitch;
         if (Math.abs(currentPitch) < 0.5) this._animatePitch(currentPitch, 50, 2000);
-        window.mapLocationMenuControl?.openTab('view');
+        window.mapViewPanel?.open();
     }
 
     // Shows or hides one of the map layers behind the panel's chips. The atlas

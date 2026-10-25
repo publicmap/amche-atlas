@@ -11,7 +11,8 @@
  * - explore: one bar row (the atlas field with its Find icon, On map, Pins and -
  *   once there is a route - Routes, with their counts) over a line naming the place at the map center -
  *   starting with the Share panel's link icon (js/share-view-panel.js), ending
- *   in the 3D terrain and location status icons - then, when opened, Share
+ *   in the 3D terrain and location status icons; the place name and each icon
+ *   toggle a panel of their own (js/console-panel.js) - then, when opened, Share
  *   for the pins (js/console/share-pins.js). Marker panels dock in a column
  *   beneath the console (map-marker-manager.js).
  * - find: the same row with the atlas name turned into the search field (its
@@ -166,7 +167,7 @@ export class MapControlBar {
 
         // Opens the Share panel (js/share-view-panel.js)
         this.shareButton = button('map-console-share-btn', 'link-45deg', 'Share this view, map history and other maps');
-        this.placeButton = button('map-console-place when-explore', 'geo-alt', 'Address, map view and location for this view');
+        this.placeButton = button('map-console-place when-explore', 'geo-alt', 'Address of this view');
         this._placeText = document.createElement('span');
         this._placeText.textContent = 'Locating…';
         this.placeButton.appendChild(this._placeText);
@@ -424,18 +425,25 @@ export class MapControlBar {
     }
 
     // The view's status at the end of the place line: whether 3D terrain is
-    // on and whether the device is being tracked (and its track logged), each
-    // opening its tab of the place menu (js/map-location-menu-control.js).
+    // on and whether the device is being tracked (and its track logged). Each
+    // icon is the trigger of its own panel (js/map-view-panel.js,
+    // js/locate-panel.js), mounted in map-init.js.
     _buildStatus() {
         const status = document.createElement('div');
         status.className = 'map-console-status';
         this._terrainIcon = button('map-console-status-btn', 'badge-3d', '3D terrain');
         this._trackingIcon = button('map-console-status-btn', 'crosshair', 'Location');
-        this._terrainIcon.addEventListener('click', () => window.mapLocationMenuControl?.toggleTab('view'));
-        this._trackingIcon.addEventListener('click', () => window.mapLocationMenuControl?.toggleTab('locate'));
         status.append(this._terrainIcon, this._trackingIcon);
         this.refreshStatus();
         return status;
+    }
+
+    get terrainButton() {
+        return this._terrainIcon;
+    }
+
+    get locationButton() {
+        return this._trackingIcon;
     }
 
     refreshStatus() {

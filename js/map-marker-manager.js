@@ -193,7 +193,7 @@ function idToLabel(urlId) {
 // auto-numbered "1", "2", ... - see nextSerialId) is named for the first time.
 // Also the signal _attachMarkerIdRowHandlers reads to let a single click open
 // the editor directly, instead of the usual two-step arm-then-edit.
-const MARKER_ID_PLACEHOLDER = 'Click to save label';
+const MARKER_ID_PLACEHOLDER = 'Save Location';
 // The id badge's text color: muted while it is still showing the placeholder
 // above, back to full brightness once it reads as a real name - see
 // _buildMarkerMenuHeaderHTML's first render and endEdit's after-the-fact one.
@@ -575,13 +575,6 @@ export class MapMarkerManager {
         const width = `${Math.round(mainRect.width - gutter)}px`;
 
         let top = consoleEl.getBoundingClientRect().bottom + MARKER_DOCK_GAP;
-        const routeRows = new Map();
-        stackRoutes.forEach(route => {
-            routeRows.set(route.id, { top, height: ROUTE_BUTTON_HEIGHT });
-            top += ROUTE_BUTTON_HEIGHT + ROUTE_BUTTON_GAP;
-        });
-        if (stackRoutes.length) top += MARKER_DOCK_GAP;
-
         this._dockLayout = { ordered };
         const heights = ordered.map(m => {
             const open = m.contentEl.querySelector('.marker-menu-body')?.style.display !== 'none';
@@ -596,19 +589,30 @@ export class MapMarkerManager {
         });
         const gaps = ordered.map((m, i) => gapAfter(plan, i, MARKER_DOCK_GAP));
 
-        // Unsaved markers lead the column and stay put; everything after them
-        // scrolls inside whatever height the viewport has left.
+        // Unsaved markers lead the column, above the route buttons, and stay
+        // put - unless they are a stop on a route, which keeps them with its
+        // route below. Everything after the route buttons scrolls inside
+        // whatever height the viewport has left.
+        const routeStops = new Set(stackRoutes.flatMap(route => stopMarkers(route, ordered)).filter(Boolean));
         let fixedCount = 0;
-        while (fixedCount < ordered.length && !ordered[fixedCount].saved) fixedCount++;
-        let rawTop = top;
-        let regionTop = top;
-        const raws = ordered.map((m, i) => {
-            if (i === fixedCount) regionTop = rawTop;
-            const at = rawTop;
-            rawTop += heights[i] + gaps[i];
-            return at;
+        while (fixedCount < ordered.length && !ordered[fixedCount].saved && !routeStops.has(ordered[fixedCount])) fixedCount++;
+        const raws = [];
+        for (let i = 0; i < fixedCount; i++) {
+            raws[i] = top;
+            top += heights[i] + gaps[i];
+        }
+        const routeRows = new Map();
+        stackRoutes.forEach(route => {
+            routeRows.set(route.id, { top, height: ROUTE_BUTTON_HEIGHT });
+            top += ROUTE_BUTTON_HEIGHT + ROUTE_BUTTON_GAP;
         });
-        if (fixedCount === ordered.length) regionTop = rawTop;
+        if (stackRoutes.length) top += MARKER_DOCK_GAP;
+        const regionTop = top;
+        for (let i = fixedCount; i < ordered.length; i++) {
+            raws[i] = top;
+            top += heights[i] + gaps[i];
+        }
+        const rawTop = top;
         const limit = Math.min(canvas.bottom, window.innerHeight) - MARKER_DOCK_GAP;
         const overflow = rawTop - MARKER_DOCK_GAP - regionTop - (limit - regionTop);
         this._dockMaxScroll = Math.max(0, overflow);
@@ -2130,6 +2134,7 @@ export class MapMarkerManager {
 
         return `
             <div class="marker-menu-header" style="display: flex; align-items: center; gap: 4px; padding: 8px 10px;">
+                <sl-icon class="marker-id-icon" name="pin-map" aria-hidden="true" style="font-size: 15px; color: var(--console-ink-2); flex-shrink: 0;"></sl-icon>
                 <button type="button" class="marker-id-action marker-id-move" title="Drag to reposition"
                     style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
                            background: transparent; border: none; border-radius: 50%; cursor: move; flex-shrink: 0;">
@@ -2179,6 +2184,11 @@ export class MapMarkerManager {
                     style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
                            background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
                     <sl-icon name="three-dots-vertical" style="font-size: 14px; color: var(--console-ink-2); pointer-events: none;"></sl-icon>
+                </button>
+                <button type="button" class="marker-id-action marker-id-close" title="Close"
+                    style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
+                           background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
+                    <sl-icon name="x-lg" style="font-size: 13px; color: var(--console-ink-2); pointer-events: none;"></sl-icon>
                 </button>
             </div>
         `;
@@ -4112,7 +4122,7 @@ export class MapMarkerManager {
         // from a rename. Enter on the focused label fires this same click
         // natively, so it needs no separate key handling.
         //
-        // The one exception is the placeholder itself: "Click to save label" is
+        // The one exception is the placeholder itself: "Save Location" is
         // already an instruction to click it, so a single tap opens the editor
         // right away instead of asking for a second one first.
         // Bound to both events, same reasoning as shortcutsBtn below: mapbox's
@@ -4163,6 +4173,11 @@ export class MapMarkerManager {
         };
         removeBtn.addEventListener('click', removeMarker);
         if (this._isTouch) removeBtn.addEventListener('touchend', removeMarker);
+
+        // An unsaved marker has nothing to keep, so closing it removes it.
+        const closeBtn = group.querySelector('.marker-id-close');
+        closeBtn.addEventListener('click', removeMarker);
+        if (this._isTouch) closeBtn.addEventListener('touchend', removeMarker);
 
         const pinBtn = group.querySelector('.marker-id-pin');
         const togglePin = (e) => {
@@ -4324,6 +4339,7 @@ export class MapMarkerManager {
     _syncIdActions(el) {
         queueMicrotask(() => this._layoutDockedPanels());
         const shortcuts = el.querySelector('.marker-id-shortcuts');
+        const closeHandle = el.querySelector('.marker-id-close');
         const removeHandle = el.querySelector('.marker-id-remove');
         const moveHandle = el.querySelector('.marker-id-move');
         const pinHandle = el.querySelector('.marker-id-pin');
@@ -4341,6 +4357,7 @@ export class MapMarkerManager {
         // to naming the marker.
         if (el.dataset.idEditing === '1') {
             if (shortcuts) shortcuts.style.display = 'none';
+            if (closeHandle) closeHandle.style.display = 'none';
             if (removeHandle) removeHandle.style.display = 'none';
             if (moveHandle) moveHandle.style.display = 'none';
             if (pinHandle) pinHandle.style.display = 'none';
@@ -4350,11 +4367,12 @@ export class MapMarkerManager {
 
         const focused = el.classList.contains('marker-selected');
         const saved = [...this._markers.values()].some(m => m.saved && m.marker.getElement() === el);
-        // The options button belongs to an open marker, alongside its rows -
-        // a chip is just a name. Removal and collapse are deliberately absent:
-        // clicking away closes a marker, and add-mode keeps the ones you want.
+        // The options button belongs to an open saved marker, alongside its
+        // rows - a chip is just a name. An unsaved one has nothing worth
+        // options yet, so it offers a close button instead.
         const expanded = focused || el.dataset.markerHover === '1';
-        if (shortcuts) shortcuts.style.display = expanded ? 'flex' : 'none';
+        if (shortcuts) shortcuts.style.display = expanded && saved ? 'flex' : 'none';
+        if (closeHandle) closeHandle.style.display = expanded && !saved ? 'flex' : 'none';
         if (removeHandle) removeHandle.style.display = expanded && saved ? 'flex' : 'none';
         // Same as the move handle: pinning is something you do to the marker
         // you're working with, not one you're just passing over.
@@ -4747,7 +4765,8 @@ export class MapMarkerManager {
      * rather than a third copy of the styling. Markers restore from
      * `markers=` after routes are already resolved (see map-init.js's
      * ordering note in route-url-api.js's docstring), so this runs once,
-     * right after that restoration, from url-manager.js.
+     * right after that restoration, from url-manager.js - which is also when
+     * those routes can first be bound to their stops' markers.
      */
     applyRouteWaypointStyling() {
         const groups = window.layerControl?._state?.groups || [];
@@ -4762,6 +4781,7 @@ export class MapMarkerManager {
                 this.setMarkerRefLabel(markerId, group.id, `${group.id}-${index + 1}`, { color: WAYPOINT_PIN_COLOR });
             });
         });
+        routeStore.resolveWaypointMarkers();
     }
 
     _describeMarkerLabel(markerData) {

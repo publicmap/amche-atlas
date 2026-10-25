@@ -882,8 +882,8 @@
 }
 
 .map-orientation-icon {
-    width: calc(var(--compass-btn) * 0.85);
-    height: calc(var(--compass-btn) * 0.85);
+    width: calc(var(--compass-btn) * 0.92);
+    height: calc(var(--compass-btn) * 0.92);
     display: block;
     transition: width 0.2s ease, height 0.2s ease;
 }
@@ -1023,9 +1023,9 @@
     position: absolute;
     left: 50%;
     top: 50%;
-    width: calc(var(--compass-btn) * 0.64);
-    height: calc(var(--compass-btn) * 0.64);
-    margin: calc(var(--compass-btn) * -0.32) 0 0 calc(var(--compass-btn) * -0.32);
+    width: calc(var(--compass-btn) * 0.62);
+    height: calc(var(--compass-btn) * 0.62);
+    margin: calc(var(--compass-btn) * -0.31) 0 0 calc(var(--compass-btn) * -0.31);
     border-radius: 50%;
     pointer-events: none;
 }
@@ -1049,7 +1049,7 @@
     overflow: visible;
 }
 
-/* The needle, its red/white split, the N and the index mark are painted by
+/* The needle, its red/white split, the N and the heading arrow are painted by
    presentation attributes on the SVG itself (see js/map-orientation-control.js)
    so the symbol survives without this stylesheet. Only the dial changes with
    the GPS mode, so only the dial is styled here. */

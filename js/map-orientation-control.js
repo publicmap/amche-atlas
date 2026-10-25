@@ -42,7 +42,9 @@ const WATCH_MODES = {
 // Everything the symbol needs to draw is a presentation attribute, so the icon
 // is legible even before css/styles.css lands; the stylesheet only repaints the
 // dial per mode. Rotation uses SVG's own transform attribute, which carries its
-// centre of rotation with it and so needs no transform-box support.
+// centre of rotation with it and so needs no transform-box support. The
+// viewBox leaves room outside the dial for the heading arrow, which marks the
+// way the device faces on the map.
 const CONTROL_HTML = `
     <div class="map-orientation-panel">
         <div class="map-orientation-pitch"></div>
@@ -50,7 +52,8 @@ const CONTROL_HTML = `
             <span class="map-orientation-pitch-value"></span>
             <div class="map-orientation-rose">
                 <button type="button" class="map-orientation-btn" data-mode="off" aria-expanded="false">
-                    <svg class="map-orientation-icon" width="28" height="28" viewBox="0 0 36 36" aria-hidden="true">
+                    <svg class="map-orientation-icon" width="28" height="28" viewBox="-2 -2 40 40" aria-hidden="true">
+                        <g class="map-orientation-heading"><path d="M18 -1.9 L20.6 0.9 L15.4 0.9 Z" fill="#ffffff"></path></g>
                         <g class="map-orientation-base">
                             <circle class="map-orientation-dial" cx="18" cy="18" r="16" fill="none" stroke="#6b7280" stroke-width="2"></circle>
                             <path d="M33 18 H30 M18 33 V30 M3 18 H6" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.7"></path>
@@ -119,6 +122,38 @@ export class MapOrientationControl {
         else if (!this.isLockedToLocation) this._watch.relock();
     }
 
+    // 'off', 'north', 'heading' or 'free': the place menu's orientation
+    // options (js/location-device.js), which go straight to a mode rather
+    // than walking the button's cycle.
+    get orientationOption() {
+        switch (this._mode) {
+            case MODE.FOLLOW_HEADING: return 'heading';
+            case MODE.FOLLOW_NORTH: return 'north';
+            case MODE.UNLOCKED: return 'free';
+            case MODE.LOCATING: return this._wantDeviceLock ? 'heading' : 'north';
+            default: return 'off';
+        }
+    }
+
+    get canFollowHeading() { return this._canOfferDeviceLock(); }
+
+    setOrientationOption(option) {
+        this._watch.cancelAutoActivate();
+        if (option === 'off') return this.turnOff();
+        if (option === 'free') return this.isTracking && this._unlockPosition();
+        this._wantDeviceLock = option === 'heading' && this._canOfferDeviceLock();
+        if (this._wantDeviceLock) {
+            this._requestOrientationPermission();
+        } else {
+            this._lockedToDevice = false;
+            if (this.isLockedToLocation) this._easeTo({ bearing: 0, duration: 500 });
+            else this._map?.jumpTo({ bearing: 0 }, { geolocateSource: true });
+        }
+        if (!this.isTracking) return this._watch.start(`${option} option`);
+        if (!this.isLockedToLocation) return this._watch.relock();
+        this._setMode(this._wantDeviceLock ? MODE.FOLLOW_HEADING : MODE.FOLLOW_NORTH);
+    }
+
     turnOff() {
         this._releaseDeviceLock();
         this._watch.turnOff();
@@ -142,6 +177,7 @@ export class MapOrientationControl {
         this._icon = this._container.querySelector('.map-orientation-icon');
         this._base = this._container.querySelector('.map-orientation-base');
         this._needle = this._container.querySelector('.map-orientation-needle');
+        this._headingArrow = this._container.querySelector('.map-orientation-heading');
         this._pitchValue = this._container.querySelector('.map-orientation-pitch-value');
         this._button.addEventListener('click', this._onClick);
         this._handles = new OrientationHandles(map, {
@@ -345,6 +381,12 @@ export class MapOrientationControl {
         // to the map's north where the device has no compass to read.
         const north = this._deviceBearing ?? mapBearing;
         this._needle.setAttribute('transform', `rotate(${-normalizeBearing(north)} 18 18)`);
+        if (this._deviceBearing == null) {
+            this._headingArrow.setAttribute('display', 'none');
+        } else {
+            this._headingArrow.removeAttribute('display');
+            this._headingArrow.setAttribute('transform', `rotate(${normalizeBearing(this._deviceBearing - mapBearing)} 18 18)`);
+        }
 
         const lines = buildOrientationTooltipLines({
             mode: this._mode,

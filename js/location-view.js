@@ -1,5 +1,5 @@
 /**
- * The place menu's Map view tab (js/map-location-menu-control.js): the camera
+ * The Map view panel (js/map-view-panel.js): the camera
  * and the 3D terrain, every value a scrub (js/value-scrub.js) you drag, type
  * or double-click back to its default.
  *
@@ -11,7 +11,7 @@
  *   microphone, and pitch that follows the device's tilt.
  *
  * Terrain state lives in js/terrain-3d-control.js (window.terrain3DControl),
- * which also owns the URL parameters; this tab follows it through onChange()
+ * which also owns the URL parameters; this panel follows it through onChange()
  * and the camera through the map's move events.
  */
 import { createScrub } from './value-scrub.js';
@@ -65,11 +65,13 @@ function compartment(title, ...headExtras) {
 }
 
 /**
- * @param {HTMLElement} panel - the tab's panel
+ * @param {HTMLElement} panel - where the sections go
  * @param {Object} map
+ * @param {{icon?: HTMLElement}} [options] - the panel's header icon, lit while
+ *   terrain is on
  * @returns {{refresh: () => void, destroy: () => void}}
  */
-export function buildViewPanel(panel, map) {
+export function buildViewPanel(panel, map, { icon = null } = {}) {
     const terrain = window.terrain3DControl;
 
     // Camera
@@ -167,10 +169,9 @@ export function buildViewPanel(panel, map) {
 
     panel.append(camera, relief, more);
 
-    const tabIcon = document.getElementById(panel.getAttribute('aria-labelledby'))?.querySelector('.place-tab-icon');
     const renderTerrain = () => {
         const on = !!terrain?.getEnabled();
-        tabIcon?.classList.toggle('is-on', on);
+        icon?.classList.toggle('is-on', on);
         terrainSwitch.setAttribute('aria-checked', String(on));
         scale.set(terrain?.getExaggeration() ?? 0);
         scale.el.classList.toggle('is-off', !on);

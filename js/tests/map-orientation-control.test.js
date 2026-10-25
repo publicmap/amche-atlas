@@ -224,7 +224,7 @@ describe('MapOrientationControl', () => {
         map.state.pitch = 85;
         control._render();
         expect(control._icon.style.transform).toContain('rotateX(51deg)');
-        expect(scaleAt()).toBe(1.15);
+        expect(scaleAt()).toBe(1.08);
 
         map.state.pitch = 0;
         control._render();
@@ -237,7 +237,60 @@ describe('MapOrientationControl', () => {
         expect(control.deviceBearing).toBe(168);
         expect(control._needle.getAttribute('transform')).toBe('rotate(-168 18 18)');
         expect(control._base.getAttribute('transform')).toBe('rotate(-90 18 18)');
+        expect(control._headingArrow.getAttribute('transform')).toBe('rotate(78 18 18)');
         expect(map.easeTo).not.toHaveBeenCalled();
+    });
+
+    it('hides the heading arrow where the device has no compass', () => {
+        const { control } = mount();
+        expect(control._headingArrow.getAttribute('display')).toBe('none');
+    });
+
+    it('locks straight onto the device heading from the place menu option', async () => {
+        const { control, map, geolocate } = mount();
+        sendHeading(168);
+        // GPS already following north up, as the startup auto-activation leaves it.
+        control._watch.start('test');
+        geolocate.resolvePosition();
+        await flush();
+        expect(control.orientationOption).toBe('north');
+
+        control.setOrientationOption('heading');
+        expect(control.mode).toBe(MODE.FOLLOW_HEADING);
+        expect(control.lockedToDevice).toBe(true);
+        expect(map.easeTo).toHaveBeenLastCalledWith({ bearing: 168, duration: 100 }, { geolocateSource: true });
+
+        control.setOrientationOption('north');
+        expect(control.mode).toBe(MODE.FOLLOW_NORTH);
+        expect(control.lockedToDevice).toBe(false);
+        expect(geolocate._watchState).toBe('ACTIVE_LOCK');
+
+        control.setOrientationOption('free');
+        await flush();
+        expect(control.orientationOption).toBe('free');
+
+        control.setOrientationOption('heading');
+        await flush();
+        expect(control.mode).toBe(MODE.FOLLOW_HEADING);
+        expect(geolocate._watchState).toBe('ACTIVE_LOCK');
+    });
+
+    it('starts GPS with the heading lock from the option when GPS is off', async () => {
+        const { control, geolocate } = mount();
+        sendHeading(90);
+        control.setOrientationOption('heading');
+        await flush();
+        expect(control.orientationOption).toBe('heading');
+        geolocate.resolvePosition();
+        await flush();
+        expect(control.mode).toBe(MODE.FOLLOW_HEADING);
+    });
+
+    it('offers heading only where there is a compass', () => {
+        const { control } = mount();
+        expect(control.canFollowHeading).toBe(false);
+        sendHeading(10);
+        expect(control.canFollowHeading).toBe(true);
     });
 
     it('opens on the first click without touching GPS', async () => {

@@ -11,12 +11,21 @@ export function finestAdminUnit(address) {
     return key ? String(address[key]) : '';
 }
 
-/** The three finest distinct place names in a Nominatim address, finest first. */
+// The place line's slots, finest first; each takes the first of its keys the
+// address has. Neighbourhood, then quarter or suburb, then town or city; the
+// coarser slots only fill in where those are missing, as in a village.
+const PLACE_LINE_SLOTS = [
+    ['neighbourhood'], ['quarter', 'suburb'], ['village', 'hamlet'], ['town', 'city'],
+    ['municipality'], ['county'], ['state_district'], ['state'], ['country']
+];
+
+/** Up to three distinct place names in a Nominatim address, finest first. */
 export function placeLine(address, count = 3) {
     if (!address) return '';
     const names = [];
-    ADMIN_UNITS_FINE_TO_COARSE.forEach(key => {
-        const value = address[key] && String(address[key]);
+    PLACE_LINE_SLOTS.forEach(keys => {
+        const key = keys.find(k => address[k]);
+        const value = key && String(address[key]);
         if (value && !names.includes(value)) names.push(value);
     });
     return names.slice(0, count).join(', ');

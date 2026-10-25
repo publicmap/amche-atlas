@@ -16,9 +16,9 @@ const toRadians = (degrees) => degrees * (Math.PI / 180);
 // near the 85 degree maximum a full lean would flatten the dial to a line.
 const TILT_SHARE = 0.6;
 
-// The icon is 0.85 of its button (css/styles.css), so this is as far as the
+// The icon is 0.92 of its button (css/styles.css), so this is as far as the
 // tilted compass can grow before it spills out of the button.
-const MAX_PITCH_SCALE = 1.15;
+const MAX_PITCH_SCALE = 1.08;
 
 export function compassTilt(pitch) {
     return pitch * TILT_SHARE;

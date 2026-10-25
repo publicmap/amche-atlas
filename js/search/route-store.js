@@ -166,6 +166,34 @@ export class RouteStore {
                 this._pushGeojson(adopted.groupId);
             });
         });
+        this.resolveWaypointMarkers();
+    }
+
+    /**
+     * Binds every route restored from a shared link to its stops' live
+     * markers, where its markerIds are missing or point at markers that are
+     * gone. On load the `markers=` markers are restored after the routes are
+     * adopted (see map-marker-manager.js's applyRouteWaypointStyling, which
+     * calls this once they are), so sync() alone finds none of them - and a
+     * marker rebuilt since has a new id. Without the binding the marker dock
+     * cannot tell which pins are a route's stops: a stop is snapped to the
+     * road, often too far from its pin to be matched by position.
+     */
+    resolveWaypointMarkers() {
+        const markers = window.featureControl?._markerManager;
+        if (!markers) return;
+        const groups = window.layerControl?._state?.groups || [];
+        let changed = false;
+        this._routes.forEach(route => {
+            const live = route.markerIds.length === route.waypoints.length
+                && route.markerIds.every(id => id && markers._markers?.has(id));
+            if (live) return;
+            const ids = waypointMarkerIds(groups.find(group => group.id === route.groupId), route.waypoints.length);
+            if (!ids.length) return;
+            route.markerIds = ids;
+            changed = true;
+        });
+        if (changed && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('routes-changed'));
     }
 
     /**

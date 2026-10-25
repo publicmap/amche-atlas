@@ -1783,11 +1783,12 @@ describe('marker popup layout', () => {
             return el;
         }
 
-        it('shows "Click to save label" instead of the bare auto-numbered id', () => {
+        it('shows "Save Location" instead of the bare auto-numbered id, after the pin icon', () => {
             const manager = makeManager();
             const el = mountRow(manager, { urlId: '3' });
 
-            expect(el.querySelector('.marker-id-text').textContent).toBe('Click to save label');
+            expect(el.querySelector('.marker-id-text').textContent).toBe('Save Location');
+            expect(el.querySelector('.marker-id-icon').getAttribute('name')).toBe('pin-map');
         });
 
         it('opens the editor on a single click, skipping the usual arm step', () => {
@@ -2028,6 +2029,25 @@ describe('marker popup layout', () => {
             delete el.dataset.markerHover;
             manager._syncIdActions(el);
             expect(actions.style.display).toBe('none');
+        });
+
+        it('offers close instead of options until the marker is saved, and closing removes it', () => {
+            const manager = makeManager();
+            const el = mountMarker(manager, 'a', '1');
+            manager._markers.get('a').saved = false;
+            manager.removeMarker = vi.fn();
+            manager._selectMarker('a');
+
+            const close = el.querySelector('.marker-id-close');
+            expect(el.querySelector('.marker-id-shortcuts').style.display).toBe('none');
+            expect(close.style.display).toBe('flex');
+            close.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(manager.removeMarker).toHaveBeenCalledWith('a');
+
+            manager._markers.get('a').saved = true;
+            manager._syncIdActions(el);
+            expect(el.querySelector('.marker-id-shortcuts').style.display).toBe('flex');
+            expect(close.style.display).toBe('none');
         });
 
         it('needs the marker hovered or selected even on touch - a collapsed chip shows only its label', () => {
