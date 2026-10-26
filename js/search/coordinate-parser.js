@@ -33,9 +33,21 @@ export function parseCoordinateInput(input) {
  * @param {string} url - URL string
  * @returns {Object|null} Coordinate object or null
  */
-function parseMapURL(url) {
+export function parseMapURL(url) {
     try {
         const patterns = [
+            {
+                regex: /!3d([-\d.]+)!4d([-\d.]+)/,
+                latIndex: 1,
+                lngIndex: 2,
+                name: 'Google Maps place format'
+            },
+            {
+                regex: /[?&]mlat=([-\d.]+)&mlon=([-\d.]+)/,
+                latIndex: 1,
+                lngIndex: 2,
+                name: 'OSM marker format'
+            },
             {
                 regex: /#map=([\d.]+)\/([-\d.]+)\/([-\d.]+)/,
                 latIndex: 2,

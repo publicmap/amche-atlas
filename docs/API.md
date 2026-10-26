@@ -1249,7 +1249,7 @@ export const dataFunctions = {
 
 ### `csv` — CSV tabular data
 
-CSV with one row per point. Latitude / longitude columns are **auto-detected** by name pattern (`lat`, `latitude`, `y`, `northing`, ... for latitude; `lng`, `lon`, `longitude`, `x`, `easting`, ... for longitude — see `GeoUtils.rowsToGeoJSON` in `js/map-utils.js` for the full pattern list). Renders as points using the GeoJSON style pipeline.
+CSV with one row per point. Latitude / longitude columns are **auto-detected** by name pattern (`lat`, `latitude`, `y`, `northing`, ... for latitude; `lng`, `lon`, `longitude`, `x`, `easting`, ... for longitude — see `GeoUtils.rowsToGeoJSON` in `js/map-utils.js` for the full pattern list). A column matches when its whole name is one of these, or one of them is a whole word of it (`Latitude (WGS84)`, `gps_lat`) — never a fragment of a longer word, so `Extent` or `Population` aren't taken for `x` / `lat`. Values must be numbers (an optional `°` or hemisphere letter is allowed); text that merely contains a number is not a coordinate. A header row repeated per section (as in sheets pasted from PDFs, often re-typed with stray spaces or unlabeled columns) continues the previous table's columns instead of starting a new table. Rows can instead be located by a `map` column holding a Google Maps / OpenStreetMap / Mapbox-style map link — see **Locating rows from a map link** below. Renders as points using the GeoJSON style pipeline.
 
 | Field | Notes |
 |---|---|
@@ -1274,6 +1274,28 @@ CSV with one row per point. Latitude / longitude columns are **auto-detected** b
     "circle-color": "#e11d48"
   }
 }
+```
+
+#### Locating rows from a map link
+
+Instead of (or alongside) latitude / longitude columns, a row can carry a link to the place in a common web map, in a column named `map` (also `maps`, `map_url`, `map_link`, `map url`, `map link`; case-insensitive). The coordinates are parsed from the link itself — no network request — so a sheet can be filled by pasting the browser's address bar from Google Maps or OpenStreetMap. A row's lat/lng columns win when they hold valid coordinates; the map link is used for rows where they are missing or empty. Rows whose link can't be parsed are skipped like rows without coordinates. This applies to `csv` and `sheet` layers alike.
+
+| Link | Example | Point used |
+|---|---|---|
+| Google Maps view | `https://www.google.com/maps/@15.6127617,73.805971,740m/data=!3m1!1e3` | `@lat,lng` (map centre) |
+| Google Maps place | `https://www.google.com/maps/place/…/data=…!3d15.6131!4d73.8042` | `!3d<lat>!4d<lng>` (the place's pin, preferred over the `@` centre) |
+| OpenStreetMap | `https://www.openstreetmap.org/#map=18/15.612841/73.802628` | `#map=zoom/lat/lng` |
+| OpenStreetMap marker | `https://www.openstreetmap.org/?mlat=15.61&mlon=73.80#map=17/15.61/73.80` | `mlat` / `mlon` (preferred over the view centre) |
+| Mapbox / MapLibre hash (openstreetmap.in, amche.in, ...) | `https://www.openstreetmap.in/#17/15.612573/73.802941` | `#zoom/lat/lng` |
+| Other `ll=` / `?lat=&lon=` links | `https://maps.example.com/?ll=15.61,73.80` | `ll` / `lat`, `lon` |
+
+Shortened links (`maps.app.goo.gl/…`) carry no coordinates — open them in a browser and paste the full URL instead. Parsing is shared with the search box's coordinate input (`parseMapURL` in `js/search/coordinate-parser.js`).
+
+```csv
+name,map
+Site A,https://www.openstreetmap.org/#map=18/15.612841/73.802628
+Site B,https://www.google.com/maps/@15.6127617,73.805971,740m/data=!3m1!1e3
+Site C,https://www.openstreetmap.in/#17/15.612573/73.802941
 ```
 
 #### Writing notes back to a Google Sheet

@@ -3,6 +3,7 @@
  */
 
 import { parseDynamicLayerShorthandString } from './dynamic-layer-shorthand.js';
+import { parseMapURL } from './search/coordinate-parser.js';
 
 export class DataUtils {
     /**
@@ -106,8 +107,26 @@ export class DataUtils {
 
         const isBlankRecord = (record) => record.every(val => val.trim() === '');
 
+        // A header row repeated per page/section (common in sheets pasted
+        // from PDFs) is often re-typed with stray spaces, a cell split over
+        // two rows, or columns left unlabeled. When most of its labels match
+        // the previous table's header at the same position, it continues that
+        // table's layout, so keep the earlier (complete) headers rather than
+        // dropping the unlabeled columns.
+        const normalizeHeader = (val) => val.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const repeatsHeaders = (record, previous) => {
+            if (!previous || record.length !== previous.length) return false;
+            const labeled = record
+                .map((val, idx) => [normalizeHeader(val), normalizeHeader(previous[idx])])
+                .filter(([label]) => label);
+            const matching = labeled.filter(([label, prev]) =>
+                prev && (prev.startsWith(label) || label.startsWith(prev)));
+            return labeled.length > 0 && matching.length * 2 >= labeled.length;
+        };
+
         const rows = [];
         let headers = null;
+        let previousHeaders = null;
         let tableName = null;
 
         records.forEach((record, index) => {
@@ -128,7 +147,10 @@ export class DataUtils {
                     tableName = record.find(val => val.trim() !== '')?.trim() || null;
                     return;
                 }
-                headers = record.map(header => header.trim());
+                headers = repeatsHeaders(record, previousHeaders)
+                    ? previousHeaders
+                    : record.map(header => header.trim());
+                previousHeaders = headers;
                 return;
             }
 
@@ -277,6 +299,59 @@ export class DataUtils {
 }
 
 export class GeoUtils {
+    static LON_PATTERNS = [
+        'lon', 'lng', 'longitude', 'long',
+        'x', 'easting',
+        'lon_dd', 'lng_dd', 'decimal_longitude',
+        'gps_lon', 'gps_lng',
+        'geo_lon', 'geo_lng',
+        'point_x', 'coord_x'
+    ];
+
+    static LAT_PATTERNS = [
+        'lat', 'latitude',
+        'y', 'northing',
+        'lat_dd', 'decimal_latitude',
+        'gps_lat',
+        'geo_lat',
+        'point_y', 'coord_y'
+    ];
+
+    /**
+     * Scores how well a column name matches coordinate name patterns:
+     * 2 for an exact match, 1 when a pattern is a whole word of the name
+     * ("Latitude (WGS84)", "gps_lat"), 0 otherwise. Whole words, not
+     * substrings, so "Extent" or "Constituency" never pass for x / y.
+     * @param {string} field - Column name
+     * @param {Array<string>} patterns - Lowercase name patterns
+     * @returns {number} Match score
+     */
+    static coordinateFieldScore(field, patterns) {
+        const name = field.trim().toLowerCase();
+        if (patterns.includes(name)) return 2;
+        const words = name.split(/[^a-z0-9]+/).filter(Boolean);
+        return patterns.some(pattern => words.includes(pattern)) ? 1 : 0;
+    }
+
+    /**
+     * Best-matching coordinate column among `fields`, or '' when none match
+     * @param {Array<string>} fields - Column names
+     * @param {Array<string>} patterns - GeoUtils.LAT_PATTERNS or LON_PATTERNS
+     * @returns {string} Column name
+     */
+    static detectCoordinateField(fields, patterns) {
+        let best = '';
+        let bestScore = 0;
+        for (const field of fields) {
+            const score = GeoUtils.coordinateFieldScore(field, patterns);
+            if (score > bestScore) {
+                best = field;
+                bestScore = score;
+            }
+        }
+        return best;
+    }
+
     /**
      * Escapes XML special characters
      * @param {string} unsafe - Unsafe string
@@ -351,31 +426,6 @@ export class GeoUtils {
             return { type: 'FeatureCollection', features: [] };
         }
 
-        const lonPatterns = [
-            'lon', 'lng', 'longitude', 'long',
-            'x', 'easting',
-            'lon_dd', 'lng_dd', 'decimal_longitude',
-            'gps_lon', 'gps_lng',
-            'geo_lon', 'geo_lng',
-            'point_x', 'coord_x'
-        ];
-        const latPatterns = [
-            'lat', 'latitude',
-            'y', 'northing',
-            'lat_dd', 'decimal_latitude',
-            'gps_lat',
-            'geo_lat',
-            'point_y', 'coord_y'
-        ];
-
-        const matchesPattern = (field, pattern) => {
-            const fieldLower = field.trim().toLowerCase();
-            const patternLower = pattern.toLowerCase();
-            if (fieldLower === patternLower) return 2;
-            if (fieldLower.includes(patternLower)) return 1;
-            return 0;
-        };
-
         // Rank every field seen across ALL rows (not just the first) so
         // sheets made of several stacked tables - each with its own set/order
         // of columns (e.g. one table uses lat/lng, another Latitude/Longitude)
@@ -387,11 +437,7 @@ export class GeoUtils {
 
             const scored = [];
             for (const field of allFields) {
-                let best = 0;
-                for (const pattern of patterns) {
-                    const score = matchesPattern(field, pattern);
-                    if (score > best) best = score;
-                }
+                const best = GeoUtils.coordinateFieldScore(field, patterns);
                 if (best > 0) {
                     const coverage = rows.filter(row => row[field] !== undefined && row[field] !== null && String(row[field]).trim() !== '').length;
                     scored.push({ field, score: best, coverage });
@@ -405,17 +451,26 @@ export class GeoUtils {
             return scored.map(s => s.field);
         };
 
-        const lonCandidates = explicitLonField ? [explicitLonField] : rankFields(lonPatterns);
-        const latCandidates = explicitLatField ? [explicitLatField] : rankFields(latPatterns);
+        const lonCandidates = explicitLonField ? [explicitLonField] : rankFields(GeoUtils.LON_PATTERNS);
+        const latCandidates = explicitLatField ? [explicitLatField] : rankFields(GeoUtils.LAT_PATTERNS);
+
+        // A "map" column holding a map link (Google Maps, OpenStreetMap,
+        // Mapbox / MapLibre #zoom/lat/lng hash, ...) locates rows that have
+        // no separate lat/lng values.
+        const mapPatterns = ['map', 'maps', 'map_url', 'map_link', 'map url', 'map link'];
+        const mapCandidates = [...new Set(rows.flatMap(row => Object.keys(row)))]
+            .filter(field => mapPatterns.includes(field.trim().toLowerCase()));
 
         if (debug) {
             console.log('CSV field detection:', {
                 lonCandidates,
-                latCandidates
+                latCandidates,
+                mapCandidates
             });
         }
 
-        if (lonCandidates.length === 0 || latCandidates.length === 0) return null;
+        const hasLatLon = lonCandidates.length > 0 && latCandidates.length > 0;
+        if (!hasLatLon && mapCandidates.length === 0) return null;
 
         // Pick the first candidate that's actually populated on this row -
         // different rows may belong to different source tables with
@@ -423,15 +478,14 @@ export class GeoUtils {
         const pickField = (row, candidates) =>
             candidates.find(field => row[field] !== undefined && row[field] !== null && String(row[field]).trim() !== '');
 
+        // Only a number (optionally with a degree sign / hemisphere letter)
+        // counts - free text that merely contains a number ("Part 1 24-")
+        // would otherwise place the row at a bogus coordinate.
         const parseCoordinate = (value) => {
             if (value === null || value === undefined || value === '') return NaN;
             if (typeof value === 'number') return value;
-            if (typeof value === 'string') {
-                value = value.replace(',', '.');
-                const match = value.match(/-?\d+(\.\d+)?/);
-                if (match) return parseFloat(match[0]);
-            }
-            return parseFloat(value);
+            const match = String(value).trim().match(/^([-+]?\d+(?:[.,]\d+)?)\s*°?\s*[NSEW]?$/i);
+            return match ? parseFloat(match[1].replace(',', '.')) : NaN;
         };
 
         const parsePropertyValue = (value) => {
@@ -445,13 +499,23 @@ export class GeoUtils {
             return value;
         };
 
+        const coordsFromMapUrl = (row) => {
+            for (const field of mapCandidates) {
+                const value = row[field];
+                if (typeof value !== 'string' || !value.trim()) continue;
+                const parsed = parseMapURL(value.trim());
+                if (parsed) return [parsed.lng, parsed.lat];
+            }
+            return [NaN, NaN];
+        };
+
         const features = [];
         rows.forEach((row) => {
             const lonField = pickField(row, lonCandidates);
             const latField = pickField(row, latCandidates);
-            if (!lonField || !latField) return;
-            const lon = parseCoordinate(row[lonField]);
-            const lat = parseCoordinate(row[latField]);
+            let lon = lonField && latField ? parseCoordinate(row[lonField]) : NaN;
+            let lat = lonField && latField ? parseCoordinate(row[latField]) : NaN;
+            if (isNaN(lon) || isNaN(lat)) [lon, lat] = coordsFromMapUrl(row);
             if (isNaN(lon) || isNaN(lat)) return;
             if (lon < -180 || lon > 180 || lat < -90 || lat > 90) return;
 

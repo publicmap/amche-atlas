@@ -527,35 +527,11 @@ export class MapCreator {
     }
 
     getDefaultLatField(fields) {
-        const latPatterns = ['lat', 'latitude', 'y', 'northing', 'lat_dd', 'decimal_latitude', 'gps_lat', 'geo_lat', 'point_y', 'coord_y'];
-
-        for (const pattern of latPatterns) {
-            const found = fields.find(f => f.toLowerCase().trim() === pattern);
-            if (found) return found;
-        }
-
-        for (const pattern of latPatterns) {
-            const found = fields.find(f => f.toLowerCase().trim().includes(pattern));
-            if (found) return found;
-        }
-
-        return '';
+        return GeoUtils.detectCoordinateField(fields, GeoUtils.LAT_PATTERNS);
     }
 
     getDefaultLonField(fields) {
-        const lonPatterns = ['lon', 'lng', 'longitude', 'long', 'x', 'easting', 'lon_dd', 'lng_dd', 'decimal_longitude', 'gps_lon', 'gps_lng', 'geo_lon', 'geo_lng', 'point_x', 'coord_x'];
-
-        for (const pattern of lonPatterns) {
-            const found = fields.find(f => f.toLowerCase().trim() === pattern);
-            if (found) return found;
-        }
-
-        for (const pattern of lonPatterns) {
-            const found = fields.find(f => f.toLowerCase().trim().includes(pattern));
-            if (found) return found;
-        }
-
-        return '';
+        return GeoUtils.detectCoordinateField(fields, GeoUtils.LON_PATTERNS);
     }
 
     detectUrlFormat(url) {
