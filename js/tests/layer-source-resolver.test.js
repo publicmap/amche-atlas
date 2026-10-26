@@ -108,6 +108,11 @@ describe('detectLayerSourceType', () => {
         expect(detectLayerSourceType('https://example.com/{z}/{x}/{y}.pbf')).toBe(SOURCE_TYPES.VECTOR_TILE);
     });
 
+    it('detects a PMTiles archive URL', () => {
+        expect(detectLayerSourceType('https://data.spatialindia.com/tiles/ntl/viirs_2024.c8313e8e.pmtiles')).toBe(SOURCE_TYPES.PMTILES);
+        expect(detectLayerSourceType('https://example.com/tiles.pmtiles?v=2')).toBe(SOURCE_TYPES.PMTILES);
+    });
+
     it('detects a bare COG .tif URL', () => {
         expect(detectLayerSourceType('https://example.com/scene.tif')).toBe(SOURCE_TYPES.COG);
         expect(detectLayerSourceType('https://example.com/scene.tiff')).toBe(SOURCE_TYPES.COG);

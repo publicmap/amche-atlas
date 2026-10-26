@@ -16,6 +16,7 @@ export const FORMAT_KEYS = {
     'KML': 'kml',
     'Vector Tiles': 'vector-tiles',
     'Raster Tiles': 'raster-tiles',
+    'PMTiles': 'pmtiles',
     'MapWarper': 'mapwarper',
     'Allmaps': 'allmaps',
     'OSM': 'osm',

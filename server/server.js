@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 8080;
 const corsOptions = {
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Range', 'If-Match'],
     exposedHeaders: ['*'],
     credentials: false,
     maxAge: 86400 // 24 hours
@@ -50,16 +50,21 @@ app.get('/proxy', async (req, res) => {
         console.log(`[Proxy] Referer: ${refererHeader}`);
         console.log(`[Proxy] Request origin: ${req.headers.origin || 'none'}`);
 
+        // Byte-range reads (PMTiles, COG) pass through so only the requested
+        // bytes are fetched; identity encoding keeps the offsets meaningful.
+        const rangeHeader = req.headers.range;
         const response = await fetch(targetUrl, {
             method: req.method,
             headers: {
                 'Accept': 'image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5',
                 'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
+                'Accept-Encoding': rangeHeader ? 'identity' : 'gzip, deflate, br',
                 'Referer': refererHeader,
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15',
                 'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
+                'Pragma': 'no-cache',
+                ...(rangeHeader ? { 'Range': rangeHeader } : {}),
+                ...(req.headers['if-match'] ? { 'If-Match': req.headers['if-match'] } : {})
             }
         });
 
@@ -99,6 +104,12 @@ app.get('/proxy', async (req, res) => {
         if (contentType) {
             res.setHeader('Content-Type', contentType);
         }
+
+        for (const header of ['content-range', 'accept-ranges', 'etag', 'last-modified']) {
+            const value = response.headers.get(header);
+            if (value) res.setHeader(header, value);
+        }
+        res.status(response.status);
 
         // Get the response body
         const buffer = await response.arrayBuffer();

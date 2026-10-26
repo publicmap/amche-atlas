@@ -2284,7 +2284,8 @@ export class MapCreator {
             // item's, far from wherever the creator map happens to be
             // pointed) is usually the only way the raster is even in view —
             // fit to it once per distinct URL.
-            fitBounds = (config.type === 'cog' || isService) && Array.isArray(config.bbox) &&
+            const isPMTiles = /\.pmtiles(\?|$)/.test(config.url || '');
+            fitBounds = (config.type === 'cog' || isService || isPMTiles) && Array.isArray(config.bbox) &&
                 this._cogPreviewFittedUrl !== config.url;
             if (fitBounds) this._cogPreviewFittedUrl = config.url;
             bbox = fitBounds ? config.bbox : null;

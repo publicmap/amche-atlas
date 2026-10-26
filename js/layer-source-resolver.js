@@ -28,6 +28,7 @@ import { PlanetaryComputerAPI } from './planetary-computer-api.js';
 import { HotosmOamAPI } from './hotosm-oam-api.js';
 import { ArcgisAPI } from './arcgis-url-api.js';
 import { WfsAPI } from './wfs-url-api.js';
+import { isPMTilesUrl, resolvePMTilesSource } from './pmtiles-source.js';
 
 export { StacAPI, PlanetaryComputerAPI, ArcgisAPI, WfsAPI };
 
@@ -44,6 +45,7 @@ export const SOURCE_TYPES = {
     MAPWARPER: 'mapwarper',
     STAC_VIEWER: 'stac-viewer',
     COG: 'cog',
+    PMTILES: 'pmtiles',
     JSON_FILE: 'json',
     GEOJSON_FILE: 'geojson',
     KML: 'kml',
@@ -72,6 +74,7 @@ export const SOURCE_TYPE_LABELS = {
     [SOURCE_TYPES.MAPWARPER]: 'MapWarper',
     [SOURCE_TYPES.STAC_VIEWER]: 'STAC',
     [SOURCE_TYPES.COG]: 'COG',
+    [SOURCE_TYPES.PMTILES]: 'PMTiles',
     [SOURCE_TYPES.JSON_FILE]: 'Amche Atlas JSON',
     [SOURCE_TYPES.GEOJSON_FILE]: 'GeoJSON',
     [SOURCE_TYPES.KML]: 'KML',
@@ -374,6 +377,7 @@ export function detectLayerSourceType(url) {
     if (OSMApi.isOsmUrl(url)) return SOURCE_TYPES.OSM;
     if (StacAPI.isStacMapViewerUrl(url)) return SOURCE_TYPES.STAC_VIEWER;
     if (StacAPI.isCogUrl(url)) return SOURCE_TYPES.COG;
+    if (isPMTilesUrl(url)) return SOURCE_TYPES.PMTILES;
     if (urlLower.includes('jsonkeeper.com/b/')) return SOURCE_TYPES.JSON_FILE;
     if (/\.geojson\/?($|\?)/i.test(url)) return SOURCE_TYPES.GEOJSON_FILE;
     // Trailing slash tolerated for hosts (other than textb.org, caught above)
@@ -1284,6 +1288,10 @@ export async function resolveLayerSource(url, urlOptions = {}) {
         case SOURCE_TYPES.COG: {
             const config = StacAPI.createCogConfigFromUrl(resolvedUrl);
             return { status: 'ok', layerType: 'cog', config, resolvedUrl };
+        }
+        case SOURCE_TYPES.PMTILES: {
+            const { layerType, config, availableSourceLayers } = await resolvePMTilesSource(resolvedUrl);
+            return { status: 'ok', layerType, config, availableSourceLayers, resolvedUrl };
         }
         case SOURCE_TYPES.GPKG: {
             const response = await fetch(resolvedUrl);

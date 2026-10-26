@@ -18,6 +18,7 @@ import { STYLE_PROPERTY_MAPPING, guessPropertyKind } from './mapbox-style-spec.j
 import { localizeTextField } from './locale-text-field.js';
 import { localeManager } from './locale-manager.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
+import { pmtilesArchiveUrl } from './pmtiles-source.js';
 
 // How many removed Overpass layers keep their fetched features around for a
 // possible re-add. The creator mints a fresh layer id per import, so without a
@@ -69,6 +70,13 @@ function registerPMTilesProvider() {
         });
     }
     return _pmtilesRegistration || Promise.resolve();
+}
+
+function pmtilesSourceUrl(config) {
+    const url = pmtilesArchiveUrl(config);
+    return typeof mapboxgl.addTileProvider === 'function'
+        ? { provider: 'pmtiles', url }
+        : { url: `pmtiles://${url}` };
 }
 
 // Layer types drawn from a `geojson-<id>` source, whose filters are applied on the map layers.
@@ -635,6 +643,7 @@ export class MapboxAPI {
                 case 'vector':
                     return this._createVectorLayer(groupId, config, visible);
                 case 'tms':
+                    if (/\.pmtiles(\?|$)/.test(config.url)) await registerPMTilesProvider();
                     return this._createTMSLayer(groupId, config, visible);
                 case 'wmts':
                     return this._createWMTSLayer(groupId, config, visible);
@@ -1068,12 +1077,7 @@ export class MapboxAPI {
         if (config.url.startsWith('mapbox://')) {
             sourceConfig.url = config.url;
         } else if (/\.pmtiles(\?|$)/.test(config.url)) {
-            if (typeof mapboxgl.addTileProvider === 'function') {
-                sourceConfig.provider = 'pmtiles';
-                sourceConfig.url = config.url;
-            } else {
-                sourceConfig.url = `pmtiles://${config.url}`;
-            }
+            Object.assign(sourceConfig, pmtilesSourceUrl(config));
             delete sourceConfig.minzoom;
             delete sourceConfig.maxzoom;
             if (config.minzoom !== undefined) sourceConfig.minzoom = config.minzoom;
@@ -1466,6 +1470,12 @@ export class MapboxAPI {
 
             if (config.url.startsWith('mapbox://')) {
                 sourceConfig.url = config.url;
+            } else if (/\.pmtiles(\?|$)/.test(config.url)) {
+                Object.assign(sourceConfig, pmtilesSourceUrl(config));
+                delete sourceConfig.minzoom;
+                delete sourceConfig.maxzoom;
+                if (config.minzoom !== undefined) sourceConfig.minzoom = config.minzoom;
+                if (config.maxzoom !== undefined) sourceConfig.maxzoom = config.maxzoom;
             } else {
                 let tileUrl = config.url;
 

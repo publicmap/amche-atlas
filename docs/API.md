@@ -1007,13 +1007,15 @@ PMTiles example (Overture Maps buildings, see `config/world.atlas.json`):
 }
 ```
 
+Pasting a `.pmtiles` link into the Map Maker (`js/pmtiles-source.js`) reads the archive header and metadata: MVT archives become `vector` layers (source layers and inspect fields from `vector_layers`), image archives become [`tms`](#tms--raster-xyz-tile-service) layers. Both take their zoom range and `bbox` from the header.
+
 ### `tms` — Raster XYZ tile service
 
 Standard raster tile services (`/{z}/{x}/{y}.png|.jpg`). Supports an optional proxy for CORS / referer-restricted sources.
 
 | Field | Notes |
 |---|---|
-| `url` | XYZ template **or** `mapbox://...`. **Required.** |
+| `url` | XYZ template, `mapbox://...`, **or** a `https://.../file.pmtiles` raster archive (PNG / JPEG / WebP / AVIF tiles), read the same way as [vector PMTiles](#vector--vector-tile-source). **Required.** |
 | `scheme` | `xyz` (default) or `tms` (Y-axis flipped). |
 | `tileSize` | Default `256`. |
 | `proxyUrl`, `proxyReferer` | Wraps the tile URL through a CORS proxy with the given Referer header. |
