@@ -1,5 +1,6 @@
 import { formatDistance, haversineDistanceMeters } from './geo-distance-utils.js';
 import { defaultRouteColor } from './search/route-geojson.js';
+import { badgeMode } from './search/route-badge.js';
 
 export const LANE_WIDTH = 16;
 const LABEL_ROW = 16;
@@ -21,6 +22,22 @@ export function routeSegmentLabel(route, index) {
 }
 
 const MATCH_METERS = 25;
+
+// A lane drawn the way its route's line is on the map (route-geojson.js's
+// ROUTE_STYLE): driving solid, cycling dashed and walking dotted, each on
+// white.
+function laneStyle(color, profile) {
+    switch (badgeMode(profile)) {
+        case 'cycling':
+            return `width:4px;background:repeating-linear-gradient(to bottom, ${color} 0 7px, #fff 7px 11px);border-radius:2px;`;
+        case 'walking':
+            return `width:4px;background:#fff radial-gradient(circle, ${color} 1.5px, transparent 1.9px) center top / 4px 6px repeat-y;border-radius:2px;`;
+        default:
+            return `width:3px;background:${color};border-radius:2px;box-shadow:0 0 0 1px #fff;`;
+    }
+}
+
+const LABEL_EDGE = { cycling: 'dashed', walking: 'dotted', driving: 'solid' };
 
 /**
  * The docked marker standing at each of a route's waypoints. The route's own
@@ -129,7 +146,8 @@ export function renderDockLinks(container, plan, rows, left, panelLeft, routeRow
         const buttonY = button ? button.top + button.height / 2 - box.top : null;
         const top = Math.min(...ys, ...(buttonY == null ? [] : [buttonY]));
         const bottom = Math.min(Math.max(...ys), limit - box.top);
-        place(`left:${x - 1.5}px;top:${top}px;width:3px;height:${Math.max(0, bottom - top)}px;background:${color};border-radius:2px;`);
+        const width = badgeMode(route.profile) === 'driving' ? 3 : 4;
+        place(`left:${x - width / 2}px;top:${top}px;height:${Math.max(0, bottom - top)}px;${laneStyle(color, route.profile)}`);
         stops.forEach((s, i) => {
             if (rows[s.pos].hidden) return;
             const dot = place(`left:${x - DOT_SIZE / 2}px;top:${ys[i] - DOT_SIZE / 2}px;width:${DOT_SIZE}px;height:${DOT_SIZE}px;border-radius:50%;background:${color};border:1.5px solid #fff;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;line-height:1;color:#fff;`);
@@ -143,7 +161,7 @@ export function renderDockLinks(container, plan, rows, left, panelLeft, routeRow
         seen.set(after, n + 1);
         const row = rows[after];
         if (row.hidden || row.top + row.height >= limit) return;
-        const text = place(`left:${panelLeft + 4 - box.left}px;top:${row.top + row.height + LABEL_PAD / 2 + n * LABEL_ROW - box.top}px;font-size:10px;line-height:${LABEL_ROW - 4}px;color:#e5e7eb;background:rgba(17,24,39,0.85);padding:0 5px;border-left:3px solid ${lane.color};border-radius:3px;white-space:nowrap;`);
+        const text = place(`left:${panelLeft + 4 - box.left}px;top:${row.top + row.height + LABEL_PAD / 2 + n * LABEL_ROW - box.top}px;font-size:10px;line-height:${LABEL_ROW - 4}px;color:#e5e7eb;background:rgba(17,24,39,0.85);padding:0 5px;border-left:3px ${LABEL_EDGE[badgeMode(lane.route.profile)]} ${lane.color};border-radius:3px;white-space:nowrap;`);
         text.textContent = label;
     });
     layer.replaceChildren(...nodes);

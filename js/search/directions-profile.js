@@ -8,12 +8,13 @@
  *
  * IDs are Mapbox Directions routing profiles:
  * https://docs.mapbox.com/api/navigation/directions/#routing-profiles
+ * Driving is one option: Mapbox routes it with live traffic, and draws the
+ * route ignoring traffic beside it (see directions-router.js).
  */
 const STORAGE_KEY = 'amche:directions-profile';
 
 export const DIRECTIONS_PROFILES = [
-    { id: 'driving-traffic', label: 'Driving (traffic)', subtext: 'Roads, using live traffic', icon: 'car-front-fill' },
-    { id: 'driving', label: 'Driving', subtext: 'Roads, ignoring traffic', icon: 'car-front' },
+    { id: 'driving', label: 'Driving', subtext: 'Roads, using live traffic', icon: 'car-front' },
     { id: 'walking', label: 'Walking', subtext: 'Footpaths and pedestrian ways', icon: 'person-walking' },
     { id: 'cycling', label: 'Cycling', subtext: 'Bike paths and quiet roads', icon: 'bicycle' }
 ];

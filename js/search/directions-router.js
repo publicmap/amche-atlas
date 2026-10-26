@@ -3,7 +3,7 @@ import { getDirectionsProfile, getDirectionsProfileInfo } from './directions-pro
 /**
  * The routing services a route can be fetched from, keyed by the name used in
  * the `route:` URL shorthand's `<engine>-<profile>` token (see
- * ../route-url-api.js) - "mapbox-driving-traffic", "osrm-driving".
+ * ../route-url-api.js) - "mapbox-driving", "osrm-driving".
  *
  * Adding a service means one entry here: its profiles, its attribution, and a
  * `fetch` returning the API's own route object. Every engine's result lands in
@@ -17,7 +17,9 @@ export const ROUTING_ENGINES = {
         label: 'Mapbox Directions',
         attribution: "<a href='https://docs.mapbox.com/api/navigation/directions/' target='_blank'>Mapbox Directions</a>",
         // https://docs.mapbox.com/api/navigation/directions/#routing-profiles
-        profiles: ['driving-traffic', 'driving', 'walking', 'cycling'],
+        // `driving` is routed with live traffic, plus the route ignoring it
+        // (see fetchFromMapbox).
+        profiles: ['driving', 'walking', 'cycling'],
         defaultProfile: 'driving',
         fetch: fetchFromMapbox
     },
@@ -32,6 +34,10 @@ export const ROUTING_ENGINES = {
 }
 
 const DEFAULT_ENGINE = 'mapbox'
+
+// Profiles from older links, read as the one that replaced them: Mapbox's
+// `driving-traffic` is what `driving` now asks for.
+const PROFILE_ALIASES = { 'driving-traffic': 'driving' }
 
 // Tried when the default engine fails or is rate-limited: no live traffic and
 // driving only, but free and keyless.
@@ -57,15 +63,44 @@ function toResult(route, source, profile, waypoints = []) {
     return { ...route, source, profile, waypoints }
 }
 
-async function fetchFromMapbox(waypoints, profile, signal) {
-    const url = `${MAPBOX_DIRECTIONS_URL}/${profile}/${coordPath(waypoints)}` +
+async function fetchMapboxProfile(waypoints, mapboxProfile, signal) {
+    const url = `${MAPBOX_DIRECTIONS_URL}/${mapboxProfile}/${coordPath(waypoints)}` +
         `?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`
     const response = await fetch(url, { signal })
     if (!response.ok) throw new Error(`Mapbox Directions failed: ${response.status}`)
     const data = await response.json()
     const route = data.routes?.[0]
     if (!route) throw new Error('Mapbox Directions returned no route')
-    return toResult(route, 'mapbox', profile, data.waypoints)
+    return { route, waypoints: data.waypoints }
+}
+
+/**
+ * Driving asks Mapbox twice, in parallel: with live traffic (`driving-traffic`),
+ * which is the route, and ignoring it (`driving`), which rides along as
+ * `alternative` - the shortest way if traffic were no object, drawn muted
+ * under the route (see route-geojson.js). Either one alone still makes a route.
+ */
+async function fetchFromMapbox(waypoints, profile, signal) {
+    if (profile !== 'driving') {
+        const { route, waypoints: snapped } = await fetchMapboxProfile(waypoints, profile, signal)
+        return toResult(route, 'mapbox', profile, snapped)
+    }
+    const [traffic, plain] = await Promise.allSettled([
+        fetchMapboxProfile(waypoints, 'driving-traffic', signal),
+        fetchMapboxProfile(waypoints, 'driving', signal)
+    ])
+    const aborted = [traffic, plain].find(r => r.status === 'rejected' && r.reason?.name === 'AbortError')
+    if (aborted) throw aborted.reason
+    if (traffic.status === 'rejected') {
+        if (plain.status === 'rejected') throw traffic.reason
+        return toResult(plain.value.route, 'mapbox', profile, plain.value.waypoints)
+    }
+    const result = toResult(traffic.value.route, 'mapbox', profile, traffic.value.waypoints)
+    if (plain.status === 'fulfilled') {
+        const { geometry, distance, duration } = plain.value.route
+        result.alternative = { geometry, distance, duration }
+    }
+    return result
 }
 
 async function fetchFromOSRM(waypoints, profile, signal) {
@@ -80,7 +115,7 @@ async function fetchFromOSRM(waypoints, profile, signal) {
 
 /**
  * Splits a `<engine>-<profile>` token into its parts, e.g.
- * "mapbox-driving-traffic" → `{engine: 'mapbox', profile: 'driving-traffic'}`.
+ * "mapbox-walking" → `{engine: 'mapbox', profile: 'walking'}`.
  * A token naming no known engine ("walking") is read as a profile on the
  * default engine, and a profile the engine doesn't serve falls back to that
  * engine's default rather than failing the whole route.
@@ -96,6 +131,7 @@ export function parseRoutingEngineProfile(token) {
     let profile = engineName
         ? (engineName === token ? null : token.slice(engineName.length + 1))
         : token
+    profile = PROFILE_ALIASES[profile] || profile
 
     if (profile && !ROUTING_ENGINES[engine].profiles.includes(profile)) {
         console.warn(`[directions] ${ROUTING_ENGINES[engine].label} has no "${profile}" profile, using ${ROUTING_ENGINES[engine].defaultProfile}`)
@@ -105,7 +141,7 @@ export function parseRoutingEngineProfile(token) {
     return { engine, profile: profile || null }
 }
 
-/** The inverse: "mapbox" + "driving-traffic" → "mapbox-driving-traffic". */
+/** The inverse: "mapbox" + "walking" → "mapbox-walking". */
 export function routingEngineProfileToken(engine, profile) {
     return `${engine || DEFAULT_ENGINE}-${profile || ROUTING_ENGINES[engine || DEFAULT_ENGINE].defaultProfile}`
 }
@@ -132,8 +168,9 @@ export async function fetchRouteForWaypoints(waypoints, { signal, engine, profil
 
     const engineName = ROUTING_ENGINES[engine] ? engine : DEFAULT_ENGINE
     const service = ROUTING_ENGINES[engineName]
-    const resolvedProfile = profile && service.profiles.includes(profile)
-        ? profile
+    const asked = PROFILE_ALIASES[profile] || profile
+    const resolvedProfile = asked && service.profiles.includes(asked)
+        ? asked
         : (service.profiles.includes(getDirectionsProfile()) ? getDirectionsProfile() : service.defaultProfile)
 
     try {

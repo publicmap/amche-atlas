@@ -37,6 +37,10 @@ import { sanitizeId } from '../shorthand-id-utils.js';
 
 const EMPTY_DATA = { type: 'FeatureCollection', features: [] };
 
+// Two stops without a shared marker are the same place within this distance.
+// Generous, because each travel mode snaps a stop to its own network.
+const SAME_STOP_METERS = 75;
+
 // Matches the route line (see route-geojson.js), so a waypoint's pin reads as
 // part of its route rather than as another map selection. Exported so
 // map-marker-manager.js's applyRouteWaypointStyling() (recoloring a marker
@@ -193,7 +197,9 @@ export class RouteStore {
             route.markerIds = ids;
             changed = true;
         });
-        if (changed && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('routes-changed'));
+        if (!changed) return;
+        this._recolor().forEach(groupId => this._writeGeojson(groupId));
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('routes-changed'));
     }
 
     /**
@@ -803,6 +809,31 @@ export class RouteStore {
      * doesn't stack another prefix on each pass.
      */
     _pushGeojson(groupId) {
+        this._recolor().forEach(other => { if (other !== groupId) this._writeGeojson(other); });
+        return this._writeGeojson(groupId);
+    }
+
+    /**
+     * Routes through the same stops - typically one trip in several travel
+     * modes - share a colour: the first such route's, so they read as one
+     * trip, told apart by line style and badge instead (see route-geojson.js's
+     * ROUTE_STYLE and route-badge.js). A colour the user picked is kept.
+     * Returns the layers whose routes changed colour.
+     */
+    _recolor() {
+        const changed = new Set();
+        this._routes.forEach((route, i) => {
+            if (route.colorCustom) return;
+            const twin = this._routes.slice(0, i).find(other => sameStops(route, other));
+            const color = twin ? twin.color : defaultRouteColor(route);
+            if (route.color === color) return;
+            route.color = color;
+            changed.add(route.groupId);
+        });
+        return changed;
+    }
+
+    _writeGeojson(groupId) {
         const routes = this._routes.filter(r => r.groupId === groupId);
         const features = routes.flatMap(route =>
             (route.geojson?.features || []).map(feature => ({
@@ -969,11 +1000,23 @@ function routeLetterCode(number) {
 
 function featureKey(feature) {
     const { kind, index } = feature.properties || {};
-    return kind === 'waypoint' ? `waypoint-${index ?? 0}` : 'route';
+    if (kind === 'waypoint') return `waypoint-${index ?? 0}`;
+    return kind === 'route-alternative' || kind === 'route-badge' ? kind : 'route';
 }
 
 function api() {
     return window.featureControl?._stateManager?._mapboxAPI || window.mapboxAPI;
+}
+
+/** Whether two routes run through the same stops, in the same order. */
+function sameStops(a, b) {
+    if (a.waypoints.length !== b.waypoints.length) return false;
+    return a.waypoints.every((point, i) => {
+        const [ownMarker, otherMarker] = [a.markerIds[i], b.markerIds[i]];
+        if (ownMarker && otherMarker) return ownMarker === otherMarker;
+        const other = b.waypoints[i];
+        return haversineDistanceMeters({ lng: point[0], lat: point[1] }, { lng: other[0], lat: other[1] }) < SAME_STOP_METERS;
+    });
 }
 
 /** Groups a layer's features by their `routeId`, or one bucket when unset. */

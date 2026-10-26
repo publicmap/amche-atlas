@@ -64,11 +64,57 @@
         "Points Of Interest"
       ],
       "title": "Navigation Routes",
-      "description": "Routes drawn by map navigation, and routes defined in the URL as <code>?layers=route:mapbox-driving(73.81/15.49|73.83/15.51)</code>. Waypoints are start, stops and destination; the route line carries every property the <a href='https://docs.mapbox.com/api/navigation/directions/' target='_blank'>Mapbox Directions API</a> returned.",
+      "description": "Routes drawn by map navigation, and routes defined in the URL as <code>?layers=route:mapbox-driving(73.81/15.49|73.83/15.51)</code>. Waypoints are start, stops and destination. Driving is solid, cycling dashed and walking dotted; a Mapbox driving route uses live traffic and is drawn over a muted line for the route ignoring traffic; the route line carries every property the <a href='https://docs.mapbox.com/api/navigation/directions/' target='_blank'>Mapbox Directions API</a> returned.",
       "headerImage": null,
       "id": "directions",
       "attribution": "<a href='https://docs.mapbox.com/api/navigation/directions/' target='_blank'>Mapbox Directions</a>",
       "style": {
+        "badge/filter": [
+          "==",
+          [
+            "get",
+            "kind"
+          ],
+          "route-badge"
+        ],
+        "badge/icon-image": [
+          "concat",
+          "route-badge:",
+          [
+            "match",
+            [
+              "get",
+              "profile"
+            ],
+            "cycling",
+            "cycling",
+            "walking",
+            "walking",
+            "driving"
+          ],
+          ":",
+          [
+            "to-string",
+            [
+              "coalesce",
+              [
+                "get",
+                "color"
+              ],
+              "#1da1f2"
+            ]
+          ]
+        ],
+        "badge/icon-allow-overlap": true,
+        "badge/icon-ignore-placement": true,
+        "title/filter": [
+          "==",
+          [
+            "get",
+            "kind"
+          ],
+          "route"
+        ],
         "title/symbol-placement": "line-center",
         "title/text-field": [
           "step",
@@ -95,6 +141,14 @@
         "title/text-color": "#0b4f7a",
         "title/text-halo-color": "#ffffff",
         "title/text-halo-width": 2,
+        "summary/filter": [
+          "==",
+          [
+            "get",
+            "kind"
+          ],
+          "route"
+        ],
         "summary/symbol-placement": "line-center",
         "summary/text-field": [
           "step",
@@ -130,9 +184,10 @@
         "waypoints/filter": [
           "==",
           [
-            "geometry-type"
+            "get",
+            "kind"
           ],
-          "Point"
+          "waypoint"
         ],
         "waypoints/circle-radius": [
           "match",
@@ -152,7 +207,21 @@
           ],
           "waypoint",
           "#ffffff",
-          "#1da1f2"
+          [
+            "case",
+            [
+              "has",
+              "color"
+            ],
+            [
+              "to-color",
+              [
+                "get",
+                "color"
+              ]
+            ],
+            "#1da1f2"
+          ]
         ],
         "waypoints/circle-stroke-width": [
           "match",
@@ -171,7 +240,21 @@
             "role"
           ],
           "waypoint",
-          "#1da1f2",
+          [
+            "case",
+            [
+              "has",
+              "color"
+            ],
+            [
+              "to-color",
+              [
+                "get",
+                "color"
+              ]
+            ],
+            "#1da1f2"
+          ],
           "#ffffff"
         ],
         "waypoints/text-field": [
@@ -204,28 +287,163 @@
         ],
         "waypoints/text-halo-color": "#ffffff",
         "waypoints/text-halo-width": 1.5,
+        "arrows/filter": [
+          "==",
+          [
+            "get",
+            "kind"
+          ],
+          "route"
+        ],
         "arrows/symbol-placement": "line",
         "arrows/symbol-spacing": 70,
         "arrows/text-field": ">",
-        "arrows/text-size": 18,
+        "arrows/text-size": 14,
         "arrows/text-rotation-alignment": "map",
         "arrows/text-keep-upright": false,
         "arrows/text-allow-overlap": true,
         "arrows/text-ignore-placement": true,
         "arrows/text-color": "#ffffff",
-        "arrows/text-halo-color": "#1da1f2",
-        "arrows/text-halo-width": 0,
-        "route/line-color": "#1da1f2",
-        "route/line-width": 5,
+        "arrows/text-halo-color": [
+          "case",
+          [
+            "has",
+            "color"
+          ],
+          [
+            "to-color",
+            [
+              "get",
+              "color"
+            ]
+          ],
+          "#1da1f2"
+        ],
+        "arrows/text-halo-width": 1,
+        "route/filter": [
+          "==",
+          [
+            "get",
+            "kind"
+          ],
+          "route"
+        ],
+        "route/line-color": [
+          "case",
+          [
+            "has",
+            "color"
+          ],
+          [
+            "to-color",
+            [
+              "get",
+              "color"
+            ]
+          ],
+          "#1da1f2"
+        ],
+        "route/line-width": [
+          "match",
+          [
+            "get",
+            "profile"
+          ],
+          "cycling",
+          4,
+          "walking",
+          3.5,
+          5
+        ],
+        "route/line-dasharray": [
+          "match",
+          [
+            "get",
+            "profile"
+          ],
+          "cycling",
+          [
+            "literal",
+            [
+              2.5,
+              1.5
+            ]
+          ],
+          "walking",
+          [
+            "literal",
+            [
+              0,
+              1.8
+            ]
+          ],
+          [
+            "literal",
+            [
+              1,
+              0
+            ]
+          ]
+        ],
         "route/line-opacity": 1,
         "route/line-cap": "round",
         "route/line-join": "round",
         "line-color": "#ffffff",
-        "line-width": 9,
+        "line-width": [
+          "case",
+          [
+            "==",
+            [
+              "get",
+              "kind"
+            ],
+            "route"
+          ],
+          [
+            "match",
+            [
+              "get",
+              "profile"
+            ],
+            "cycling",
+            7,
+            "walking",
+            6,
+            9
+          ],
+          0
+        ],
         "line-opacity": 0.9,
         "line-cap": "round",
         "line-join": "round",
-        "text-field": ""
+        "text-field": "",
+        "alternative/filter": [
+          "==",
+          [
+            "get",
+            "kind"
+          ],
+          "route-alternative"
+        ],
+        "alternative/line-color": [
+          "case",
+          [
+            "has",
+            "color"
+          ],
+          [
+            "to-color",
+            [
+              "get",
+              "color"
+            ]
+          ],
+          "#1da1f2"
+        ],
+        "alternative/line-width": 5,
+        "alternative/line-opacity": 0.35,
+        "alternative/line-cap": "round",
+        "alternative/line-join": "round"
       },
       "inspect": {
         "id": "id",

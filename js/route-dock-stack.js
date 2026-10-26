@@ -1,4 +1,5 @@
 import { DIRECTIONS_PROFILES } from './search/directions-profile.js';
+import { profileIcon } from './search/route-badge.js';
 
 const BUTTON_HEIGHT = 28;
 const BUTTON_GAP = 6;
@@ -78,8 +79,11 @@ export class RouteDockStack {
         el.dataset.rid = rid;
         el.dataset.profile = profile || '';
         const dot = el.querySelector('.route-dock-dot');
-        if (dot.value !== color) dot.value = color;
+        const picker = el.querySelector('.route-dock-color');
+        if (picker.value !== color) picker.value = color;
         dot.style.background = color;
+        const icon = dot.querySelector('sl-icon');
+        if (icon.getAttribute('name') !== profileIcon(profile)) icon.setAttribute('name', profileIcon(profile));
         if (this._editingId !== id) {
             const label = el.querySelector('.route-dock-label');
             if (label.textContent !== name) label.textContent = name;
@@ -101,7 +105,10 @@ export class RouteDockStack {
         el.className = 'route-dock-button';
         el.style.cssText = `position:absolute;height:${BUTTON_HEIGHT}px;display:flex;align-items:center;gap:6px;padding:0 4px 0 1px;box-sizing:border-box;border:1px solid;border-radius:14px;color:#f3f4f6;font:500 12px/1 inherit;font-family:inherit;white-space:nowrap;cursor:pointer;pointer-events:auto;touch-action:none;box-shadow:0 2px 8px rgba(0,0,0,0.35);`;
         el.innerHTML = `
-            <input type="color" class="route-dock-dot" title="Route colour" style="width:14px;height:14px;padding:0;border:1.5px solid #fff;border-radius:50%;flex:none;cursor:pointer;background:none;-webkit-appearance:none;appearance:none;overflow:hidden;">
+            <span class="route-dock-dot" style="position:relative;display:flex;align-items:center;justify-content:center;width:22px;height:22px;box-sizing:border-box;border:2px solid #fff;border-radius:50%;flex:none;box-shadow:0 1px 3px rgba(0,0,0,0.45);">
+                <sl-icon style="font-size:12px;color:#fff;pointer-events:none;"></sl-icon>
+                <input type="color" class="route-dock-color" title="Route colour" style="position:absolute;inset:-2px;width:22px;height:22px;padding:0;border:0;opacity:0;cursor:pointer;">
+            </span>
             <span class="route-dock-label"></span>
             <span class="route-dock-meta" style="color:#9ca3af;"></span>
             <span class="route-dock-actions" style="display:none;align-items:center;gap:0;margin-left:2px;">
@@ -113,7 +120,7 @@ export class RouteDockStack {
             </span>
         `;
         STOP_EVENTS.forEach(type => el.addEventListener(type, e => e.stopPropagation()));
-        el.querySelector('.route-dock-dot').addEventListener('input', e => this._handlers.onColor(id, e.target.value));
+        el.querySelector('.route-dock-color').addEventListener('input', e => this._handlers.onColor(id, e.target.value));
         el.addEventListener('click', e => {
             e.stopPropagation();
             if (this._suppressClick || e.target.closest('input')) return;

@@ -11,7 +11,13 @@
  *    pre-composed strings its two line labels are drawn from (`title`,
  *    `summary`, `travelText` — see routeLabels);
  *  - a Point per waypoint, tagged `role` start / waypoint / end, so the ends of
- *    a route are addressable and styleable on their own.
+ *    a route are addressable and styleable on their own;
+ *  - a Point on the line (`kind` route-badge) where the route's badge - its
+ *    colour and travel mode, as on its button in the marker dock - is drawn;
+ *  - for Mapbox driving, which is routed with live traffic, a second
+ *    LineString (`kind` route-alternative) for the route ignoring traffic -
+ *    drawn muted under the route, as the shortest way if traffic were no
+ *    object (see directions-router.js's fetchFromMapbox).
  *
  * ROUTE_STYLE and ROUTE_INSPECT mirror the `directions` layer in
  * config/index.atlas.json — shorthand-expanded routes are separate layers and
@@ -21,6 +27,8 @@
 import { formatDistance } from '../geo-distance-utils.js';
 import { routingEngineProfileToken } from './directions-router.js';
 import { encodeId } from '../shorthand-id-utils.js';
+import { haversineDistanceMeters } from '../geo-distance-utils.js';
+import { ROUTE_BADGE_IMAGE, badgeMode } from './route-badge.js';
 
 /** The atlas layer (config/index.atlas.json) the live route is drawn into. */
 export const DIRECTIONS_LAYER_ID = 'directions';
@@ -58,15 +66,51 @@ export function isRouteColor(value) {
 
 const colorOr = (fallback) => ['case', ['has', 'color'], ['to-color', ['get', 'color']], fallback];
 
-// Declaration order matters: js/mapbox-api.js stacks a style's prefixed
-// variants above its unprefixed base, so the white casing (base) sits under the
-// blue route line, which sits under the waypoint dots and their labels.
+// One value per kind of travel, so motor, cycle and foot routes read apart.
+const byProfile = (driving, cycling, walking) => ['match', ['get', 'profile'], 'cycling', cycling, 'walking', walking, driving];
+const isKind = (kind) => ['==', ['get', 'kind'], kind];
+
+// How far along its line each travel mode's badge sits: apart from the line's
+// own labels at its middle, and from each other where a trip's routes in
+// several modes run together.
+const BADGE_ALONG = { driving: 0.2, walking: 0.35, cycling: 0.8 };
+
+/** The point `fraction` of the way along a line, by distance. */
+function pointAlong(coordinates, fraction) {
+    const at = (c) => ({ lng: c[0], lat: c[1] });
+    const legs = coordinates.slice(1).map((c, i) => haversineDistanceMeters(at(coordinates[i]), at(c)));
+    let remaining = legs.reduce((sum, d) => sum + d, 0) * fraction;
+    for (let i = 0; i < legs.length; i++) {
+        if (remaining <= legs[i] && legs[i] > 0) {
+            const t = remaining / legs[i];
+            const [a, b] = [coordinates[i], coordinates[i + 1]];
+            return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+        }
+        remaining -= legs[i];
+    }
+    return coordinates[coordinates.length - 1];
+}
+
+// Declaration order matters: js/mapbox-api.js stacks the variant declared last
+// at the bottom, so the muted route-ignoring-traffic line (declared last) sits
+// under the white casing (base), which sits under the route line, which sits
+// under the waypoint dots and their labels.
+//
+// Motor, cycle and foot routes are told apart by the line itself: driving is
+// solid on a white casing, cycling dashed and thinner on a narrower casing,
+// walking dotted and thinnest on the narrowest one.
 export const ROUTE_STYLE = {
+    // The route's badge, on top of everything else the route draws.
+    'badge/filter': isKind('route-badge'),
+    'badge/icon-image': ROUTE_BADGE_IMAGE,
+    'badge/icon-allow-overlap': true,
+    'badge/icon-ignore-placement': true,
     // Two labels riding the line itself, one above and one below. Zoomed out
     // there is no room for either in full, so only the travel time survives.
     // Every branch of a text-field `step` must be a definite string - a bare
     // ['get'] is `value`-typed and makes GL reject the whole property, which
     // silently drops the label. Hence to-string, as elsewhere in the configs.
+    'title/filter': isKind('route'),
     'title/symbol-placement': 'line-center',
     'title/text-field': ['step', ['zoom'], '', 12, ['to-string', ['get', 'title']]],
     'title/text-size': 12,
@@ -76,6 +120,7 @@ export const ROUTE_STYLE = {
     'title/text-color': '#0b4f7a',
     'title/text-halo-color': '#ffffff',
     'title/text-halo-width': 2,
+    'summary/filter': isKind('route'),
     'summary/symbol-placement': 'line-center',
     'summary/text-field': ['step', ['zoom'], ['to-string', ['get', 'travelText']], 12, ['to-string', ['get', 'summary']]],
     'summary/text-size': 12,
@@ -85,9 +130,10 @@ export const ROUTE_STYLE = {
     'summary/text-color': '#0b4f7a',
     'summary/text-halo-color': '#ffffff',
     'summary/text-halo-width': 2,
-    // Points only: a circle layer otherwise draws at every vertex of the route
-    // line, and a symbol layer labels each of them.
-    'waypoints/filter': ['==', ['geometry-type'], 'Point'],
+    // Waypoints only: a circle layer otherwise draws at every vertex of the
+    // route line, and a symbol layer labels each of them - and the badge's
+    // point is not a stop.
+    'waypoints/filter': isKind('waypoint'),
     // Terminals are the location-blue disc; intermediate stops are a small
     // white dot, so they read as beads on the route rather than endpoints.
     'waypoints/circle-radius': ['match', ['get', 'role'], 'waypoint', 3, 6],
@@ -107,6 +153,7 @@ export const ROUTE_STYLE = {
     // glyph because it is plain ASCII and certain to exist in any style's
     // glyphs; keep-upright off is what lets it turn to follow the line instead
     // of flipping to stay readable, which is the whole point of it.
+    'arrows/filter': isKind('route'),
     'arrows/symbol-placement': 'line',
     'arrows/symbol-spacing': 70,
     'arrows/text-field': '>',
@@ -118,17 +165,26 @@ export const ROUTE_STYLE = {
     'arrows/text-color': '#ffffff',
     'arrows/text-halo-color': colorOr(LOCATION_BLUE),
     'arrows/text-halo-width': 1,
+    'route/filter': isKind('route'),
     'route/line-color': colorOr(LOCATION_BLUE),
-    'route/line-width': 5,
+    'route/line-width': byProfile(5, 4, 3.5),
+    // In line widths: a 0-length dash with a round cap is a dot.
+    'route/line-dasharray': byProfile(['literal', [1, 0]], ['literal', [2.5, 1.5]], ['literal', [0, 1.8]]),
     'route/line-opacity': 1,
     'route/line-cap': 'round',
     'route/line-join': 'round',
     'line-color': '#ffffff',
-    'line-width': 9,
+    'line-width': ['case', isKind('route'), byProfile(9, 7, 6), 0],
     'line-opacity': 0.9,
     'line-cap': 'round',
     'line-join': 'round',
-    'text-field': ''
+    'text-field': '',
+    'alternative/filter': isKind('route-alternative'),
+    'alternative/line-color': colorOr(LOCATION_BLUE),
+    'alternative/line-width': 5,
+    'alternative/line-opacity': 0.35,
+    'alternative/line-cap': 'round',
+    'alternative/line-join': 'round'
 };
 
 /**
@@ -153,7 +209,7 @@ export function buildRouteFeatureCollection(route, waypoints, { profile, source,
     // The API's own waypoint array is pulled out rather than spread onto the
     // line - it becomes the waypoint features below, and repeating it in the
     // line's properties would only duplicate it.
-    const { geometry, waypoints: apiWaypoints = [], legs = [], ...routeProperties } = route;
+    const { geometry, waypoints: apiWaypoints = [], legs = [], alternative = null, ...routeProperties } = route;
     const labels = routeLabels(route, profile, names);
     const mode = MODE_WORDS[profile] || 'travel';
 
@@ -176,6 +232,35 @@ export function buildRouteFeatureCollection(route, waypoints, { profile, source,
             ...labels
         }
     }];
+
+    if (geometry?.coordinates?.length > 1) {
+        features.push({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: pointAlong(geometry.coordinates, BADGE_ALONG[badgeMode(profile)]) },
+            properties: { id: 'route-badge', kind: 'route-badge', profile, source, mode, label: labels.label, distanceText: labels.distanceText, travelText: labels.travelText }
+        });
+    }
+
+    if (alternative?.geometry) {
+        const minutes = Math.max(1, Math.round(alternative.duration / 60));
+        const distanceText = formatDistance(alternative.distance);
+        features.push({
+            type: 'Feature',
+            geometry: alternative.geometry,
+            properties: {
+                id: 'route-alternative',
+                kind: 'route-alternative',
+                profile,
+                source,
+                mode,
+                distance: alternative.distance,
+                duration: alternative.duration,
+                distanceText,
+                travelText: `${minutes} min ${mode}`,
+                label: `Ignoring traffic: ${distanceText}, ${minutes} min`
+            }
+        });
+    }
 
     waypoints.forEach((requested, index) => {
         const isStart = index === 0;

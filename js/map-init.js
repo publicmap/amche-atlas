@@ -43,6 +43,7 @@ import { systemLayers } from '../config/index.js';
 import { installLayerSampler } from './layer-feature-samples.js';
 import { installStyleReferenceContext } from './style-reference-context.js';
 import { keepDrapedLayersBelow } from './maplibre-drape-order.js';
+import { installRouteBadgeImages } from './search/route-badge.js';
 
 export class MapInitializer {
     // Note: location-based atlas selection is owned by SplashScreenManager
@@ -902,6 +903,8 @@ export class MapInitializer {
         window.map = map;
         installLayerSampler();
         installStyleReferenceContext();
+        // Route badges are drawn on demand, per travel mode and colour.
+        installRouteBadgeImages(map);
         window.dispatchEvent(new CustomEvent('mapInstanceReady', { detail: { map } }));
 
         // Mount the geolocation control IMMEDIATELY (before map.on('load')) so
