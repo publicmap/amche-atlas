@@ -9,6 +9,7 @@ import { createMarkerProvider } from './search/providers/marker-provider.js'
 import { createCountryProvider } from './search/providers/country-provider.js'
 import { isSearchSourceEnabled as on } from './search/search-sources.js'
 import { createDirectionsProvider } from './search/providers/directions-provider.js'
+import { createDataUrlProvider } from './search/providers/data-url-provider.js'
 import { fetchRoute } from './search/directions-router.js'
 import { DirectionsLayer } from './search/directions-layer.js'
 import { SearchSuggestionsPanel } from './search/search-suggestions-panel.js'
@@ -48,6 +49,7 @@ export class MapSearchControl {
         this.markerSuggestions = []; // user-added markers/notes
         this.countrySuggestions = []; // bundled country-name matches
         this.directionsSuggestions = []; // "X to Y" route matches
+        this.dataUrlSuggestions = []; // a pasted data link, opened in the layer editor
         this.currentQuery = '';
         this.injectionTimeout = null;
 
@@ -69,6 +71,7 @@ export class MapSearchControl {
         this.markerProvider = createMarkerProvider();
         this.countryProvider = createCountryProvider();
         this.directionsProvider = createDirectionsProvider();
+        this.dataUrlProvider = createDataUrlProvider();
         this.directionsLayer = new DirectionsLayer(this.map);
 
         // Feature state manager reference (will be set externally)
@@ -266,6 +269,7 @@ export class MapSearchControl {
         this.markerSuggestions = [];
         this.countrySuggestions = [];
         this.directionsSuggestions = [];
+        this.dataUrlSuggestions = [];
         this.currentQuery = '';
         this.isCoordinateInput = false;
         this.coordinateSuggestion = null;
@@ -420,6 +424,13 @@ export class MapSearchControl {
         if (this.suggestionsPanel.handleKeydown(event)) {
             event.preventDefault();
             event.stopPropagation();
+            return;
+        }
+
+        if (event.key === 'Enter' && this.dataUrlSuggestions.length) {
+            event.preventDefault();
+            event.stopPropagation();
+            this._selectSuggestion(this.dataUrlSuggestions[0]);
             return;
         }
 
@@ -658,6 +669,30 @@ export class MapSearchControl {
 
         if (window.urlManager) {
             window.urlManager.updateSearchParam(query);
+        }
+
+        // A pasted data link isn't a place - offer only "Open in layer editor"
+        const dataUrlSuggestion = this.dataUrlProvider.parse(query);
+        this.dataUrlSuggestions = dataUrlSuggestion ? [dataUrlSuggestion] : [];
+        if (dataUrlSuggestion) {
+            this.isCoordinateInput = false;
+            this.coordinateSuggestion = null;
+            this.localSuggestions = [];
+            this.placeSuggestions = [];
+            this.mapSuggestions = [];
+            this.mapFeatureSuggestions = [];
+            this.markerSuggestions = [];
+            this.countrySuggestions = [];
+            this.directionsSuggestions = [];
+            this.directionsProvider.cancel();
+            this.mapboxPlaceProvider.cancel();
+            this.nominatimProvider.cancel();
+            this.cadastralProvider.cancel();
+            this.directionsLayer.clear();
+            this.removeSearchMarker();
+            this.clearSuggestionMarkers();
+            this._renderSuggestions();
+            return;
         }
 
         const coordinateResult = parseCoordinateInput(query);
@@ -989,6 +1024,10 @@ export class MapSearchControl {
     _renderSuggestions() {
         const sections = [];
 
+        if (this.dataUrlSuggestions.length) {
+            sections.push({ ariaLabel: 'Data link', items: this.dataUrlSuggestions });
+        }
+
         // Shown first - a resolved "X to Y" match is a strong, deliberate
         // signal when present, ahead of the more incidental result types.
         if (this.directionsSuggestions.length) {
@@ -1134,6 +1173,13 @@ export class MapSearchControl {
 
         if (item._searchResultType === 'mapbox-place') {
             this._selectMapboxPlaceSuggestion(item);
+            return;
+        }
+
+        if (item._searchResultType === 'data-url') {
+            trackEvent('search_select', { search_type: 'data-url', result_name: item.url });
+            this.updateSearchBoxInput('', { silent: true });
+            window.browserControl?.openCreatorWithUrl(item.url);
             return;
         }
 

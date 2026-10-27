@@ -324,7 +324,8 @@ export class FindPanel {
         const groups = this._tagFilter(maps.groups, group => group.layer);
         const withFeatures = { ...maps, groups: groups.filter(group => featureGroups.has(group)) };
         const byName = { ...maps, groups: groups.filter(group => !featureGroups.has(group)) };
-        let shown = this._results.maps(this._content, withFeatures, { label: 'Features', key: 'features', source: 'on the map' });
+        let shown = this._results.links(this._content, this._sections)
+            + this._results.maps(this._content, withFeatures, { label: 'Features', key: 'features', source: 'on the map' });
         if (atlasSection.length) {
             this._section(...atlasSection);
             shown += entries.length;

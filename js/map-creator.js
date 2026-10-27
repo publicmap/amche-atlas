@@ -81,6 +81,13 @@ export class MapCreator {
                 this.layerPage.open(event.data.layer, { tab: event.data.tab, feature: event.data.feature });
                 return;
             }
+            if (event.data.type === 'load-url') {
+                this.home?.hide();
+                $('#url-input').val(event.data.url).trigger('input');
+                clearTimeout(this._urlInputTimeout);
+                this.handleLoadData();
+                return;
+            }
             if (event.data.type === 'creator-tile-info') {
                 this._handleTileInfoDetected(event.data.geometryTypes || [], event.data.fields || []);
                 return;

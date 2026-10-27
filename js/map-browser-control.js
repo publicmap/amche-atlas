@@ -257,6 +257,10 @@ export class MapBrowserControl {
                     this._iframe.contentWindow.postMessage({ type: 'edit-layer', ...this._pendingEditLayer }, '*');
                     this._pendingEditLayer = null;
                 }
+                if (this._pendingUrl && this._iframe && this._iframe.contentWindow) {
+                    this._iframe.contentWindow.postMessage({ type: 'load-url', url: this._pendingUrl }, '*');
+                    this._pendingUrl = null;
+                }
                 if (this._pendingFileData?.length && this._iframe && this._iframe.contentWindow) {
                     const msg = { type: 'load-file-data', files: this._pendingFileData };
                     const transfer = this._pendingFileData
@@ -1166,6 +1170,14 @@ export class MapBrowserControl {
     _switchToBrowser() {
         this.closeBrowser();
         window.mapConsole?.setMode('find', { filter: 'all' });
+    }
+
+    /** Open the creator with a data link already loading (a URL pasted into search). */
+    openCreatorWithUrl(url) {
+        if (!url) return;
+        this._pendingUrl = url;
+        if (!this._isOpen) this.openBrowser();
+        this._switchToCreator();
     }
 
     /**

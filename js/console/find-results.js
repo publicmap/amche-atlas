@@ -19,7 +19,7 @@ import { matchingRoutes, routeRow } from './route-list.js';
 const markers = createMarkerProvider();
 const FEATURES_PER_MAP = 5;
 const PREVIEW_COUNT = 5;
-const OWN_SECTIONS = new Set(['Atlases', 'Layers', 'Features', 'Your markers']);
+const OWN_SECTIONS = new Set(['Atlases', 'Layers', 'Features', 'Your markers', 'Data link']);
 const ITEM_ICONS = { 'country': 'globe2', 'directions': 'signpost-split', 'mapbox-place': 'geo-alt' };
 
 function liveLayer(groupId) {
@@ -199,6 +199,25 @@ export class ResultsRenderer {
         });
         container.appendChild(section);
         return shown.length;
+    }
+
+    // A pasted data link: one row that opens it in the layer editor
+    links(container, sections) {
+        const items = sections.filter(s => s.ariaLabel === 'Data link').flatMap(s => s.items || []);
+        if (!items.length) return 0;
+        const section = el('section', 'console-section');
+        section.appendChild(sectionLabel('Data link'));
+        items.forEach(item => {
+            section.appendChild(this.ctx.track(row({
+                thumb: iconThumb('link-45deg'),
+                title: item.properties.name,
+                meta: item.properties.place_name,
+                trailing: chevron(),
+                onClick: () => this.ctx.selectPlace(item)
+            }), item));
+        });
+        container.appendChild(section);
+        return items.length;
     }
 
     places(container, { shown, outside }) {
