@@ -1020,6 +1020,32 @@ mapbox-search-box [class$='--Container'] {
     color: var(--console-amber-ink) !important;
 }
 
+.console-eye.loading {
+    position: relative;
+    background: var(--console-amber-soft);
+    color: var(--console-amber) !important;
+}
+
+.console-eye.loading::after {
+    content: '';
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 9px;
+    height: 9px;
+    border: 2px solid var(--console-surface);
+    border-radius: 50%;
+    background:
+        conic-gradient(var(--console-amber) 0 70%, transparent 70%) content-box,
+        var(--console-surface);
+    animation: console-eye-spin 0.8s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes console-eye-spin {
+    to { transform: rotate(360deg); }
+}
+
 .console-eye.part {
     background: var(--console-amber-soft);
     border-color: var(--console-amber);

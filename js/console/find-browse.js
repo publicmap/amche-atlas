@@ -6,7 +6,8 @@
  * details, previewing its extent - which all go through MapBrowserControl so
  * Find behaves exactly as the old map browser panel did.
  */
-import { el, icon, row, eyeButton, layerThumb, imageThumb } from './find-rows.js';
+import { el, icon, row, eyeButton, setEyeState, layerThumb, imageThumb } from './find-rows.js';
+import { pendingState, setPending, eyeKey, trackEye, isLayerLoading } from './layer-loading.js';
 import { matchRank } from './find-rank.js';
 import { viewBbox, bboxInView, parseBbox, layerBbox, isIncludingOutside, zoomButton } from './find-scope.js';
 
@@ -18,11 +19,29 @@ export function activeIds() {
 }
 
 export function isLayerActive(layer, active = activeIds()) {
+    const asked = pendingState(layer);
+    if (asked !== undefined) return asked;
     return active.has(layer._prefixedId) || active.has(layer.id);
 }
 
+/** Shows the new state on the layer's eyes at once, before the map catches up. */
 export function setLayerActive(layer, on) {
+    setPending(layer, on);
+    const title = layer.title || layer.name || layer.id;
+    document.querySelectorAll(`.console-eye[data-layer-key="${CSS.escape(eyeKey(layer))}"]`).forEach(button => {
+        setEyeState(button, on ? 'on' : 'off', on ? `Hide ${title}` : `Show ${title}`);
+        button.classList.toggle('loading', on);
+    });
     browser()?._handleLayerToggle(layer._prefixedId || layer.id, on);
+}
+
+/** A layer's eye: toggles it from whatever it shows now, spinning while it loads. */
+export function layerEye(layer, { active = activeIds(), on = isLayerActive(layer, active) } = {}) {
+    const title = layer.title || layer.name || layer.id;
+    const button = eyeButton(on ? 'on' : 'off', () => setLayerActive(layer, !button.classList.contains('on')), on ? `Hide ${title}` : `Show ${title}`);
+    trackEye(button, layer);
+    if (on && isLayerLoading(layer)) button.classList.add('loading');
+    return button;
 }
 
 export function openLayerInfo(layer) {
@@ -149,11 +168,10 @@ function scrollToCurrent(strip) {
 }
 
 export function layerRow(layer, { active = activeIds(), meta = null, outside = false, className = '' } = {}) {
-    const on = isLayerActive(layer, active);
     const title = layer.title || layer.name || layer.id;
     const trailing = el('span', 'console-row-actions');
     if (outside) trailing.appendChild(zoomButton({ bbox: layerBbox(layer) }, `${title} is outside this view - zoom to it`));
-    trailing.appendChild(eyeButton(on ? 'on' : 'off', () => setLayerActive(layer, !on), on ? `Hide ${title}` : `Show ${title}`));
+    trailing.appendChild(layerEye(layer, { active }));
     return row({
         thumb: layerThumb(layer),
         title,

@@ -13,8 +13,8 @@
  * addresses the map uses the live layer's group id (local-body) instead - see
  * MapBrowserControl._resolveLiveLayer.
  */
-import { el, icon, sectionLabel, row, iconThumb, chevron, hint, eyeButton, layerThumb } from './find-rows.js';
-import { isLayerActive, setLayerActive, atlasName, plainText } from './find-browse.js';
+import { el, icon, sectionLabel, row, iconThumb, chevron, hint, layerThumb } from './find-rows.js';
+import { isLayerActive, setLayerActive, layerEye, atlasName, plainText } from './find-browse.js';
 import { LayerThumbnail } from '../layer-thumbnail.js';
 import { LayerLegend } from '../layer-legend.js';
 import { ruleFilter } from '../rule-legend.js';
@@ -106,7 +106,7 @@ export class LayerDetails {
             thumb: layerThumb(live),
             title,
             meta: path,
-            trailing: eyeButton(on ? 'on' : 'off', toggle, on ? `Hide ${title}` : `Show ${title}`),
+            trailing: layerEye(layer, { on }),
             className: 'console-details-row' + (on ? ' selected' : ''),
             onClick: toggle
         });

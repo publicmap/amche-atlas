@@ -15,6 +15,7 @@
  * buttons. Results are built by js/console/find-results.js.
  */
 import { el, icon, sectionLabel, linkButton, hint, imageThumb } from './find-rows.js';
+import { watchLoading } from './layer-loading.js';
 import { atlasesForSelector, atlasCards, atlasName, atlasLayers, layerRow, activeIds, switchAtlas, clearPreview } from './find-browse.js';
 import { scoped, layerBbox, scopeOption } from './find-scope.js';
 import { ResultsRenderer, mapResults, matchingLayers, pinResults, routeResults, placeResults } from './find-results.js';
@@ -113,6 +114,7 @@ export class FindPanel {
         });
         window.addEventListener('find-scope-changed', this._onScope);
         this._map?.on?.('moveend', this._onMoveEnd);
+        watchLoading(this._map);
     }
 
     _context() {

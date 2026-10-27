@@ -43,17 +43,23 @@ export function linkButton(text, onClick, title = '') {
 
 /** state: 'on' | 'part' | 'off' */
 export function eyeButton(state, onClick, title) {
-    const button = el('button', `console-eye ${state}`);
+    const button = el('button', 'console-eye');
     button.type = 'button';
-    button.title = title;
-    button.setAttribute('aria-label', title);
-    button.setAttribute('aria-pressed', String(state === 'on'));
-    button.appendChild(icon(state === 'off' ? 'eye-slash' : 'eye'));
+    setEyeState(button, state, title);
     button.addEventListener('click', (e) => {
         e.stopPropagation();
         onClick();
     });
     return button;
+}
+
+export function setEyeState(button, state, title) {
+    button.classList.remove('on', 'part', 'off');
+    button.classList.add(state);
+    button.title = title;
+    button.setAttribute('aria-label', title);
+    button.setAttribute('aria-pressed', String(state === 'on'));
+    button.replaceChildren(icon(state === 'off' ? 'eye-slash' : 'eye'));
 }
 
 export function layerThumb(layer, size = 32) {
