@@ -19,7 +19,7 @@ const perspectiveCheckbox = document.getElementById('streetview-perspective');
 const pinLocationCheckbox = document.getElementById('streetview-pin-location');
 
 let viewer = null;
-let followEnabled = true;
+let followEnabled = false;
 let perspectiveEnabled = true;
 let pinLocationEnabled = true;
 

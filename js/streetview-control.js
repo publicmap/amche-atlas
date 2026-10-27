@@ -196,7 +196,7 @@ export class StreetviewControl {
     /**
      * Opens the panel and shows a given image, or - when called with no
      * imageId (the toolbar button path) - the photo nearest the current
-     * selection marker, falling back to the map center if there isn't one.
+     * selection marker if it is in view, otherwise the map center.
      * Also called from config/mapillary.js's onClick handler for
      * mapillary-coverage / mapillary-coverage-photos features.
      */
@@ -206,7 +206,9 @@ export class StreetviewControl {
 
         let resolvedImageId = imageId;
         if (!resolvedImageId) {
-            const { lng, lat } = window.featureControl?._markerManager?.getCurrentMarkerLngLat?.() || this._map.getCenter();
+            const markerLngLat = window.featureControl?._markerManager?.getCurrentMarkerLngLat?.();
+            const markerInView = markerLngLat && this._map.getBounds().contains(markerLngLat);
+            const { lng, lat } = markerInView ? markerLngLat : this._map.getCenter();
             try {
                 resolvedImageId = await resolveNearestImageId({ lng, lat });
             } catch (error) {
@@ -444,7 +446,7 @@ export class StreetviewControl {
         // photo; the instant it's turned off, ease back to a normal north-up,
         // flat view instead of just leaving the map frozen at whatever
         // bearing/pitch it last had.
-        const perspectiveJustDisabled = this._lastPerspective === true && perspective === false;
+        const perspectiveJustDisabled = follow && this._lastPerspective === true && perspective === false;
         this._lastPerspective = perspective;
 
         if (!follow && !perspectiveJustDisabled) return;
