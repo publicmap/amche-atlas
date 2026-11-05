@@ -13,6 +13,7 @@ import {
     strokeScaler
 } from './layer-style-utils.js';
 import { generateRuleLegend } from './rule-legend.js';
+import { generateRouteLegend } from './route-legend.js';
 
 export class LayerLegend {
     /**
@@ -38,6 +39,9 @@ export class LayerLegend {
     }
 
     static _generate(layer, options = {}) {
+        const routes = generateRouteLegend(layer);
+        if (routes) return routes;
+
         if (Array.isArray(layer.legendMap) && layer.legendMap.length) {
             return this._generateCategoricalLegend(layer);
         }

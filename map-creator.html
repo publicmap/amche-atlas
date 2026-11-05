@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/dark.css" />
+    <link rel="stylesheet" href="css/route-card.css" />
     <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace-autoloader.js"></script>
     <style>
         body {
@@ -1623,26 +1624,12 @@
                     <button type="button" class="info-header-action" id="lh-zoom-feature" title="Zoom to this feature" style="display: none;">
                         <sl-icon name="zoom-in"></sl-icon><span>Zoom to Feature</span>
                     </button>
-                    <sl-dropdown id="lh-export-selected" style="display: none;">
-                        <button slot="trigger" type="button" class="info-header-action" title="Export just this feature">
-                            <sl-icon name="download"></sl-icon><span>Export Selected</span><sl-icon name="chevron-down" style="font-size: 9px;"></sl-icon>
-                        </button>
-                        <sl-menu>
-                            <sl-menu-item value="geojson">GeoJSON</sl-menu-item>
-                            <sl-menu-item value="kml">KML</sl-menu-item>
-                            <sl-menu-item value="csv">GeoCSV</sl-menu-item>
-                        </sl-menu>
-                    </sl-dropdown>
-                    <sl-dropdown id="lh-export-layer">
-                        <button slot="trigger" type="button" class="info-header-action" title="Export the layer's entire source dataset, not just the current map view">
-                            <sl-icon name="download"></sl-icon><span>Export Layer</span><sl-icon name="chevron-down" style="font-size: 9px;"></sl-icon>
-                        </button>
-                        <sl-menu>
-                            <sl-menu-item value="geojson">GeoJSON</sl-menu-item>
-                            <sl-menu-item value="kml">KML</sl-menu-item>
-                            <sl-menu-item value="csv">GeoCSV</sl-menu-item>
-                        </sl-menu>
-                    </sl-dropdown>
+                    <button type="button" class="info-header-action" id="lh-export-selected" title="Export just this feature" style="display: none;">
+                        <sl-icon name="download"></sl-icon><span>Export Selected</span>
+                    </button>
+                    <button type="button" class="info-header-action" id="lh-export-layer" title="Export the layer's entire source dataset, not just the current map view">
+                        <sl-icon name="download"></sl-icon><span>Export</span>
+                    </button>
                     <a class="info-header-action" id="lh-zoom-layer" href="#" title="Zoom to this layer" style="display: none; text-decoration: none;">
                         <sl-icon name="zoom-in"></sl-icon><span>Zoom to Layer</span>
                     </a>

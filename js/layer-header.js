@@ -31,8 +31,6 @@ export class LayerHeader {
         this.feature = null;
         this._isolateEnabled = true;
         this._isolatedLayerId = null;
-        this._activeExport = null;
-        this._exportHandler = (event) => this._handleExportProgress(event);
     }
 
     get embedded() {
@@ -51,14 +49,9 @@ export class LayerHeader {
         this.raster.bind();
         $('#lh-zoom-feature').on('click', () => this._zoomToFeature());
         $('#lh-zoom-layer').on('click', (event) => this._zoomToLayer(event));
-        document.querySelector('#lh-export-selected sl-menu')
-            ?.addEventListener('sl-select', (e) => this._exportLayer('export-selected', e.detail.item?.value));
-        document.querySelector('#lh-export-layer sl-menu')
-            ?.addEventListener('sl-select', (e) => this._exportLayer('export-layer', e.detail.item?.value));
-        window.addEventListener('pagehide', () => {
-            this.release();
-            this._stopListeningForExportProgress();
-        });
+        $('#lh-export-selected').on('click', () => this._openExport(this.feature));
+        $('#lh-export-layer').on('click', () => this._openExport(null));
+        window.addEventListener('pagehide', () => this.release());
     }
 
     /** Show a layer, and isolate it on the map. */
@@ -203,68 +196,10 @@ export class LayerHeader {
 
     // -- export ----------------------------------------------------------------
 
-    _exportLayer(kind, format) {
-        if (!format || !this.layer || !this.embedded) return;
-        if (kind === 'export-selected' && !this.feature) return;
-        if (this._activeExport) return;
-
-        this._activeExport = { kind, format, label: format === 'csv' ? 'GeoCSV' : format.toUpperCase() };
-        window.parent.addEventListener('map-export-progress', this._exportHandler);
-        this._setExportState(0, 'Preparing');
-
-        window.parent.postMessage({
-            type: kind, format, layerId: this.layerId, feature: kind === 'export-selected' ? this.feature : null
-        }, '*');
-
-        const pending = this._activeExport;
-        setTimeout(() => {
-            if (this._activeExport === pending && !pending.started) this._setExportState(-1, 'Export failed');
-        }, 3000);
-    }
-
-    _stopListeningForExportProgress() {
-        try {
-            window.parent.removeEventListener('map-export-progress', this._exportHandler);
-        } catch (e) { /* parent gone */ }
-    }
-
-    _handleExportProgress(event) {
-        if (!this._activeExport) return;
-        this._activeExport.started = true;
-        this._setExportState(event.detail.percent, event.detail.message);
-    }
-
-    _setExportState(percent, message) {
-        const exporting = this._activeExport;
-        const $btn = $(exporting.kind === 'export-selected' ? '#lh-export-selected' : '#lh-export-layer').find('button[slot="trigger"]');
-        const $icon = $btn.find('sl-icon').first();
-        const $text = $btn.find('span');
-        const baseLabel = exporting.kind === 'export-selected' ? 'Export Selected' : 'Export Layer';
-        const finish = (delay) => {
-            this._stopListeningForExportProgress();
-            setTimeout(() => {
-                if (this._activeExport !== exporting) return;
-                $icon.attr('name', 'download');
-                $text.text(baseLabel);
-                this._activeExport = null;
-            }, delay);
-        };
-
-        if (percent < 0) {
-            $btn.removeClass('processing');
-            $icon.attr('name', 'x-circle');
-            $text.text('Export failed');
-            finish(2000);
-        } else if (percent >= 100) {
-            $btn.removeClass('processing');
-            $icon.attr('name', 'check-circle');
-            $text.text('Export complete');
-            finish(1500);
-        } else {
-            $btn.addClass('processing');
-            $icon.attr('name', 'arrow-clockwise');
-            $text.text(`${exporting.label}: ${message} (${Math.round(percent)}%)`);
-        }
+    /** Open the map's Export panel scoped to this layer, or to the selected feature. */
+    _openExport(feature) {
+        if (!this.layer || !this.embedded) return;
+        window.parent.postMessage({ type: 'open-export', layerId: this.layerId, feature: feature || null }, '*');
     }
 
     // -- compare and mask ------------------------------------------------------

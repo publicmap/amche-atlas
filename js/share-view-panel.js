@@ -21,6 +21,7 @@ import { ShareUrlPanel } from './share-url-panel.js';
 import { buildHistoryControls } from './location-history.js';
 import { addCloseButton, buildTabs } from './location-tabs.js';
 import { buildExternalLinksSection } from './share-external-links.js';
+import { routeContextBanner, buildRouteLinksSection } from './share-route-section.js';
 import { claimConsolePanel, registerConsolePanel, releaseConsolePanel } from './console-panel.js';
 
 const LIVE_REFRESH_MS = 500;
@@ -91,13 +92,19 @@ export class ShareViewPanel {
     }
 
     /**
-     * @param {{point?: {lat: number, lng: number}}} [options] - build the
-     *   other-maps links for this point instead of the map centre, and open
-     *   that section
+     * @param {{point?: {lat: number, lng: number}, route?: Object}} [options] -
+     *   `point` builds the other-maps links for this point instead of the map
+     *   centre and opens that section; `route` (from a route card) shares that
+     *   route: its directions in the services that take them
      */
-    open({ point = null } = {}) {
+    open({ point = null, route = null } = {}) {
         if (!this._map || !this._panel) return;
         claimConsolePanel(this);
+        if (route !== this._route && this._isOpen) {
+            this._route = route;
+            this._render();
+        }
+        this._route = route;
         if (!this._isOpen) {
             this._isOpen = true;
             this._button?.classList.add('active');
@@ -121,6 +128,7 @@ export class ShareViewPanel {
         this._history?.destroy();
         this._history = null;
         this._links = null;
+        this._route = null;
     }
 
     // Under the console card it is opened from, at the same width.
@@ -133,6 +141,11 @@ export class ShareViewPanel {
         const maxLeft = window.innerWidth - this._panel.getBoundingClientRect().width - 8;
         this._panel.style.left = `${Math.max(8, Math.min(rect.left, maxLeft))}px`;
         this._panel.style.top = `${rect.bottom + 8}px`;
+        // Under a console grown tall with Find, it sits beside the console instead
+        if (rect.bottom + 8 + this._panel.offsetHeight > window.innerHeight && rect.right + 8 + rect.width < window.innerWidth) {
+            this._panel.style.left = `${rect.right + 8}px`;
+            this._panel.style.top = `${rect.top}px`;
+        }
     }
 
     _section(label) {
@@ -153,11 +166,18 @@ export class ShareViewPanel {
         this._history?.destroy();
 
         // "Share this map view" and "History" are tabs of one section
+        if (this._route) {
+            this._panel.appendChild(routeContextBanner(this._route, () => {
+                this._route = null;
+                this._render();
+            }));
+        }
+
         const share = this._section(' ');
         const label = share.querySelector('.place-label');
         label.textContent = '';
         label.classList.add('share-view-label');
-        const tabs = [{ id: 'share', label: 'Share this map view', icon: 'link-45deg' }];
+        const tabs = [{ id: 'share', label: this._route ? 'Share this route' : 'Share this map view', icon: 'link-45deg' }];
         if (window.mapHistory) tabs.push({ id: 'history', label: 'History' });
         const panels = buildTabs(share, tabs, this._tab, (id) => { this._tab = id; }, label);
         label.querySelector('#place-tab-history')?.classList.add('share-view-history-tab');
@@ -165,7 +185,9 @@ export class ShareViewPanel {
         panels.share.appendChild(this._sharePanel.buildInlineSection({ onOpenModal: this.close }));
         if (window.mapHistory) this._history = buildHistoryControls(window.mapHistory, panels.history);
 
-        this._links = buildExternalLinksSection(this._section(), this._map);
+        this._links = this._route
+            ? buildRouteLinksSection(this._section(), this._map, this._route)
+            : buildExternalLinksSection(this._section(), this._map);
     }
 
     _handleOutsideEvent(e) {

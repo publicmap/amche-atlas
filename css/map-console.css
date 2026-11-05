@@ -68,7 +68,7 @@
 }
 
 .map-console[data-mode="find"] {
-    width: 392px;
+    width: 440px;
 }
 
 .map-console[data-mode="explore"] .when-find,
@@ -658,6 +658,87 @@ mapbox-search-box [class$='--Container'] {
     min-height: 0;
     display: flex;
     flex-direction: column;
+}
+
+/* Find's sections side by side (js/console/find-sections.js): the open one
+   fills the row, the others are strips with their name running down them */
+.console-acc {
+    flex: 0 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+}
+
+.console-acc > .console-find-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.console-acc-strip {
+    flex: 0 0 34px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 0;
+    border: 0;
+    border-right: 1px solid var(--console-line);
+    border-left: 1px solid var(--console-line);
+    background: var(--console-raised);
+    color: var(--console-ink-2) !important;
+    cursor: pointer;
+}
+
+.console-acc-strip + .console-acc-strip {
+    border-left: 0;
+}
+
+.console-acc-strip[hidden] {
+    display: none;
+}
+
+.console-acc-strip:hover {
+    background: var(--console-hover);
+    color: var(--console-ink) !important;
+}
+
+.console-acc-strip sl-icon {
+    font-size: 15px;
+}
+
+.console-acc-name {
+    writing-mode: vertical-rl;
+    font-size: 12px !important;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.console-acc-count {
+    min-width: 18px;
+    padding: 1px 4px;
+    border-radius: 999px;
+    background: var(--console-amber);
+    color: var(--console-amber-ink);
+    font-size: 10.5px !important;
+    font-weight: 700;
+    line-height: 14px;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.console-acc-count.is-result {
+    background: var(--console-blue);
+    color: #0b1220;
+}
+
+.console-acc-count.is-empty {
+    background: transparent;
+    color: var(--console-ink-3);
+}
+
+.console-more-section {
+    padding: 4px 12px 8px;
 }
 
 .console-find-body {
@@ -1469,9 +1550,7 @@ mapbox-search-box [class$='--Container'] {
 /* Docked marker panels share the console's column (map-marker-manager.js);
    Find covers it, so they step aside until it closes. */
 body.console-find .marker-docked,
-body.console-find .marker-dock-leaders,
-body.console-find .marker-dock-links,
-body.console-find .marker-dock-routes {
+body.console-find .marker-dock-leaders {
     visibility: hidden !important;
 }
 
@@ -1716,7 +1795,7 @@ body.console-find .marker-dock-routes {
 
 /* ---------- Layer details (js/console/layer-details.js) ---------- */
 
-.console-find.showing-details > .console-find-body {
+.console-find.showing-details > .console-acc {
     display: none;
 }
 

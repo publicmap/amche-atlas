@@ -352,7 +352,7 @@ export class RouteStore {
     removeRoute(routeId) {
         const route = this._routes.find(r => r.id === routeId);
         if (!route) return;
-        if (route.groupId === DIRECTIONS_LAYER_ID) {
+        if (route.groupId === DIRECTIONS_LAYER_ID || sheetOwned(route.groupId)) {
             this.remove(routeId, { keepMarkers: true });
             return;
         }
@@ -634,10 +634,10 @@ export class RouteStore {
         this._apply(route, result);
         // Waypoint markers first: _write()'s `route-<rid>:` shorthand now
         // references each waypoint's live marker id (see below), which
-        // _syncMarkers is what assigns into route.markerIds.
-        this._syncMarkers(route);
+        // _syncMarkers is what assigns into route.markerIds. A sheet's routes
+        // keep their stops in the sheet, not as pins in the link.
+        if (!sheetOwned(route.groupId)) this._syncMarkers(route);
         this._write(route.groupId);
-        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('routes-changed'));
     }
 
     /**
@@ -834,7 +834,7 @@ export class RouteStore {
     }
 
     _writeGeojson(groupId) {
-        const routes = this._routes.filter(r => r.groupId === groupId);
+        const routes = this._routes.filter(r => r.groupId === groupId && !r.hidden);
         const features = routes.flatMap(route =>
             (route.geojson?.features || []).map(feature => ({
                 ...feature,
@@ -862,6 +862,49 @@ export class RouteStore {
             api().updateGeoJSONLayerData(groupId, geojson);
         }
         return features;
+    }
+
+    /**
+     * Hides a route's line and the pins that are only its stops, or shows them
+     * again. The route stays in the URL: hiding is a view of it, not removal.
+     */
+    setRouteHidden(routeId, hidden) {
+        const route = this._routes.find(r => r.id === routeId);
+        if (!route) return;
+        route.hidden = !!hidden;
+        this._writeGeojson(route.groupId);
+        const markers = window.featureControl?._markerManager;
+        route.markerIds.filter(Boolean).forEach(markerId => {
+            const shown = this._routes.some(r => !r.hidden && r.markerIds.includes(markerId));
+            markers?.setMarkerHidden?.(markerId, !shown);
+        });
+        window.dispatchEvent(new CustomEvent('routes-changed'));
+    }
+
+    /**
+     * Adds a marker to a route as the stop that lengthens it least - what
+     * dropping a pin on the route's line does.
+     */
+    insertMarkerNearest(routeId, markerId, lngLat) {
+        const route = this._routes.find(r => r.id === routeId);
+        if (!route || !lngLat || route.markerIds.includes(markerId)) return;
+        const at = (p) => ({ lng: p[0], lat: p[1] });
+        const d = (a, b) => haversineDistanceMeters(at(a), at(b));
+        const point = [lngLat.lng, lngLat.lat];
+        let best = route.waypoints.length;
+        let bestCost = d(route.waypoints[route.waypoints.length - 1], point);
+        route.waypoints.slice(0, -1).forEach((a, i) => {
+            const b = route.waypoints[i + 1];
+            const cost = d(a, point) + d(point, b) - d(a, b);
+            if (cost < bestCost) {
+                bestCost = cost;
+                best = i + 1;
+            }
+        });
+        route.waypoints.splice(best, 0, point);
+        route.names.splice(best, 0, '');
+        route.markerIds.splice(best, 0, markerId);
+        this._resolve(route).catch(error => console.warn('[directions] re-route failed:', error));
     }
 
     /** Re-draws a route in the colour the user picked. */
@@ -893,6 +936,11 @@ export class RouteStore {
     _write(groupId) {
         const routes = this._routes.filter(r => r.groupId === groupId);
         const features = this._pushGeojson(groupId);
+        // A sheet's routes are saved to the sheet (../route-sheet-layer.js), not the link
+        if (sheetOwned(groupId)) {
+            window.dispatchEvent(new CustomEvent('routes-changed'));
+            return;
+        }
         const findGroup = () => window.layerControl?._state?.groups?.find(g => g.id === groupId);
 
         // The routes layer follows its routes: switched on by the first one
@@ -940,6 +988,7 @@ export class RouteStore {
         else if (!routes.some(r => r.waypoints.length >= 2)) delete group._originalJson;
 
         window.urlManager?.updateURL({ updateLayers: true });
+        window.dispatchEvent(new CustomEvent('routes-changed'));
     }
 
     /**
@@ -1004,6 +1053,10 @@ function featureKey(feature) {
     return kind === 'route-alternative' || kind === 'route-badge' ? kind : 'route';
 }
 
+function sheetOwned(groupId) {
+    return typeof window !== 'undefined' && !!window.routeSheets?.owns(groupId);
+}
+
 function api() {
     return window.featureControl?._stateManager?._mapboxAPI || window.mapboxAPI;
 }
@@ -1056,7 +1109,7 @@ function routeFromFeatures(id, groupId, features) {
 
     const route = {
         id,
-        rid: groupId.startsWith('route-') ? groupId.slice('route-'.length) : String(number),
+        rid: line?.properties?.rid || (groupId.startsWith('route-') ? groupId.slice('route-'.length) : String(number)),
         number,
         code,
         groupId,
@@ -1074,6 +1127,7 @@ function routeFromFeatures(id, groupId, features) {
         name: ''
     };
     route.name = line?.properties?.title || routeName(route);
+    route.title = line?.properties?.sheetName || null;
     route.colorCustom = !!line?.properties?.colorCustom && isRouteColor(line?.properties?.color);
     route.color = route.colorCustom ? line.properties.color : defaultRouteColor(route);
     return route;
@@ -1089,3 +1143,4 @@ function routeName(route) {
 
 /** One store per page - both the search control and the menu write to it. */
 export const routeStore = new RouteStore();
+if (typeof window !== 'undefined') window.routeStore = routeStore;

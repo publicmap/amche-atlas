@@ -13,7 +13,9 @@ import { layerRow, atlasName, activeIds } from './find-browse.js';
 import { scoped, layerBbox, routeBbox, zoomButton } from './find-scope.js';
 import { byRank, matchRank } from './find-rank.js';
 import { createMarkerProvider } from '../search/providers/marker-provider.js';
-import { matchingRoutes, routeRow, googleMapsButton } from './route-list.js';
+import { matchingRoutes } from './route-list.js';
+import { routeCard } from './route-card.js';
+import { routeTitle } from '../search/route-meta.js';
 
 const markers = createMarkerProvider();
 const FEATURES_PER_MAP = 5;
@@ -21,7 +23,7 @@ const PREVIEW_COUNT = 5;
 const OWN_SECTIONS = new Set(['Atlases', 'Layers', 'Features', 'Your markers', 'Data link']);
 const ITEM_ICONS = { 'country': 'globe2', 'directions': 'signpost-split', 'mapbox-place': 'geo-alt' };
 
-function liveLayer(groupId) {
+export function liveLayer(groupId) {
     const group = (window.layerControl?._state?.groups || []).find(g => g.id === groupId);
     const registryLayer = window.layerRegistry?.getLayer?.(groupId, null, true);
     const config = registryLayer || window.featureControl?._stateManager?.getLayerConfig(groupId);
@@ -83,7 +85,7 @@ export function pinResults(term) {
 }
 
 export function routeResults(term) {
-    const routes = byRank(matchingRoutes(term), term, route => route.name, route => [`route-${route.rid}`]);
+    const routes = byRank(matchingRoutes(term), term, route => routeTitle(route, matchingRoutes()), route => [route.name, `route-${route.rid}`]);
     return scoped(routes, route => ({ bbox: routeBbox(route) }));
 }
 
@@ -160,21 +162,18 @@ export class ResultsRenderer {
         if (!shown.length) return 0;
         const section = el('section', 'console-section');
         section.appendChild(sectionLabel(label, side));
-        this._limited(section, 'routes', shown, route => {
-            const key = `route:${route.id}`;
-            const node = routeRow(route, { onDone: () => this.ctx.selectRoute(key) });
-            const name = node.querySelector('.console-row-title')?.textContent || 'this route';
-            const actions = el('span', 'console-row-actions');
-            actions.append(
-                zoomButton({ bbox: routeBbox(route) }, outside.has(route) ? `${name} is outside this view - zoom to it` : `Zoom to ${name}`, { outside: outside.has(route) }),
-                googleMapsButton(route, name),
-                deleteButton(`Delete ${name} (its stops stay as pins)`, () => window.featureControl?._markerManager?.deleteRoute(route.id))
-            );
-            node.querySelector('.console-row-go')?.replaceWith(actions);
-            if (outside.has(route)) node.classList.add('outside');
-            if (this.ctx.isSelected(key)) node.classList.add('selected');
-            return [this.ctx.track(node, route)];
+        const cards = el('div', 'route-cards');
+        this._limited(cards, 'routes', shown, route => {
+            const key = `route-card:${route.id}`;
+            const card = routeCard(route, { open: this.ctx.expanded.has(key), onToggle: () => this.ctx.toggle(key) });
+            if (outside.has(route)) {
+                card.classList.add('outside');
+                card.querySelector('.route-card-chevron')?.before(zoomButton({ bbox: routeBbox(route) }, 'This route is outside this view - zoom to it'));
+            }
+            this.ctx.track(card.querySelector('.route-card-head'), route);
+            return [card];
         });
+        section.appendChild(cards);
         container.appendChild(section);
         return shown.length;
     }

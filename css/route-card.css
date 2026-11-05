@@ -1,0 +1,534 @@
+/* Route cards (js/console/route-card.js) - in Find's Routes section and as a
+   route layer's legend, so the console's colours carry fallbacks for the
+   layer editor, which has none of them */
+.route-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px 8px 8px;
+}
+
+.route-card {
+    border: 1px solid var(--console-line, rgba(255, 255, 255, 0.12));
+    border-left: 3px solid var(--route-color);
+    border-radius: 8px;
+    background: var(--console-surface, #1f2937);
+    color: var(--console-ink, #f3f4f6);
+    overflow: hidden;
+}
+
+.route-card.open {
+    border-color: var(--route-color);
+    box-shadow: 0 0 0 1px var(--route-color) inset;
+}
+
+.route-card.is-hidden .route-card-head {
+    opacity: 0.55;
+}
+
+.route-card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    cursor: pointer;
+}
+
+.route-card-head:hover,
+.route-card-head:focus-visible {
+    background: var(--console-raised, rgba(255, 255, 255, 0.06));
+    outline: none;
+}
+
+.route-symbol {
+    position: relative;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    height: 26px;
+    padding: 0 7px 0 6px;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    background: var(--route-color);
+    box-sizing: border-box;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    color: #fff;
+    font-size: 13px;
+}
+
+.route-symbol-id {
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.route-symbol.small {
+    height: 18px;
+    padding: 0 5px 0 4px;
+    border-width: 1.5px;
+    font-size: 10px;
+}
+
+.route-symbol.small .route-symbol-id {
+    font-size: 9.5px;
+}
+
+.route-symbol-color {
+    position: absolute;
+    inset: -2px;
+    width: calc(100% + 4px);
+    height: calc(100% + 4px);
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.route-card-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.route-card-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.route-card-sub {
+    margin-top: 2px;
+    font-size: 11.5px;
+    line-height: 1.3;
+    color: var(--console-ink-3, #9ca3af);
+}
+
+.route-card-chevron {
+    flex-shrink: 0;
+    margin-top: 5px;
+    color: var(--console-ink-3, #9ca3af);
+    font-size: 12px;
+}
+
+/* Pointing at a closed card swaps its summary for where it runs */
+.route-card-hover {
+    display: none;
+}
+
+.route-card:not(.open) .route-card-head:hover .route-card-summary,
+.route-card:not(.open) .route-card-head:focus-visible .route-card-summary {
+    display: none;
+}
+
+.route-card:not(.open) .route-card-head:hover .route-card-hover,
+.route-card:not(.open) .route-card-head:focus-visible .route-card-hover {
+    display: block;
+}
+
+.route-card-ends {
+    margin-top: 2px;
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--console-ink-2, #d1d5db);
+}
+
+.route-card-connects {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-top: 5px;
+    font-size: 11.5px;
+    color: var(--console-ink-3, #9ca3af);
+}
+
+.route-card-hint {
+    margin-top: 5px;
+    font-size: 11px;
+    color: var(--console-blue, #7cb4ff);
+}
+
+.route-card-body {
+    padding: 0 10px 10px;
+}
+
+.route-card-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.route-card-action {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--console-line, rgba(255, 255, 255, 0.15));
+    border-radius: 7px;
+    background: transparent;
+    color: var(--console-ink-2, #d1d5db);
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.route-card-action:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+    background: var(--console-hover, rgba(255, 255, 255, 0.1));
+    color: var(--console-ink, #fff);
+}
+
+.route-card-action.off {
+    color: var(--console-ink-3, #6b7280);
+}
+
+.route-card-navigate {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 7px;
+    background: var(--route-color);
+    color: #fff;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.route-card-navigate:hover {
+    filter: brightness(1.1);
+}
+
+/* The stop diagram: the route drawn as on the map, one dot per stop */
+.route-stops {
+    --lane-x: 11px;
+    position: relative;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.route-stop {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-height: 40px;
+    padding: 2px 4px 2px 0;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.route-stop::before {
+    content: "";
+    position: absolute;
+    left: calc(var(--lane-x) - 2px);
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--route-color);
+}
+
+.route-stop.first::before {
+    top: 11px;
+}
+
+.route-stop.last::before {
+    bottom: calc(100% - 11px);
+}
+
+.route-stops-cycling .route-stop::before {
+    background: repeating-linear-gradient(to bottom, var(--route-color) 0 7px, #fff 7px 11px);
+}
+
+.route-stops-walking .route-stop::before {
+    background: #fff radial-gradient(circle, var(--route-color) 1.5px, transparent 1.9px) center top / 4px 6px repeat-y;
+}
+
+.route-stop:hover,
+.route-stop:focus-visible {
+    background: var(--console-raised, rgba(255, 255, 255, 0.06));
+    outline: none;
+}
+
+.route-stop.dragging {
+    opacity: 0.4;
+}
+
+.route-stop.drop-before {
+    box-shadow: 0 -2px 0 #f59e0b;
+}
+
+.route-stop.drop-after {
+    box-shadow: 0 2px 0 #f59e0b;
+}
+
+.route-stop-dot {
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: var(--route-color);
+    box-sizing: border-box;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.route-stop-text {
+    flex: 1;
+    min-width: 0;
+    padding-top: 3px;
+}
+
+.route-stop-name {
+    display: block;
+    font-size: 12.5px;
+    line-height: 1.3;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.route-stop-leg {
+    display: block;
+    margin: 3px 0 6px;
+    font-size: 11px;
+    color: var(--console-ink-3, #9ca3af);
+}
+
+.route-stop-remove {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    margin-top: 1px;
+    padding: 0;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--console-ink-3, #9ca3af);
+    font-size: 11px;
+    cursor: pointer;
+    opacity: 0;
+}
+
+.route-stop:hover .route-stop-remove,
+.route-stop-remove:focus-visible {
+    opacity: 1;
+}
+
+.route-stop-remove:hover {
+    background: rgba(220, 38, 38, 0.2);
+    color: #fca5a5;
+}
+
+@media (hover: none) {
+    .route-stop-remove {
+        opacity: 1;
+    }
+}
+
+/* The Share panel opened from a route card (js/share-route-section.js) */
+.share-context {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 12px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--console-line, rgba(255, 255, 255, 0.15));
+    border-radius: 8px;
+    background: var(--console-raised, rgba(255, 255, 255, 0.06));
+}
+
+.share-context-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.share-context-title {
+    font-size: 13px;
+    font-weight: 600;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.share-context-sub {
+    font-size: 11.5px;
+    color: var(--console-ink-3, #9ca3af);
+}
+
+.share-context-clear {
+    flex-shrink: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--console-blue, #7cb4ff);
+    font: inherit;
+    font-size: 11.5px;
+    cursor: pointer;
+}
+
+.share-context-clear:hover {
+    text-decoration: underline;
+}
+
+.share-route-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 8px;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+
+/* Turn-by-turn navigation (js/route-navigation-panel.js) */
+.nav-panel {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    z-index: 1000;
+    width: min(420px, calc(100vw - 32px));
+    max-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(-50%);
+    border-radius: 12px;
+    background: #111827;
+    color: #f3f4f6;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+.nav-turn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--route-color);
+    color: #fff;
+}
+
+.nav-turn > sl-icon {
+    flex-shrink: 0;
+    font-size: 34px;
+}
+
+.nav-turn-distance {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.nav-turn-instruction {
+    font-size: 15px;
+    line-height: 1.3;
+}
+
+.nav-then {
+    padding: 6px 16px;
+    background: rgba(0, 0, 0, 0.35);
+    font-size: 12.5px;
+}
+
+.nav-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px 4px;
+}
+
+.nav-summary {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.nav-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 16px 12px;
+    font-size: 12.5px;
+}
+
+.nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+}
+
+.nav-toggle[hidden] {
+    display: none;
+}
+
+.nav-link {
+    padding: 4px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.nav-link.active {
+    border-color: var(--route-color);
+}
+
+.nav-end {
+    margin-left: auto;
+    padding: 6px 16px;
+    border: 0;
+    border-radius: 6px;
+    background: #dc2626;
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.nav-steps {
+    margin: 0;
+    padding: 0 0 8px;
+    list-style: none;
+    overflow-y: auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 16px;
+    font-size: 12.5px;
+}
+
+.nav-step-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.nav-step-distance {
+    color: #9ca3af;
+}

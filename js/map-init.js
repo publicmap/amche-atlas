@@ -25,6 +25,7 @@ import { MapLocationMenuControl } from './map-location-menu-control.js';
 import { MapViewPanel } from './map-view-panel.js';
 import { LocatePanel } from './locate-panel.js';
 import { ShareViewPanel } from './share-view-panel.js';
+import { RouteNavigation } from './route-navigation.js';
 import { MapFeatureStateManager } from './map-feature-state-manager.js';
 import { MapMaskManager } from './map-mask-manager.js';
 import { MapOrientationControl } from './map-orientation-control.js';
@@ -1041,6 +1042,7 @@ export class MapInitializer {
             // other maps (see share-view-panel.js), opened from the link icon
             // at the start of the place line.
             new ShareViewPanel().mount(map, { button: window.mapConsole?.shareButton });
+            new RouteNavigation(map);
 
             // Bottom-right, in stacking order from the corner up: attribution
             // sits lowest, then a row of the scale card, which carries the

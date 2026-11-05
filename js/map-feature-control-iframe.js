@@ -224,6 +224,23 @@ export class MapFeatureControl {
                 // three-dot menu's `data-feature-data` attribute carried it.
                 const featureData = event.data.feature ? encodeURIComponent(JSON.stringify(event.data.feature)) : '';
                 await this._markerManager?._handleLayerExportAction(event.data.type, event.data.format, event.data.layerId, featureData);
+            } else if (event.data.type === 'open-export') {
+                // From the layer editor's Export / Export Selected buttons: the
+                // Export panel opens scoped to the layer (or that one feature).
+                const { layerId, feature } = event.data;
+                const layerConfig = window.stateManager?.getLayerConfig(layerId)
+                    || window.layerRegistry?.getLayer?.(layerId) || {};
+                const style = layerConfig.style || {};
+                const color = [style['line-color'], style['fill-color'], style['circle-color']].find(c => typeof c === 'string') || null;
+                const exportControl = window.exportControl;
+                exportControl?.openWithContext({
+                    layerId,
+                    title: layerConfig.title || layerId,
+                    color,
+                    features: feature ? [feature] : null,
+                    subtitle: feature ? exportControl._getFeatureTitle(feature, layerConfig) : 'Whole layer',
+                    useFor: 'gis'
+                });
             }
         });
     }

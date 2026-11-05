@@ -821,6 +821,19 @@ The example above is equivalent to this URL:
 
 The conversion both ways is `js/atlas-pins.js`: `atlasMarkersParam()` / `atlasRouteShorthands()` on load (called from `js/map-init.js`; `js/url-manager.js` reads the result as `window.amche.atlasMarkersParam` when there is no `?markers=`), and `atlasPinsJson()` for the save page.
 
+#### Route networks in a Google Sheet
+
+The same pins and routes can live in a Google Sheet: a `waypoints` tab (`id`, `name`, `lng`, `lat`, `description`) and a `routes` tab (`id`, `name`, `profile`, `service`, `color`, `waypoints`), each row with optional `version` / `updated_at` columns that an owner-deployed Apps Script maintains. Each waypoint row is one `?markers=` entry and each route row one `route-<rid>:` entry, so the sheet's formulas can build an amche link for every route and for the whole network. A sheet is read as a layer of `"type": "routes"`:
+
+```json
+{ "id": "goa-cycle-network", "title": "Goa cycle network", "type": "routes",
+  "url": "https://docs.google.com/spreadsheets/d/<SHEET_ID>/edit",
+  "waypointsGid": "0", "routesGid": "123456789",
+  "saveUrl": "https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec" }
+```
+
+Edits are written back through the Apps Script with per-row conflict checks: a row changed in the sheet since the user started editing is never overwritten, and has to be inserted as a new row or discarded. The sheet layout, link formulas, the complete script, deployment and CSV/GeoJSON round trips are in [docs/route-sheets.md](route-sheets.md). The modules are `js/route-sheet-format.js` (rows, links, CSV and GeoJSON conversion) and `js/route-sheet-sync.js` (reading, saving and conflicts). The `routes` layer type isn't dispatched by `js/mapbox-api.js` yet.
+
 #### Inspect Configuration
 
 ```json

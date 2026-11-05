@@ -17,14 +17,17 @@ import { el, icon, sectionLabel, linkButton, hint, imageThumb } from './find-row
 import { watchLoading } from './layer-loading.js';
 import { atlasesForSelector, atlasCards, atlasPicker, atlasName, atlasLayers, layerRow, activeIds, switchAtlas, clearPreview } from './find-browse.js';
 import { scoped, layerBbox, scopeOption } from './find-scope.js';
-import { ResultsRenderer, mapResults, matchingLayers, pinResults, routeResults, placeResults } from './find-results.js';
+import { ResultsRenderer, mapResults, matchingLayers, pinResults, routeResults, placeResults, liveLayer } from './find-results.js';
+import { featureResults } from './find-features.js';
+import { FindSections } from './find-sections.js';
 import { FeatureSync } from './feature-sync.js';
 import { tagFilterBar, filterByTags } from './tag-filter.js';
 import { OnMapActions } from './on-map-actions.js';
 import { LayerDetails } from './layer-details.js';
 
 export const VIEWS = {
-    atlas: { label: 'Atlas', browse: 'Atlases and maps in this view', search: 'Maps, features and places matching' },
+    atlas: { label: 'Map', icon: 'map', browse: 'Atlases and maps in this view', search: 'Maps, features and places matching' },
+    features: { label: 'Features', icon: 'bounding-box-circles', placeholder: 'Search features', browse: 'Features on the map', search: 'Features matching' },
     pins: { label: 'Pins', icon: 'pin-map', placeholder: 'Search pins', browse: 'Pins on the map', search: 'Pins matching' },
     routes: { label: 'Routes', icon: 'signpost-split', placeholder: 'Search routes', browse: 'Routes on the map', search: 'Routes matching' }
 };
@@ -98,6 +101,8 @@ export class FindPanel {
         this._content = el('div', 'console-find-content');
         this._title = el('div', 'console-view-title');
         this._body.append(this._title, this._atlasHead, this._tags, this._onMap, this._content);
+        this._sectionsBar = new FindSections({ views: VIEWS, onOpen: (view) => this.setView(view) });
+        const sections = this._sectionsBar.mount(this._body);
         this._body.addEventListener('mouseleave', () => {
             clearPreview();
             if (this._pendingRefresh) this.render();
@@ -107,7 +112,7 @@ export class FindPanel {
             onBack: () => this.closeDetails(),
             onSelectFeature: () => this._onDone?.()
         });
-        this.el.append(this._body, this.details.el);
+        this.el.append(sections, this.details.el);
         if (footerEl) this.el.appendChild(footerEl);
         host.appendChild(this.el);
 
@@ -259,15 +264,24 @@ export class FindPanel {
 
         let hidden = 0;
         if (this._view === 'atlas') hidden = this._renderAtlasView();
+        else if (this._view === 'features') hidden = this._renderFeaturesView();
         else if (this._view === 'pins') hidden = this._renderPinsView();
         else if (this._view === 'routes') hidden = this._renderRoutesView();
         this._scope.sync(hidden);
 
+        const features = featureResults(this._query, liveLayer);
         this.counts = this._query ? {
             layers: scoped(matchingLayers(this._query), layer => ({ bbox: layerBbox(layer) })).shown.length,
+            features: features.savedCount + features.moreCount,
             pins: pinResults(this._query).shown.length,
             routes: routeResults(this._query).shown.length
         } : null;
+        this._sectionsBar.sync(this._view, this.counts ? { atlas: this.counts.layers, ...this.counts } : {
+            atlas: this._onMapLayers.length,
+            features: features.savedCount,
+            pins: pinResults('').shown.length,
+            routes: routeResults('').shown.length
+        }, !!this.counts);
         this._onViewChange?.(this._view);
         this.onEntriesChanged?.(this._entries);
     }
@@ -391,6 +405,35 @@ export class FindPanel {
         const label = this._tagPath.length ? this._tagPath.join(' › ') : `All maps in ${atlasName(atlasId)}`;
         this._section(sectionLabel(label), ...(rows.length ? rows : [hint('None of this atlas’s maps are in this view.')]));
         return atlasHidden + hidden;
+    }
+
+    /**
+     * Features under their maps: those saved pins stand on first, the rest in
+     * view under "more" - all at once when the link names nothing of its own.
+     */
+    _renderFeaturesView() {
+        const { saved, more, savedCount, moreCount, showAll } = featureResults(this._query, liveLayer);
+        const none = () => ({ outside: new Set() });
+        const shown = this._results.maps(this._content, { groups: saved, ...none() },
+            { label: showAll ? 'Features in view' : 'Saved features', key: 'features-saved', source: showAll ? 'all maps on the map' : 'kept in the link' });
+        if (!showAll && !savedCount && moreCount) this._content.appendChild(hint('No features are saved in this link yet. Pin a feature to keep it.'));
+        if (more.length) {
+            if (this._expanded.has('features-more')) {
+                this._results.maps(this._content, { groups: more, ...none() }, { label: 'More in this view', key: 'features-more-list', source: `${moreCount}` });
+            } else {
+                const section = el('section', 'console-section');
+                section.appendChild(linkButton(`${moreCount} more feature${moreCount === 1 ? '' : 's'} in this view`, () => {
+                    this._expanded.add('features-more');
+                    this.render();
+                }));
+                section.classList.add('console-more-section');
+                this._content.appendChild(section);
+            }
+        }
+        if (!shown && !moreCount) {
+            this._content.appendChild(hint(this._query ? `No features match “${this._query}” in this view.` : 'No features in this view. Turn on a map, or move the map to where its features are.'));
+        }
+        return 0;
     }
 
     _renderPinsView() {

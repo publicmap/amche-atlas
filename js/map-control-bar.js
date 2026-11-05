@@ -361,16 +361,11 @@ export class MapControlBar {
         window.dispatchEvent(new CustomEvent('mapConsoleModeChanged', { detail: { mode: this._mode } }));
     }
 
-    // The view buttons sit inside the field: in Find the search field, after
-    // the query; in Explore the collapsed field.
-    _placeViewButtons(find) {
-        const searchEl = this._searchToggle?._el;
-        const buttons = Object.values(this._viewButtons);
-        if (find && searchEl) {
-            searchEl.append(...buttons);
-        } else {
-            this._field.append(...buttons);
-        }
+    // The view buttons sit inside Explore's collapsed field; Find has its
+    // sections side by side under the search field instead
+    // (js/console/find-sections.js).
+    _placeViewButtons() {
+        this._field.append(...Object.values(this._viewButtons));
     }
 
     setVisible(visible) {

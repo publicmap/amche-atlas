@@ -19,9 +19,8 @@ import { formatAttributeValue } from './attribute-value-renderer.js';
 import { sanitizeId, isValidId, nextSerialId, labelToId, uniqueId, sanitizeRouteRefPrefix, isValidRouteRefId } from './shorthand-id-utils.js';
 import * as markerRegistry from './marker-registry.js';
 import { WAYPOINT_PIN_COLOR, routeStore } from './search/route-store.js';
-import { googleMapsDirectionsUrl } from './external-map-links.js';
-import { LANE_WIDTH, gapAfter, groupByRoute, planRouteLanes, renderDockLinks, routeButtonLabel, routeColor, stopMarkers } from './marker-dock-links.js';
-import { RouteDockStack, ROUTE_BUTTON_HEIGHT, ROUTE_BUTTON_GAP } from './route-dock-stack.js';
+import { stopMarkers } from './marker-dock-links.js';
+import { routeTitle } from './search/route-meta.js';
 import { RasterPixelInspector } from './raster-pixel-inspector.js';
 import { inspectStyleLayers, buildStyleInspectionHTML } from './style-layer-inspector.js';
 import { fitToFeature, restoreFeatureFit } from './feature-camera-fit.js';
@@ -433,90 +432,50 @@ export class MapMarkerManager {
         this._layoutDockedPanels();
     }
 
-    _routeStack() {
-        if (!this._routeDockStack) {
-            this._routeDockStack = new RouteDockStack({
-                onHover: (id) => {
-                    clearTimeout(this._routeHoverTimer);
-                    const apply = () => {
-                        this._routeHover = id;
-                        const route = id ? routeStore.routes.find(r => r.id === id) : null;
-                        if (route) window.layerControl?.isolation?.hoverIsolate(route.groupId, false);
-                        else window.layerControl?.isolation?.clearHover();
-                        this._layoutDockedPanels();
-                    };
-                    if (id) apply();
-                    else this._routeHoverTimer = setTimeout(apply, ROW_HOVER_END_DELAY_MS);
-                },
-                onToggle: (id) => this._toggleRouteFilter(id),
-                onReorder: (ids) => {
-                    this._routeOrder = ids;
-                    this._layoutDockedPanels();
-                },
-                onSettle: () => this._layoutDockedPanels(),
-                onSetProfile: async (id, profile) => {
-                    await routeStore.setRouteProfile(id, profile).catch(error => console.warn('[MarkerManager] Could not switch profile:', error));
-                    this._layoutDockedPanels();
-                },
-                onReverse: (id) => {
-                    const route = routeStore.routes.find(r => r.id === id);
-                    if (!route) return;
-                    const docked = [...this._markers.values()].filter(m => m.docked && m.contentEl);
-                    const stops = stopMarkers(route, docked);
-                    routeStore.reverseRoute(id, stops.every(Boolean) ? stops.map(s => s.id) : []);
-                },
-                onOpenGoogle: (id) => {
-                    const route = routeStore.routes.find(r => r.id === id);
-                    const url = googleMapsDirectionsUrl(route?.waypoints, route?.profile);
-                    if (url) window.open(url, '_blank', 'noopener');
-                },
-                onColor: (id, color) => {
-                    routeStore.setRouteColor(id, color);
-                    this._layoutDockedPanels();
-                },
-                onRename: (id, value) => {
-                    const ok = routeStore.renameRoute(id, value);
-                    if (ok) this._layoutDockedPanels();
-                    return ok;
-                },
-                onRemove: (id) => this.deleteRoute(id),
-                onAddMode: async (id, profile) => {
-                    const route = await routeStore.duplicateRoute(id, profile);
-                    if (route) this._routeFilter = route.id;
-                    this._layoutDockedPanels();
-                }
-            });
-        }
-        return this._routeDockStack;
+    /**
+     * Hover-isolates a route's layer while its card (js/console/route-card.js)
+     * is pointed at. Letting go waits a beat, so passing from one card to the
+     * next doesn't flash the whole map back in between.
+     */
+    hoverRoute(id) {
+        clearTimeout(this._routeHoverTimer);
+        const apply = () => {
+            this._routeHover = id;
+            const route = id ? routeStore.routes.find(r => r.id === id) : null;
+            if (route) window.layerControl?.isolation?.hoverIsolate(route.groupId, false);
+            else window.layerControl?.isolation?.clearHover();
+        };
+        if (id) apply();
+        else this._routeHoverTimer = setTimeout(apply, ROW_HOVER_END_DELAY_MS);
     }
 
-    _toggleRouteFilter(id) {
-        this._routeFilter = this._routeFilter === id ? null : id;
-        const route = this._routeFilter ? routeStore.routes.find(r => r.id === id) : null;
-        if (route) window.layerControl?.isolation?.isolate(route.groupId, false);
-        else window.layerControl?.isolation?.clear();
-        const geometry = route?.geojson?.features?.find(f => f.properties?.kind === 'route')?.geometry;
-        if (geometry) {
-            const { panelLeft = 0, width = 0 } = this._dockGeometry || {};
-            fitToFeature(this._map, geometry, { left: panelLeft, right: panelLeft + width, width }, { padding: 48, extraLeft: 32 });
-        } else {
-            restoreFeatureFit(this._map);
-        }
-        this._layoutDockedPanels();
-    }
-
-    /** Show only this route's stops in the dock and fit the map to it (the console's Routes list). */
+    /**
+     * Opening a route's card: its layer is isolated and the map fits it, clear
+     * of the console. While it is selected a click on the map adds a stop to it
+     * (see _addClickedMarker).
+     */
     selectRoute(id) {
-        if (this._routeFilter !== id) this._toggleRouteFilter(id);
+        const route = routeStore.routes.find(r => r.id === id);
+        if (!route) return;
+        this._routeFilter = id;
+        window.layerControl?.isolation?.isolate(route.groupId, false);
+        const geometry = route.geojson?.features?.find(f => f.properties?.kind === 'route')?.geometry;
+        const rect = document.querySelector('.map-console')?.getBoundingClientRect();
+        const avoid = rect ? { left: rect.left, right: rect.right, width: rect.width } : null;
+        if (geometry) fitToFeature(this._map, geometry, avoid, { padding: 48 });
     }
 
-    /** Delete a route, leaving its stops as ordinary markers (its dock button's remove, the console's Routes list). */
+    /** Closing the card of the selected route (any route when `id` is omitted). */
+    clearRouteSelection(id = null) {
+        if (!this._routeFilter || (id && this._routeFilter !== id)) return;
+        this._routeFilter = null;
+        window.layerControl?.isolation?.clear();
+        restoreFeatureFit(this._map);
+    }
+
+    /** Delete a route, leaving its stops as ordinary markers (its card's Delete, the console's Routes list). */
     deleteRoute(id) {
-        if (this._routeFilter === id) {
-            this._routeFilter = null;
-            window.layerControl?.isolation?.clear();
-            restoreFeatureFit(this._map);
-        }
+        this.clearRouteSelection(id);
         routeStore.removeRoute(id);
         this._layoutDockedPanels();
     }
@@ -525,6 +484,15 @@ export class MapMarkerManager {
     deleteMarker(markerId) {
         routeStore.removeMarkerFromRoutes(markerId, this._markers.get(markerId)?.lngLat);
         this.removeMarker(markerId);
+    }
+
+    /** Hides a pin with its route (route-store.js's setRouteHidden), or shows it again. */
+    setMarkerHidden(markerId, hidden) {
+        const m = this._markers.get(markerId);
+        if (!m) return;
+        m.routeHidden = !!hidden;
+        m.marker.getElement().style.display = hidden ? 'none' : '';
+        this._layoutDockedPanels();
     }
 
     /** The name a marker was saved under, as its badge shows it; null until it is saved. */
@@ -536,19 +504,13 @@ export class MapMarkerManager {
         return markerData?.saved && markerData.urlId ? idToLabel(markerData.urlId) : null;
     }
 
-    /** Hover-isolate a route's layer, as hovering its dock button does. */
-    hoverRoute(id) {
-        this._routeStack()._handlers.onHover(id);
-    }
-
-    _orderedDockRoutes(docked) {
-        const order = this._routeOrder || [];
-        const rank = (route) => (order.includes(route.id) ? order.indexOf(route.id) : order.length + route.number);
-        return routeStore.routes
-            .filter(route => stopMarkers(route, docked).filter(Boolean).length >= 2)
-            .sort((a, b) => rank(a) - rank(b));
-    }
-
+    /**
+     * Docked panels form one column under the map console, lined up with it:
+     * unsaved markers first, staying put, then the saved ones, scrolling in
+     * whatever height is left. A route's stops are not listed - their route's
+     * card in Find shows them - unless one is selected or still unsaved; their
+     * points and labels stay on the map.
+     */
     _layoutDockedPanels() {
         const container = this._map?.getCanvasContainer?.();
         if (!container) return;
@@ -556,22 +518,16 @@ export class MapMarkerManager {
             if (m.role === 'route-waypoint' && !m.docked && !m.undockedByUser && m.contentEl
                 && !markerRegistry.get(m.urlId)?.offset) this._dockMarkerPanel(id);
         });
-        const docked = [...this._markers.values()].filter(m => m.docked && m.contentEl);
-        const stack = this._routeStack();
+        const docked = [...this._markers.values()].filter(m => m.docked && m.contentEl && !m.routeHidden);
         if (!docked.length) {
             this._renderDockedLeaders(container, []);
-            renderDockLinks(container, null);
-            stack.render(container, [], new Map(), 0);
             return;
         }
-        // The column hangs below the whole map console (its bar and place
-        // line) and matches the bar's width. While Find is open the console
-        // fills the corner and the column is hidden, so it waits for Find to close.
+        // While Find is open the console fills the corner and the column is
+        // hidden: the points keep their labels, only the lines go.
         const consoleEl = document.querySelector('.map-console');
         const head = consoleEl?.querySelector('.map-control-bar-head');
         if (!consoleEl || !head) return;
-        // The points keep their labels while Find covers the column; only the
-        // lines to the hidden panels go.
         if (consoleEl.dataset.mode === 'find') {
             this._renderDockedLeaders(container, docked, { lines: false });
             return;
@@ -581,30 +537,19 @@ export class MapMarkerManager {
         const canvas = this._map.getCanvas().getBoundingClientRect();
 
         docked.sort(dockOrder);
-        const stackRoutes = this._orderedDockRoutes(docked);
-        let filterRoute = stackRoutes.find(r => r.id === this._routeFilter) || null;
-        if (!filterRoute) this._routeFilter = null;
-        const hoverRoute = stackRoutes.find(r => r.id === this._routeHover) || null;
-        if (!hoverRoute) this._routeHover = null;
-        // Pointing at a route button previews its filter; a click makes it stick.
-        filterRoute = hoverRoute || filterRoute;
-        const visible = filterRoute ? new Set(stopMarkers(filterRoute, docked).filter(Boolean)) : null;
+        const stops = new Set(routeStore.routes.flatMap(route => stopMarkers(route, docked)).filter(Boolean));
+        const listed = docked.filter(m => !stops.has(m) || !m.saved
+            || m.marker.getElement().classList.contains('marker-selected'));
         docked.forEach(m => {
-            m.marker.getElement().style.visibility = !visible || visible.has(m) ? '' : 'hidden';
+            m.marker.getElement().style.visibility = listed.includes(m) ? '' : 'hidden';
         });
-        const shown = visible ? docked.filter(m => visible.has(m)) : docked;
-        const ordered = groupByRoute(stackRoutes, shown);
-        const stackIndex = new Map(stackRoutes.map((r, i) => [r.id, i]));
-        const plan = planRouteLanes(filterRoute ? [filterRoute] : stackRoutes, ordered, stackIndex);
-        if (!filterRoute) plan.segments = [];
-        const gutter = stackRoutes.length ? stackRoutes.length * LANE_WIDTH + 4 : 0;
-        const panelLeft = mainRect.left + gutter;
-        this._dockGeometry = { panelLeft, width: mainRect.width - gutter, lanes: [] };
-        const width = `${Math.round(mainRect.width - gutter)}px`;
+        const panelLeft = mainRect.left;
+        this._dockGeometry = { panelLeft, width: mainRect.width };
+        const width = `${Math.round(mainRect.width)}px`;
 
         let top = consoleEl.getBoundingClientRect().bottom + MARKER_DOCK_GAP;
-        this._dockLayout = { ordered };
-        const heights = ordered.map(m => {
+        this._dockLayout = { ordered: listed };
+        const heights = listed.map(m => {
             const open = m.contentEl.querySelector('.marker-menu-body')?.style.display !== 'none';
             const editing = m.marker.getElement().dataset.idEditing === '1';
             const fitWidth = open && !editing ? width : '';
@@ -615,44 +560,29 @@ export class MapMarkerManager {
             m.contentEl.style.touchAction = open ? '' : 'none';
             return m.contentEl.offsetHeight;
         });
-        const gaps = ordered.map((m, i) => gapAfter(plan, i, MARKER_DOCK_GAP));
 
-        // Unsaved markers lead the column, above the route buttons, and stay
-        // put - unless they are a stop on a route, which keeps them with its
-        // route below. Everything after the route buttons scrolls inside
-        // whatever height the viewport has left.
-        const routeStops = new Set(stackRoutes.flatMap(route => stopMarkers(route, ordered)).filter(Boolean));
         let fixedCount = 0;
-        while (fixedCount < ordered.length && !ordered[fixedCount].saved && !routeStops.has(ordered[fixedCount])) fixedCount++;
+        while (fixedCount < listed.length && !listed[fixedCount].saved) fixedCount++;
         const raws = [];
         for (let i = 0; i < fixedCount; i++) {
             raws[i] = top;
-            top += heights[i] + gaps[i];
+            top += heights[i] + MARKER_DOCK_GAP;
         }
-        const routeRows = new Map();
-        stackRoutes.forEach(route => {
-            routeRows.set(route.id, { top, height: ROUTE_BUTTON_HEIGHT });
-            top += ROUTE_BUTTON_HEIGHT + ROUTE_BUTTON_GAP;
-        });
-        if (stackRoutes.length) top += MARKER_DOCK_GAP;
         const regionTop = top;
-        for (let i = fixedCount; i < ordered.length; i++) {
+        for (let i = fixedCount; i < listed.length; i++) {
             raws[i] = top;
-            top += heights[i] + gaps[i];
+            top += heights[i] + MARKER_DOCK_GAP;
         }
-        const rawTop = top;
         const limit = Math.min(canvas.bottom, window.innerHeight) - MARKER_DOCK_GAP;
-        const overflow = rawTop - MARKER_DOCK_GAP - regionTop - (limit - regionTop);
-        this._dockMaxScroll = Math.max(0, overflow);
+        this._dockMaxScroll = Math.max(0, top - MARKER_DOCK_GAP - limit);
         this._dockScroll = Math.min(Math.max(this._dockScroll || 0, 0), this._dockMaxScroll);
 
-        const rows = [];
-        ordered.forEach((m, i) => {
+        const containerBox = container.getBoundingClientRect();
+        listed.forEach((m, i) => {
             const scrolls = i >= fixedCount;
             const y = scrolls ? raws[i] - this._dockScroll : raws[i];
             const h = heights[i];
             const hidden = scrolls && (y + h <= regionTop || y >= limit);
-            rows[i] = { top: y, height: h, hidden };
             const el = m.marker.getElement();
             if (hidden) el.style.visibility = 'hidden';
             const clipTop = scrolls ? Math.max(0, regionTop - y) : 0;
@@ -663,7 +593,6 @@ export class MapMarkerManager {
             // .marker-docked in styles.css), so the panel's offset is just its slot
             // in the container - it never depends on where the point is, however
             // far a zoom has carried that off screen.
-            const containerBox = container.getBoundingClientRect();
             m.panelOffset = {
                 x: Math.round(panelLeft - containerBox.left - MARKER_ANCHOR_GAP),
                 y: Math.round(y - containerBox.top - MARKER_ANCHOR_GAP)
@@ -672,33 +601,15 @@ export class MapMarkerManager {
             this._applyPanelTransform(m);
             this._syncMarkerLeader(el);
         });
-        this._dockGeometry.lanes = plan.lanes.map(lane => {
-            const button = routeRows.get(lane.route.id);
-            const stopRows = lane.stops.map(s => rows[s.pos]).filter(Boolean);
-            return {
-                route: lane.route,
-                left: mainRect.left + lane.k * LANE_WIDTH,
-                top: button ? button.top : Math.min(...stopRows.map(r => r.top)),
-                bottom: Math.max(...stopRows.map(r => r.top + r.height))
-            };
-        });
-        this._renderDockedLeaders(container, ordered);
-        renderDockLinks(container, plan, rows, mainRect.left, panelLeft, routeRows, limit);
-        stack.render(container, stackRoutes.map(route => ({
-            id: route.id,
-            left: mainRect.left + stackIndex.get(route.id) * LANE_WIDTH,
-            ...routeButtonLabel(route),
-            color: routeColor(route),
-            selected: route.id === this._routeFilter,
-            hovered: route.id === this._routeHover,
-            profile: route.profile
-        })), routeRows, panelLeft);
+        this._renderDockedLeaders(container, docked);
     }
 
     /**
      * A collapsed docked button is dragged vertically to reorder the column:
      * the others make way as it passes their midpoints, and releasing drops it
-     * into the slot it reached. Expanded panels are left to their own drag.
+     * into the slot it reached. Dropped on another button it starts a route
+     * between the two; dropped on a route's line on the map it joins that
+     * route. Expanded panels are left to their own drag.
      */
     _attachDockReorderHandler(contentEl, markerId) {
         contentEl.addEventListener('pointerdown', (down) => {
@@ -713,10 +624,11 @@ export class MapMarkerManager {
             let intent = null;
             const move = (e) => {
                 const dy = e.clientY - down.clientY;
-                if (!dragging && Math.hypot(e.clientX - down.clientX, dy) < 4) return;
+                const dx = e.clientX - down.clientX;
+                if (!dragging && Math.hypot(dx, dy) < 4) return;
                 dragging = true;
                 m.dragging = true;
-                contentEl.style.transform = `translate(${base.x}px, ${base.y + dy}px)`;
+                contentEl.style.transform = `translate(${base.x + dx}px, ${base.y + dy}px)`;
                 intent = this._dockDropIntent(m, e);
                 this._showDropIndicator(intent);
                 this._syncMarkerLeader(m.marker.getElement());
@@ -730,11 +642,8 @@ export class MapMarkerManager {
                 if (!dragging) return;
                 m.dragging = false;
                 if (intent?.mode === 'route') this._createRouteBetween(intent.target, m);
-                else if (intent?.mode === 'lane') this._insertIntoRoute(intent.route, m, intent.at);
-                else {
-                    if (intent) this._applyDockOrder(m, intent.index);
-                    this._reorderRouteStop(m);
-                }
+                else if (intent?.mode === 'map-route') this._addToRouteOnMap(intent.route, m);
+                else if (intent) this._applyDockOrder(m, intent.index);
                 const swallow = (e) => { e.stopPropagation(); e.preventDefault(); };
                 document.addEventListener('click', swallow, true);
                 setTimeout(() => document.removeEventListener('click', swallow, true), 0);
@@ -746,25 +655,30 @@ export class MapMarkerManager {
         });
     }
 
+    /** The route whose line is under the pointer on the map, if `m` is not already one of its stops. */
+    _routeUnderPointer(m, pointer) {
+        const canvas = this._map.getCanvas().getBoundingClientRect();
+        const x = pointer.clientX - canvas.left;
+        const y = pointer.clientY - canvas.top;
+        if (x < 0 || y < 0 || x > canvas.width || y > canvas.height) return null;
+        if (document.querySelector('.map-console')?.getBoundingClientRect().right > pointer.clientX
+            && Math.abs(pointer.clientX - (this._dockGeometry?.panelLeft ?? 0)) < (this._dockGeometry?.width ?? 0)) return null;
+        const hits = this._map.queryRenderedFeatures([[x - 8, y - 8], [x + 8, y + 8]]);
+        const ids = hits.map(f => f.properties?.kind === 'route' && f.properties?.routeId).filter(Boolean);
+        return routeStore.routes.find(r => ids.includes(r.id) && !r.hidden && !r.markerIds.includes(m.id)) || null;
+    }
+
     /**
-     * What dropping the dragged button here would do. Over the middle of
-     * another button it makes a route from that one to this; anywhere else it
-     * inserts between two buttons, at the slot named by `index` and drawn at `y`.
+     * What dropping the dragged button here would do. On a route's line on the
+     * map it joins that route; over the middle of another button it makes a
+     * route from that one to this; anywhere else it moves to the slot named by
+     * `index`, drawn at `y`.
      */
     _dockDropIntent(m, pointer) {
+        const route = this._routeUnderPointer(m, pointer);
+        if (route) return { mode: 'map-route', route, x: pointer.clientX, y: pointer.clientY };
         const box = m.contentEl.getBoundingClientRect();
         const centre = box.top + box.height / 2;
-        const docked = (this._dockLayout?.ordered || []);
-
-        const lane = (this._dockGeometry?.lanes || []).find(l =>
-            pointer.clientX >= l.left - 6 && pointer.clientX <= l.left + LANE_WIDTH + 6
-            && pointer.clientY >= l.top && pointer.clientY <= l.bottom
-            && !stopMarkers(l.route, docked).includes(m));
-        if (lane) {
-            const stops = stopMarkers(lane.route, docked);
-            const at = stops.filter(s => s && s.contentEl && s.contentEl.getBoundingClientRect().bottom - 18 < pointer.clientY).length;
-            return { mode: 'lane', route: lane.route, lane, at, y: pointer.clientY };
-        }
         const others = (this._dockLayout?.ordered || []).filter(o => o !== m && o.contentEl
             && o.marker.getElement().style.visibility !== 'hidden');
         const rects = others.map(o => o.contentEl.getBoundingClientRect());
@@ -790,11 +704,11 @@ export class MapMarkerManager {
         const box = container.getBoundingClientRect();
         const { panelLeft, width } = this._dockGeometry || { panelLeft: 0, width: 200 };
         const amber = '#f59e0b';
-        if (intent.mode === 'lane') {
-            const { lane } = intent;
-            el.style.cssText = `position:absolute;pointer-events:none;z-index:2;box-sizing:border-box;left:${lane.left - box.left}px;top:${lane.top - box.top}px;width:${LANE_WIDTH}px;height:${lane.bottom - lane.top}px;border:2px dashed ${amber};border-radius:8px;background:rgba(245,158,11,0.14);`;
-            el.innerHTML = `<span style="position:absolute;left:50%;top:${intent.y - lane.top - 6}px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:${amber};border:2px solid #fff;box-sizing:border-box;"></span>` +
-                `<span style="position:absolute;left:${LANE_WIDTH + 6}px;top:${intent.y - lane.top - 8}px;padding:1px 6px;border-radius:4px;background:${amber};color:#111827;font:600 10px/14px inherit;white-space:nowrap;">Insert into route-${intent.route.rid}</span>`;
+        this.hoverRoute(intent.mode === 'map-route' ? intent.route.id : null);
+        if (intent.mode === 'map-route') {
+            const name = routeTitle(intent.route, routeStore.routes);
+            el.style.cssText = `position:absolute;pointer-events:none;z-index:2;left:${intent.x - box.left + 14}px;top:${intent.y - box.top - 22}px;padding:2px 8px;border-radius:4px;background:${amber};color:#111827;font:600 11px/16px system-ui, sans-serif;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.35);`;
+            el.textContent = `Add to ${name}`;
         } else if (intent.mode === 'route') {
             const r = intent.rect;
             el.style.cssText = `position:absolute;pointer-events:none;z-index:2;box-sizing:border-box;left:${r.left - box.left - 3}px;top:${r.top - box.top - 3}px;width:${r.width + 6}px;height:${r.height + 6}px;border:2px dashed ${amber};border-radius:10px;background:rgba(245,158,11,0.14);`;
@@ -807,6 +721,7 @@ export class MapMarkerManager {
 
     _hideDropIndicator() {
         this._map?.getCanvasContainer?.()?.querySelector(':scope > .marker-dock-drop')?.remove();
+        this.hoverRoute(null);
     }
 
     _applyDockOrder(m, index) {
@@ -815,14 +730,11 @@ export class MapMarkerManager {
         others.forEach((o, i) => { o.dockSeq = i + 1; });
     }
 
-    /** Dropping a button on a route's lane: the marker joins that route as the stop at `at`. */
-    _insertIntoRoute(route, marker, at) {
-        const docked = (this._dockLayout?.ordered || []);
-        const stops = stopMarkers(route, docked);
-        if (stops.some(s => !s)) return;
+    /** Dropping a button on a route's line on the map: the marker joins that route where it adds least. */
+    _addToRouteOnMap(route, marker) {
         marker.saved = true;
         this._showSavedLabel(marker);
-        routeStore.insertMarkerAt(route.id, stops.map(s => s.id), marker.id, marker.lngLat, at);
+        routeStore.insertMarkerNearest(route.id, marker.id, marker.lngLat);
     }
 
     /** Dropping one button on another: a new route from the one underneath to the one dropped. */
@@ -831,31 +743,6 @@ export class MapMarkerManager {
         const label = (marker) => (/^\d+$/.test(marker.urlId || '') ? '' : idToLabel(marker.urlId));
         routeStore.routeTo(point(base), label(base), point(dropped), label(dropped), { routeId: 'new' })
             .catch(error => console.warn('[MarkerManager] Could not route between markers:', error));
-    }
-
-    /**
-     * Dropping a docked marker among the others on its route changes that
-     * stop's place in the route: the stops are renumbered and the route is
-     * re-routed in the new order. The selected route wins when the marker is on
-     * several.
-     */
-    _reorderRouteStop(m) {
-        const docked = [...this._markers.values()].filter(o => o.docked && o.contentEl);
-        const routes = this._orderedDockRoutes(docked).filter(r => stopMarkers(r, docked).includes(m));
-        const route = routes.find(r => r.id === this._routeFilter) || routes[0];
-        if (!route) return;
-
-        const stops = stopMarkers(route, docked);
-        if (stops.some(s => !s)) return;
-        const from = stops.indexOf(m);
-        const box = m.contentEl.getBoundingClientRect();
-        const centre = box.top + box.height / 2;
-        const others = stops.filter(s => s !== m);
-        const to = others.filter(o => {
-            const r = o.contentEl.getBoundingClientRect();
-            return r.top + r.height / 2 < centre;
-        }).length;
-        routeStore.moveStop(route.id, stops.map(s => s.id), from, to);
     }
 
     _undockMarkerPanel(m) {

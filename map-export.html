@@ -402,6 +402,107 @@
             color: #9ca3af;
             font-style: italic;
         }
+
+        .use-for-tabs {
+            display: flex;
+            gap: 2px;
+            border-bottom: 1px solid #374151;
+            margin-bottom: 16px;
+        }
+
+        .use-for-tab {
+            flex: 1;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            padding: 8px 4px;
+            color: #9ca3af;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s, background 0.2s;
+        }
+
+        .use-for-tab:hover {
+            color: #e5e7eb;
+            background: #273244;
+        }
+
+        .use-for-tab.active {
+            color: #fff;
+            border-bottom-color: #3b82f6;
+        }
+
+        .use-for-tab:focus-visible {
+            outline: 2px solid #3b82f6;
+            outline-offset: -2px;
+        }
+
+        .context-banner {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 12px;
+            margin-bottom: 16px;
+            background: #111827;
+            border: 1px solid #374151;
+            border-left: 4px solid var(--context-color, #3b82f6);
+            border-radius: 6px;
+        }
+
+        .context-swatch {
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--context-color, #3b82f6);
+            color: #fff;
+            font-size: 15px;
+        }
+
+        .context-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .context-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #f3f4f6;
+            overflow-wrap: anywhere;
+        }
+
+        .context-subtitle {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: 2px;
+            overflow-wrap: anywhere;
+        }
+
+        .context-whole-map {
+            display: inline-block;
+            margin-top: 6px;
+            padding: 0;
+            background: none;
+            border: none;
+            color: #60a5fa;
+            font-size: 12px;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .context-whole-map:hover {
+            color: #93c5fd;
+        }
+
+        .context-scope {
+            font-size: 13px;
+            color: #d1d5db;
+        }
     </style>
     <script defer type="module" src="js/analytics.js"></script>
 </head>
@@ -412,22 +513,30 @@
         <div class="export-header">
             <div style="display: flex; align-items: center; gap: 12px;">
                 <sl-icon name="download" style="font-size: 20px;"></sl-icon>
-                <h1 style="font-size: 18px; font-weight: 600; margin: 0;">Export Map</h1>
+                <h1 id="export-heading" style="font-size: 18px; font-weight: 600; margin: 0;">Export Map</h1>
             </div>
             <button class="close-btn" id="close-btn">×</button>
         </div>
 
         <!-- Content -->
         <div class="export-content scrollbar-thin">
-            <!-- Select Export Type -->
-            <div class="form-group">
-                <label class="form-label">Select export type</label>
-                <sl-select id="use-for-select" value="print" hoist>
-                    <sl-option value="print"><u>P</u>rint: Images and PDF</sl-option>
-                    <sl-option value="web"><u>W</u>eb: HTML</sl-option>
-                    <sl-option value="gis"><u>G</u>IS: GeoJSON,KML,GeoTIFF,GeoCSV</sl-option>
-                    <sl-option value="cad"><u>C</u>AD: DXF</sl-option>
-                </sl-select>
+            <!-- What is being exported, when the panel was opened for one layer or route -->
+            <div class="context-banner" id="context-banner" style="display: none;">
+                <div class="context-swatch"><sl-icon id="context-icon" name="layers"></sl-icon></div>
+                <div class="context-text">
+                    <div class="context-title">Exporting: <span id="context-title"></span></div>
+                    <div class="context-subtitle" id="context-subtitle"></div>
+                    <button type="button" class="context-whole-map" id="context-whole-map">Export whole map instead</button>
+                </div>
+                <button type="button" class="close-btn" id="context-clear" title="Export the whole map instead" style="font-size: 20px;">×</button>
+            </div>
+
+            <!-- Export Type -->
+            <div class="use-for-tabs" id="use-for-tabs" role="tablist" aria-label="Export type">
+                <button type="button" class="use-for-tab active" role="tab" data-use-for="print" aria-selected="true" title="Images and PDF"><u>P</u>rint</button>
+                <button type="button" class="use-for-tab" role="tab" data-use-for="web" aria-selected="false" title="HTML and embed code"><u>W</u>eb</button>
+                <button type="button" class="use-for-tab" role="tab" data-use-for="gis" aria-selected="false" title="GeoJSON, KML, GeoTIFF, GeoCSV"><u>G</u>IS</button>
+                <button type="button" class="use-for-tab" role="tab" data-use-for="cad" aria-selected="false" title="DXF"><u>C</u>AD</button>
             </div>
 
             <!-- Format Options (dynamically populated) -->
@@ -527,7 +636,8 @@
 
                 <!-- Vector Options (GeoJSON/KML/DXF) -->
                 <div id="vector-settings" style="display: none;">
-                    <div class="form-group">
+                    <div class="form-group context-scope" id="context-scope" style="display: none;"></div>
+                    <div class="form-group" id="selected-only-settings">
                         <div style="display: flex; align-items: center;">
                             <label class="checkbox-label" style="margin: 0;">
                                 <input type="checkbox" id="export-selected-only" checked>
@@ -678,6 +788,7 @@
         let currentExportMessage = '';
         let featureSelectionState = new Map();
         let isFeatureListVisible = false;
+        let exportContext = null;
 
         const formatsByUseFor = {
             print: {
@@ -722,10 +833,13 @@
                 window.parent.postMessage({ type: 'export-close' }, '*');
             });
 
-            $('#use-for-select').on('sl-change', (e) => {
-                currentUseFor = e.target.value;
-                updateFormatOptions();
-                updateAdvancedOptions();
+            $('#use-for-tabs').on('click', '.use-for-tab', function () {
+                setUseFor($(this).data('use-for'));
+                sendSettingsUpdate();
+            });
+
+            $('#context-whole-map, #context-clear').on('click', () => {
+                window.parent.postMessage({ type: 'export-clear-context' }, '*');
             });
 
             $(document).on('change', 'input[name="format"]', (e) => {
@@ -794,12 +908,25 @@
                         updateButtonProgress(event.data.percent, event.data.message);
                     }
                 } else if (event.data.type === 'export-opened') {
-                    if (event.data.initialSettings) {
-                        applyInitialSettings(event.data.initialSettings);
+                    if (event.data.context) {
+                        applyContext(event.data.context);
+                    } else {
+                        if (exportContext) applyContext(null);
+                        if (event.data.initialSettings) {
+                            applyInitialSettings(event.data.initialSettings);
+                        }
                     }
                     updateAdvancedOptions();
                 } else if (event.data.type === 'export-closed') {
-                    // Iframe is being hidden
+                    exportContext = null;
+                    renderContext();
+                } else if (event.data.type === 'export-context') {
+                    applyContext(event.data.context);
+                } else if (event.data.type === 'export-context-count') {
+                    if (exportContext) {
+                        exportContext.featureCount = event.data.count;
+                        renderContext();
+                    }
                 } else if (event.data.type === 'frame-aspect-changed') {
                     handleFrameAspectChanged(event.data.aspectRatio);
                 } else if (event.data.type === 'selected-features') {
@@ -848,6 +975,61 @@
             $(document).on('keydown', (e) => {
                 handleExportKeydown(e);
             });
+        }
+
+        function selectUseForTab(useFor) {
+            $('.use-for-tab').each(function () {
+                const active = $(this).data('use-for') === useFor;
+                $(this).toggleClass('active', active).attr('aria-selected', String(active));
+            });
+        }
+
+        function setUseFor(useFor) {
+            if (!formatsByUseFor[useFor]) return;
+            currentUseFor = useFor;
+            selectUseForTab(useFor);
+            updateFormatOptions();
+            updateAdvancedOptions();
+        }
+
+        function applyContext(context) {
+            exportContext = context || null;
+            renderContext();
+
+            if (!exportContext) {
+                $('#map-title').val('').data('customized', false);
+                updateAdvancedOptions();
+                return;
+            }
+
+            const useFor = formatsByUseFor[context.useFor] ? context.useFor : 'gis';
+            setUseFor(useFor);
+            if (context.format && formatsByUseFor[useFor].formats.some(f => f.value === context.format)) {
+                $(`.format-button[data-format="${context.format}"]`).click();
+            }
+            $('#map-title').val(context.title || '').data('customized', false);
+        }
+
+        function renderContext() {
+            const ctx = exportContext;
+            $('#context-banner').toggle(!!ctx);
+            $('#export-heading').text(ctx ? `Export ${ctx.kind || 'layer'}` : 'Export Map');
+            $('#selected-only-settings').toggle(!ctx);
+            $('#context-scope').toggle(!!ctx).text(ctx ? contextScopeText(ctx) : '');
+            if (!ctx) return;
+
+            $('#context-title').text(ctx.title || ctx.layerId);
+            $('#context-subtitle').text(ctx.subtitle || '').toggle(!!ctx.subtitle);
+            $('#context-icon').attr('name', ctx.icon || (ctx.kind === 'route' ? 'signpost-split' : 'layers'));
+            $('#context-banner')[0].style.setProperty('--context-color', ctx.color || '#3b82f6');
+        }
+
+        function contextScopeText(ctx) {
+            const name = ctx.title || ctx.layerId;
+            const count = ctx.featureCount;
+            if (count === undefined) return `Loading features from ${name}…`;
+            if (count === null) return `All features from ${name}`;
+            return `${count.toLocaleString()} feature${count === 1 ? '' : 's'} from ${name}`;
         }
 
         function updateFormatOptions() {
@@ -1176,7 +1358,7 @@
                 exportConfig.includeMarkers = $('#include-markers').is(':checked');
             }
 
-            if (currentFormat === 'geojson' || currentFormat === 'kml' || currentFormat === 'csv' || currentFormat === 'dxf') {
+            if (!exportContext && (currentFormat === 'geojson' || currentFormat === 'kml' || currentFormat === 'csv' || currentFormat === 'dxf')) {
                 exportConfig.exportSelectedOnly = $('#export-selected-only').is(':checked');
 
                 if (exportConfig.exportSelectedOnly && featureSelectionState.size > 0) {
@@ -1333,6 +1515,7 @@
         }
 
         function updateFeatureListVisibility() {
+            if (exportContext) return;
             const isChecked = $('#export-selected-only').is(':checked');
             const $customizeBtn = $('#customize-features-btn');
 
@@ -1537,7 +1720,8 @@
             const useForValue = formatShortcuts[key];
             if (useForValue && currentUseFor !== useForValue) {
                 e.preventDefault();
-                $('#use-for-select').val(useForValue).trigger('sl-change');
+                setUseFor(useForValue);
+                sendSettingsUpdate();
                 return;
             }
 
@@ -1664,7 +1848,7 @@
             const useFor = useForMap[settings.format] || 'print';
             if (useFor !== currentUseFor) {
                 currentUseFor = useFor;
-                $('#use-for-select').val(useFor);
+                selectUseForTab(useFor);
                 updateFormatOptions();
             }
 

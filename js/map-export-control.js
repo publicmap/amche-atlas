@@ -3,6 +3,7 @@ import { InspectionHandlerLoader } from './inspection-handler-loader.js';
 import { trackEvent } from './analytics.js';
 import { collectSourceFeatures, prefetchGeoJSONSources } from './source-feature-collector.js';
 import { isNominatimBackedOff, reportNominatimFailure, nominatimLanguage } from './nominatim-search.js';
+import { LayerOrderManager } from './layer-order-manager.js';
 
 const VECTOR_FORMATS = ['geojson', 'kml', 'csv', 'dxf'];
 
@@ -23,6 +24,8 @@ export class MapExportControl {
         this._headerImageDataUrlCache = new Map();
         this._exportSettings = null;
         this._isPanelOpen = false;
+        this._context = null;
+        this._priorIsolation = null;
     }
 
     onAdd(map) {
@@ -156,9 +159,13 @@ export class MapExportControl {
             if (event.source !== this._iframe.contentWindow) return;
 
             if (type === 'export-ready') {
-                if (this._isPanelOpen) this._updateTitleFromLocation();
+                if (!this._isPanelOpen) return;
+                this._postOpened();
+                this._updateTitleFromLocation();
             } else if (type === 'export-close') {
                 this._hide();
+            } else if (type === 'export-clear-context') {
+                this._clearContext();
             } else if (type === 'export-start') {
                 this._handleExport(config);
             } else if (type === 'title-changed') {
@@ -205,6 +212,7 @@ export class MapExportControl {
                     features: featuresWithViewFlag
                 }, '*');
             } else if (type === 'export-settings-changed') {
+                if (this._context) return;
                 this._exportSettings = event.data.settings;
                 if (this._isPanelOpen && window.urlManager) {
                     window.urlManager.updateExportParam(this._exportSettings);
@@ -244,34 +252,64 @@ export class MapExportControl {
         this._iframeSrcLoaded = true;
     }
 
-    _show() {
+    /**
+     * Open the panel scoped to one layer (or some of its features) rather than
+     * the whole map: vector formats export only those features, raster ones
+     * isolate the layer, and the scope lasts until the panel closes or the
+     * user switches back to the whole map.
+     *
+     * @param {Object} context
+     * @param {string} context.layerId
+     * @param {string} context.title
+     * @param {string} [context.subtitle]
+     * @param {string} [context.icon] - Shoelace icon name
+     * @param {string} [context.color] - CSS color for the banner swatch
+     * @param {string} [context.kind] - Noun for the header, e.g. 'route' ("Export route"); default 'layer'
+     * @param {(feature: Object) => boolean} [context.featureFilter] - Applied to the whole layer when `features` is not given
+     * @param {Object[]} [context.features] - GeoJSON features to export instead of the layer's source data
+     * @param {'gis'|'print'|'web'|'cad'} [context.useFor] - Initial tab, default 'gis'
+     * @param {string} [context.format] - Initial format, default the tab's first
+     */
+    openWithContext(context) {
+        if (!context?.layerId) {
+            this._show();
+            return;
+        }
+        this._show(context);
+    }
+
+    _show(context = null) {
         this.preload();
         this._iframe.style.display = 'block';
         this._isPanelOpen = true;
+        this._setContext(context);
 
         const urlSettings = this._parseExportURL();
         if (urlSettings) {
             this._exportSettings = urlSettings;
         }
 
-        if (this._exportSettings && window.urlManager) {
+        if (!this._context && this._exportSettings && window.urlManager) {
             window.urlManager.updateExportParam(this._exportSettings);
         }
 
-        setTimeout(() => {
-            if (this._iframe && this._iframe.contentWindow) {
-                this._iframe.contentWindow.postMessage({
-                    type: 'export-opened',
-                    initialSettings: this._exportSettings
-                }, '*');
-            }
-        }, 50);
+        setTimeout(() => this._postOpened(), 50);
+        if (!this._context && this._titleStale) this._updateTitleFromLocation();
+    }
+
+    _postOpened() {
+        this._iframe?.contentWindow?.postMessage({
+            type: 'export-opened',
+            initialSettings: this._exportSettings,
+            context: this._contextMessage()
+        }, '*');
     }
 
     _hide() {
         this._iframe.style.display = 'none';
         this._frame.hide();
         this._isPanelOpen = false;
+        this._setContext(null);
 
         if (window.urlManager) {
             window.urlManager.updateExportParam(null);
@@ -284,8 +322,119 @@ export class MapExportControl {
         }
     }
 
+    // -- context ---------------------------------------------------------------
+
+    _setContext(context) {
+        const hadContext = !!this._context;
+        if (hadContext) this._releaseContextIsolation();
+        this._context = context ? { useFor: 'gis', kind: 'layer', ...context } : null;
+
+        if (!this._context) {
+            if (hadContext) {
+                this._title = '';
+                this._titleCustomized = false;
+                this._titleStale = true;
+            }
+            return;
+        }
+
+        this._title = this._context.title || this._context.layerId;
+        this._isolateContextLayer();
+        this._postContextCount(this._context);
+    }
+
+    _clearContext() {
+        if (!this._context) return;
+        this._setContext(null);
+        this._iframe?.contentWindow?.postMessage({ type: 'export-context', context: null }, '*');
+        if (!this._isPanelOpen) return;
+        if (this._exportSettings && window.urlManager) {
+            window.urlManager.updateExportParam(this._exportSettings);
+        }
+        this._updateTitleFromLocation();
+    }
+
+    // The part of the context the panel can show - featureFilter is a function and stays here.
+    _contextMessage() {
+        if (!this._context) return null;
+        const { layerId, title, subtitle, icon, color, kind, useFor, format, features } = this._context;
+        return {
+            layerId, title, subtitle, icon, color, kind, useFor, format,
+            featureCount: Array.isArray(features) ? features.length : this._context.featureCount
+        };
+    }
+
+    async _postContextCount(context) {
+        if (Array.isArray(context.features)) return;
+        let count = null;
+        try {
+            count = (await this._collectContextItems(context)).length;
+        } catch (e) {
+            console.warn('Could not count export context features', e);
+        }
+        if (this._context !== context) return;
+        context.featureCount = count;
+        this._iframe?.contentWindow?.postMessage({ type: 'export-context-count', count }, '*');
+    }
+
+    _contextLayerConfig(layerId) {
+        return window.stateManager?.getLayerConfig(layerId)
+            || this._getLayerConfigById(layerId)
+            || { id: layerId, title: this._context?.title || layerId };
+    }
+
+    async _collectContextItems(context) {
+        const { layerId, features, featureFilter } = context;
+        const layerConfig = this._contextLayerConfig(layerId);
+        let list = Array.isArray(features) ? features : null;
+        if (!list) {
+            list = await collectSourceFeatures(this._map, window.stateManager?.getLayerSourceRefs(layerId) || []);
+            if (typeof featureFilter === 'function') list = list.filter(featureFilter);
+        }
+        return list.map(feature => ({ feature, layerId, layerConfig }));
+    }
+
+    async _loadContextFeatures(config) {
+        this._sendProgress(10, `Loading ${this._context.title || this._context.layerId}`);
+        const items = await this._collectContextItems(this._context);
+        if (items.length === 0) throw new Error('No features to export');
+
+        config.customSelectedFeatures = items;
+        config.exportSelectedOnly = true;
+        config.layerNameOnly = true;
+        this._sendProgress(20, `Collected ${items.length.toLocaleString()} features`);
+    }
+
+    // Highlight the context layer by dimming the others, remembering any
+    // isolation that was already applied (the layer editor's, say) so closing
+    // the panel puts it back rather than clearing it.
+    _isolateContextLayer() {
+        const isolation = window.layerControl?.isolation;
+        if (!isolation) return;
+        this._priorIsolation = isolation._persistent ? { ...isolation._persistent } : null;
+        isolation.isolate(this._context.layerId, LayerOrderManager.isBasemap(this._contextLayerConfig(this._context.layerId)));
+    }
+
+    _releaseContextIsolation() {
+        const isolation = window.layerControl?.isolation;
+        if (!isolation) return;
+        const prior = this._priorIsolation;
+        this._priorIsolation = null;
+        if (prior) isolation.isolate(prior.layerId, prior.isBasemap);
+        else isolation.clear();
+    }
+
+    _contextFilename(extension) {
+        const title = String(this._context.title || this._context.layerId)
+            .replace(/[<>:"/\\|?*]/g, '')
+            .replace(/\s+/g, '_')
+            .substring(0, 200);
+        return `${title || 'export'}.${extension}`;
+    }
+
     async _updateTitleFromLocation() {
-        if (this._isExporting) return;
+        if (this._isExporting || this._context) return;
+        this._titleStale = false;
 
         try {
             let center;
@@ -376,7 +525,9 @@ export class MapExportControl {
                 await new Promise(resolve => setTimeout(resolve, 50));
             }
 
-            if (config.exportLayerId) {
+            if (this._context && VECTOR_FORMATS.includes(format)) {
+                await this._loadContextFeatures(config);
+            } else if (config.exportLayerId) {
                 await this._loadWholeLayer(config);
             }
 
@@ -1824,7 +1975,7 @@ export class MapExportControl {
 
         this._sendProgress(55, 'Extracting vector features');
 
-        const filteredFeatures = (await this._collectAllFeatureItems([55, 59])).map(item => item.feature);
+        const filteredFeatures = ((this._context && config.customSelectedFeatures) || await this._collectAllFeatureItems([55, 59])).map(item => item.feature);
 
         this._sendProgress(60, 'Calculating dimensions');
 
@@ -2748,6 +2899,8 @@ export class MapExportControl {
     }
 
     _generateFilenameFromFeatures(selectedFeatures, extension, layerNameOnly = false) {
+        if (this._context) return this._contextFilename(extension);
+
         const layerGroups = new Map();
 
         for (const item of selectedFeatures) {
@@ -2788,24 +2941,26 @@ export class MapExportControl {
     }
 
     _getFeatureTitle(feature, layerConfig) {
-        const labelField = layerConfig.inspect?.label;
-        if (labelField && feature.properties[labelField]) {
-            return String(feature.properties[labelField]);
+        const props = feature?.properties || {};
+        const labelField = layerConfig?.inspect?.label;
+        if (labelField && props[labelField]) {
+            return String(props[labelField]);
         }
 
-        if (feature.properties.name) {
-            return String(feature.properties.name);
+        if (props.name) {
+            return String(props.name);
         }
 
-        const firstPriorityField = layerConfig.inspect?.fields?.[0];
-        if (firstPriorityField && feature.properties[firstPriorityField]) {
-            return String(feature.properties[firstPriorityField]);
+        const firstPriorityField = layerConfig?.inspect?.fields?.[0];
+        if (firstPriorityField && props[firstPriorityField]) {
+            return String(props[firstPriorityField]);
         }
 
         return 'Exported Feature';
     }
 
     _generateFilename(extension) {
+        if (this._context) return this._contextFilename(extension);
         const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
         const title = (this._title || 'map').replace(/[^a-z0-9]/gi, '_').substring(0, 50);
         return `${title}_${timestamp}.${extension}`;

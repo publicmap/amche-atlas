@@ -1,7 +1,7 @@
 /**
  * A route's badge: a disc in the route's colour with its travel mode's icon in
  * white, on a white rim so it holds up over any colour or imagery. The same
- * mark sits on the route's button in the marker dock (../route-dock-stack.js)
+ * mark sits on the route's card in Find (../console/route-card.js)
  * and on the route line itself (route-geojson.js's `badge/` layer).
  *
  * On the map it is a style image made on demand, one per profile and colour,
