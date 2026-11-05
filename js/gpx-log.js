@@ -143,10 +143,15 @@ export class TrackLog {
         return () => this._listeners.delete(listener);
     }
 
-    /** Draws the stored tracks, and resumes logging left on in an earlier visit. */
+    /**
+     * Draws the stored tracks, and resumes logging left on in an earlier visit.
+     * Resuming only starts the location watch: the map stays on the view the
+     * link opened, unless it asks to centre on the user (?geolocate=true).
+     */
     start() {
         this._locator()?.on('geolocate', (event) => this._onPosition(event));
-        if (this.logging) this._startLogging();
+        const follow = new URLSearchParams(window.location.search).get('geolocate') === 'true';
+        if (this.logging) this._startLogging({ follow });
         this._changed();
     }
 
@@ -176,10 +181,10 @@ export class TrackLog {
         write(this._storage, SETTINGS_KEY, this.settings);
     }
 
-    _startLogging() {
+    _startLogging({ follow = true } = {}) {
         this.error = null;
         const control = this._locator();
-        if (control && !control.isTracking) control.locate();
+        if (control && !control.isTracking) control.locate({ follow });
         this._restartTimer();
         showSystemLayer(LAYER_ID, true);
     }

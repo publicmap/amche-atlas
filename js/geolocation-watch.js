@@ -167,7 +167,9 @@ export class GeolocationWatch {
         this._onStateChange(state);
     }
 
-    start(reason) {
+    // `follow: false` starts the watch unlocked: the dot shows, but the camera
+    // stays where it is (a track log resumed on load, see js/gpx-log.js).
+    start(reason, { follow = true } = {}) {
         if (this.isTracking) return;
         this._started = true;
         // A previous unlockPosition() left followUserLocation false; without
@@ -176,6 +178,7 @@ export class GeolocationWatch {
         this._triggerStartedAt = performance.now();
         console.log(`[GPS] trigger() called at t=${Math.round(this._triggerStartedAt)}ms (${reason})`);
         this._control.trigger();
+        if (!follow) this._control.setFollowUserLocation(false);
     }
 
     // ACTIVE_LOCK -> BACKGROUND: the dot and accuracy circle stay, the camera

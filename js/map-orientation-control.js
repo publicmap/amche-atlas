@@ -117,7 +117,12 @@ export class MapOrientationControl {
 
     // Brings the camera back onto the device without the button's cycle -
     // starting GPS if it is off. Used by the place menu's Locate Me.
-    locate() {
+    // `follow: false` only starts the watch, leaving the camera alone
+    locate({ follow = true } = {}) {
+        if (!follow) {
+            if (!this.isTracking) this._watch.start('background', { follow: false });
+            return;
+        }
         if (!this.isTracking) this._start();
         else if (!this.isLockedToLocation) this._watch.relock();
     }
