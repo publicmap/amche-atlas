@@ -8,8 +8,9 @@
  * atlas's own `site.brand` instead, see js/site-brand.js), so the bar row
  * starts with the search field at the card's left edge.
  *
- * - explore: one bar row (the atlas field with its Find icon, On map, Pins and -
- *   once there is a route - Routes, with their counts) over a line naming the place at the map center -
+ * - explore: one bar row (the atlas field with its Find icon, the atlas button
+ *   counting the maps on the map, Pins and - once there is a route - Routes,
+ *   with their counts) over a line naming the place at the map center -
  *   starting with the Share panel's link icon (js/share-view-panel.js), ending
  *   in the 3D terrain and location status icons; the place name and each icon
  *   toggle a panel of their own (js/console-panel.js) - then, when opened, Share
@@ -17,9 +18,9 @@
  *   beneath the console (map-marker-manager.js).
  * - find: the same row with the atlas name turned into the search field (its
  *   search icon moved to the left, the search settings at the right end) over
- *   Find's results (js/console/find-panel.js). The Maps, Pins and Routes
- *   buttons stay and pick Find's view; the search icon goes back to the atlas
- *   view. With a query their badges count the view's results instead of what
+ *   Find's results (js/console/find-panel.js). The atlas, Pins and Routes
+ *   buttons stay and pick Find's view; the atlas view opens on the maps on
+ *   the map (its Active filter). With a query their badges count the view's results instead of what
  *   is on the map.
  *
  * Esc, the close button at the end of the row, the active view's button again,
@@ -121,10 +122,6 @@ export class MapControlBar {
         const searchEl = searchToggle?._el || null;
         if (searchEl) searchEl.classList.add('when-find');
 
-        this._layersBtn = button('console-btn console-layers-btn', 'layers', 'Maps on the map');
-        this._badge = badge(this._layersBtn);
-        this._layersBtn.addEventListener('click', () => this.toggleFind('layers'));
-
         this._pinsBtn = button('console-btn console-pins-btn', 'pin-map', 'Pins');
         this._pinsBadge = badge(this._pinsBtn);
         this._pinsBtn.addEventListener('click', () => this.toggleFind('pins'));
@@ -140,6 +137,8 @@ export class MapControlBar {
         spinner.className = 'map-control-bar-spinner';
         iconWrap.append(this._iconEl, spinner);
         this._atlasBtn.appendChild(iconWrap);
+        // How many maps are on the map - with a query, how many maps match
+        this._badge = badge(this._atlasBtn);
         this._atlasBtn.addEventListener('click', () => this.toggleFind('atlas'));
 
         // Explore's field: the search icon and "Search in <atlas>", with the
@@ -149,11 +148,6 @@ export class MapControlBar {
         this._field.appendChild(this._main);
         head.append(this._field);
         if (searchEl) head.appendChild(searchEl);
-        const settings = searchToggle?.sourcesEl || null;
-        if (settings) {
-            settings.classList.add('when-find');
-            head.appendChild(settings);
-        }
         // On a phone Find covers the map, so there is no map left to click to close it
         const close = button('console-btn console-close-btn when-find', 'x-lg', 'Close ( Esc )');
         close.addEventListener('click', () => this.setMode('explore', { keepQuery: true }));
@@ -161,7 +155,7 @@ export class MapControlBar {
         this._routesBtn = button('console-btn console-routes-btn', 'signpost-split', 'Routes');
         this._routesBadge = badge(this._routesBtn);
         this._routesBtn.addEventListener('click', () => this.toggleFind('routes'));
-        this._viewButtons = { atlas: this._atlasBtn, layers: this._layersBtn, pins: this._pinsBtn, routes: this._routesBtn };
+        this._viewButtons = { atlas: this._atlasBtn, pins: this._pinsBtn, routes: this._routesBtn };
 
         this._field.append(...Object.values(this._viewButtons));
 
@@ -240,7 +234,7 @@ export class MapControlBar {
     /**
      * @param {'explore'|'find'} mode
      * @param {{view?: string, filter?: string, focus?: boolean, keepQuery?: boolean}} [options]
-     *   view - Find's view to open on (atlas, layers, pins, routes; `filter`
+     *   view - Find's view to open on (atlas, pins, routes; `filter`
      *   takes Find's old filter names); focus - move focus to the field;
      *   keepQuery - leave a picked result's name in the field when closing
      */
@@ -278,9 +272,10 @@ export class MapControlBar {
         this.share.close();
     }
 
-    /** Esc: from a map's details back to the list, otherwise back to the map. */
+    /** Esc: out of survey search, from a map's details back to the list, otherwise back to the map. */
     escape() {
         if (this._mode !== 'find') return;
+        if (window.cadastralSearchUI?.exitSurveyMode?.()) return;
         if (this.find.detailsOpen) this.find.closeDetails();
         else this.setMode('explore');
     }
@@ -308,6 +303,7 @@ export class MapControlBar {
 
     /** The default atlas view: no query, the atlas selector and its maps in view. */
     resetFind() {
+        window.cadastralSearchUI?.exitSurveyMode?.();
         this._searchToggle?.clear();
         this.find.setQuery('');
         this.setMode('find', { view: 'atlas' });
@@ -392,14 +388,14 @@ export class MapControlBar {
 
         this._atlasName = name;
         this._main.title = name ? `Search in ${name}: atlases, maps and places ( / )` : 'Find atlases, maps and places ( / )';
-        this._atlasBtn.title = name ? `${name}: atlas view` : 'Atlas view';
-        this._atlasBtn.setAttribute('aria-label', this._atlasBtn.title);
         this._setIcon(metadata?.icon || null);
 
         const count = Array.isArray(layers) ? layers.filter(l => l.id !== 'selection').length : 0;
         this._layerCount = count;
+        this._atlasBtn.title = `${name || 'Atlas'}: ${count ? `${count} maps on the map` : 'atlas and its maps'} ( Ctrl+L )`;
+        this._atlasBtn.setAttribute('aria-label', this._atlasBtn.title);
         this._syncHead();
-        this._layersBtn.title = count ? `${count} maps on the map ( Ctrl+L )` : 'Maps on the map';
+        this.find.setOnMap(layers);
         this.find.onMapActions.update(layers);
         this.find.refresh();
     }

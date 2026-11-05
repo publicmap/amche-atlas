@@ -62,6 +62,24 @@ export function setEyeState(button, state, title) {
     button.replaceChildren(icon(state === 'off' ? 'eye-slash' : 'eye'));
 }
 
+/**
+ * A row's delete button, acting on its own. Its row goes at once: Find holds
+ * a redraw while the pointer is over it, which would leave the row standing.
+ */
+export function deleteButton(title, onClick) {
+    const button = el('button', 'console-zoom console-delete');
+    button.type = 'button';
+    button.title = title;
+    button.setAttribute('aria-label', title);
+    button.appendChild(icon('trash'));
+    button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        button.closest('.console-row')?.remove();
+        onClick();
+    });
+    return button;
+}
+
 export function layerThumb(layer, size = 32) {
     const thumb = LayerThumbnail.generate(layer, size, {
         interactive: false,

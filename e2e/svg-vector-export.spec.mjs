@@ -92,10 +92,9 @@ test('SVG export vectorizes atlas overlay layers as real paths/text', async ({ p
         return layers.some(l => l.id.includes('svg-vector-test-layer') && l.type === 'fill');
     }, null, { timeout: 30000 });
 
-    // The export trigger is in the footer of the "On the map" list
-    // (js/layer-stack-strip.js), which the map console's layers button opens
-    // in Find.
-    await page.click('.console-layers-btn');
+    // The export trigger is in the footer of Find, which the map console's
+    // atlas button opens on the maps on the map.
+    await page.click('.console-atlas-btn');
     await page.click('.layer-stack-footer-btn[title="Export map"]');
 
     const iframeEl = await page.waitForSelector('iframe.map-export-iframe');

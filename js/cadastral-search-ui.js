@@ -54,14 +54,15 @@ export class CadastralSearchUI {
 
         this.searchBoxEl = searchBox
 
-        // Collapsed to one action until asked for: the village and survey
-        // fields open from it (see _setExpanded)
+        // One action until asked for: it switches the console to survey
+        // search mode, where the village and survey fields take the search
+        // field's place and Find shows only their results (see _setExpanded)
         this.toggleBtn = document.createElement('button')
         this.toggleBtn.type = 'button'
         this.toggleBtn.className = 'cadastral-toggle'
         this.toggleBtn.setAttribute('aria-expanded', 'false')
         this.toggleBtn.hidden = true
-        this.toggleBtn.innerHTML = `<span>Search By Survey No.</span><sl-icon name="chevron-down" class="cadastral-toggle-chevron"></sl-icon>`
+        this._syncToggleLabel()
         this._expanded = false
 
         this.panel = document.createElement('div')
@@ -134,9 +135,12 @@ export class CadastralSearchUI {
         // Its link joins the console's sub-search row under the search field
         // when there is one; its fields open just below that row.
         const subSearch = this.consoleBody?.querySelector('.console-subsearch')
+        this.consoleEl = this.consoleBody?.closest('.map-console') || null
         if (subSearch) {
             subSearch.appendChild(this.toggleBtn)
             subSearch.after(this.dropdown)
+            // In survey mode the fields stand in for the search field itself
+            this.searchBoxEl.after(this.panel)
         } else {
             dropdownHost.insertBefore(this.dropdown, dropdownHost.firstChild)
         }
@@ -471,6 +475,9 @@ export class CadastralSearchUI {
             detail: { features: [feature] },
         }))
         this.searchControl.suppressSuggestions()
+        // Back to the map, as for any other result, so the plot's marker
+        // shows its label docked under the console
+        window.mapConsole?.setMode('explore', { keepQuery: true })
     }
 
     _selectVillage(entry) {
@@ -488,8 +495,8 @@ export class CadastralSearchUI {
         if (!this.dropdown) return
 
         this.toggleBtn.addEventListener('click', () => {
-            this._setExpanded(!this._expanded)
-            if (this._expanded && !this._isMobileLayout()) this.villageSelect?.focus()
+            if (this._expanded) this.exitSurveyMode()
+            else this._enterSurveyMode()
         })
 
         this.dropdown.addEventListener('mousedown', e => {
@@ -504,7 +511,7 @@ export class CadastralSearchUI {
         this.dropdown.addEventListener('focusout', () => {
             clearTimeout(this._blurTimer)
             this._blurTimer = setTimeout(() => {
-                if (!this._dropdownHasFocus()) this._hide()
+                if (!this._expanded && !this._dropdownHasFocus()) this._hide()
             }, 150)
         })
 
@@ -605,7 +612,7 @@ export class CadastralSearchUI {
         const scheduleHide = () => {
             clearTimeout(this._blurTimer)
             this._blurTimer = setTimeout(() => {
-                if (!this._stackHasFocus() && !this._dropdownHasFocus()) this._hide()
+                if (!this._expanded && !this._stackHasFocus() && !this._dropdownHasFocus()) this._hide()
             }, 150)
         }
 
@@ -675,13 +682,46 @@ export class CadastralSearchUI {
         this._syncTriggerLabels()
     }
 
-    /** Opens or closes the village and survey fields under the action. */
+    /**
+     * Survey search mode: the console swaps its search field for the village
+     * and survey fields and Find for their results (the `survey-mode` class,
+     * css/map-console.css) until the mode is left - from the action again,
+     * Esc, the search icon, or picking a plot.
+     */
     _setExpanded(expanded) {
         this._expanded = expanded
         this.toggleBtn.setAttribute('aria-expanded', String(expanded))
         this.toggleBtn.classList.toggle('open', expanded)
         this.panel.classList.toggle('hidden', !expanded)
+        this.consoleEl?.classList.toggle('survey-mode', expanded)
+        this._syncToggleLabel()
         if (!expanded) this._clearResults()
+    }
+
+    _syncToggleLabel() {
+        this.toggleBtn.innerHTML = this._expanded
+            ? `<sl-icon name="x-lg" style="font-size: 11px"></sl-icon><span>Exit survey search</span>`
+            : `<span>Search By Survey No.</span><sl-icon name="arrow-right-short" class="cadastral-toggle-chevron"></sl-icon>`
+        this.toggleBtn.title = this._expanded ? 'Back to the usual search ( Esc )' : 'Find a plot by its village and survey number'
+    }
+
+    _enterSurveyMode() {
+        window.mapConsole?.resetFind?.()
+        this._show()
+        this._setExpanded(true)
+        if (this._isMobileLayout()) return
+        requestAnimationFrame(() => {
+            if (this.selectedVillage?.village) this.surveyInput?.focus()
+            else this.villageSelect?.focus()
+        })
+    }
+
+    /** Leaves survey search mode; whether it was on. */
+    exitSurveyMode() {
+        if (!this._expanded) return false
+        this._setExpanded(false)
+        window.mapConsole?.setMode?.('find')
+        return true
     }
 
     _hide() {
@@ -782,14 +822,7 @@ export class CadastralSearchUI {
                 e.stopPropagation()
                 const index = Number(btn.dataset.index)
                 const feature = features[index]
-                if (!feature) return
-
-                this._clearResults()
-                this._hide()
-                this.searchControl.handleRetrieve(new CustomEvent('retrieve', {
-                    detail: { features: [feature] },
-                }))
-                this.searchControl.suppressSuggestions()
+                if (feature) this._selectPlotResult(feature)
             })
         })
     }

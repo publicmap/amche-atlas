@@ -7,7 +7,6 @@ import { createAtlasLayerProvider } from './search/providers/atlas-layer-provide
 import { createFeatureInViewProvider } from './search/providers/feature-in-view-provider.js'
 import { createMarkerProvider } from './search/providers/marker-provider.js'
 import { createCountryProvider } from './search/providers/country-provider.js'
-import { isSearchSourceEnabled as on } from './search/search-sources.js'
 import { createDirectionsProvider } from './search/providers/directions-provider.js'
 import { createDataUrlProvider } from './search/providers/data-url-provider.js'
 import { fetchRoute } from './search/directions-router.js'
@@ -492,7 +491,7 @@ export class MapSearchControl {
      */
     refreshInViewResults() {
         if (!this.currentQuery || this.isCoordinateInput) return;
-        this.mapFeatureSuggestions = on('features') ? this.featureInViewProvider.search(this.currentQuery) : [];
+        this.mapFeatureSuggestions = this.featureInViewProvider.search(this.currentQuery);
         this._renderSuggestions();
     }
 
@@ -745,53 +744,38 @@ export class MapSearchControl {
             // Atlas/layer matches, on-screen feature matches, and marker
             // matches are all synchronous (in-memory) and apply regardless of
             // which async place-search path runs below.
-            this.mapSuggestions = on('layers') ? this.atlasLayerProvider.search(query) : [];
-            this.mapFeatureSuggestions = on('features') ? this.featureInViewProvider.search(query) : [];
-            this.markerSuggestions = on('markers') ? this.markerProvider.search(query) : [];
-            this.countrySuggestions = on('countries') ? this.countryProvider.search(query) : [];
+            this.mapSuggestions = this.atlasLayerProvider.search(query);
+            this.mapFeatureSuggestions = this.featureInViewProvider.search(query);
+            this.markerSuggestions = this.markerProvider.search(query);
+            this.countrySuggestions = this.countryProvider.search(query);
 
             this.placeSuggestions = [];
-            if (on('places')) {
-                this.mapboxPlaceProvider.search(query, {
-                    proximity: this._getMapProximity(),
-                    types: this._getSearchTypes(),
-                    onResult: (items) => {
-                        this.placeSuggestions = items;
-                        this._renderSuggestions();
-                    }
-                });
-            } else {
-                this.mapboxPlaceProvider.cancel();
-            }
+            this.mapboxPlaceProvider.search(query, {
+                proximity: this._getMapProximity(),
+                types: this._getSearchTypes(),
+                onResult: (items) => {
+                    this.placeSuggestions = items;
+                    this._renderSuggestions();
+                }
+            });
 
             this.directionsSuggestions = [];
-            if (on('directions')) {
-                this.directionsProvider.search(query, {
-                    map: this.map,
-                    onResult: (items) => {
-                        this.directionsSuggestions = items;
-                        this._renderSuggestions();
-                    }
-                });
-            } else {
-                this.directionsProvider.cancel();
-            }
+            this.directionsProvider.search(query, {
+                map: this.map,
+                onResult: (items) => {
+                    this.directionsSuggestions = items;
+                    this._renderSuggestions();
+                }
+            });
 
-            const cadastralParsed = on('cadastral') && this.cadastralProvider.isEnabled() && !window.cadastralSearchUI?.isActive()
+            const cadastralParsed = this.cadastralProvider.isEnabled() && !window.cadastralSearchUI?.isActive()
                 ? this.cadastralProvider.parseQuery(query)
                 : null;
             if (cadastralParsed) {
                 this.startCadastralParquetSearch(query, cadastralParsed);
             } else {
                 this.cadastralProvider.cancel();
-                if (on('nominatim')) {
-                    this.startNominatimSearch(query);
-                } else {
-                    this.nominatimProvider.cancel();
-                    this.localSuggestions = [];
-                    this.clearSuggestionMarkers();
-                    this._renderSuggestions();
-                }
+                this.startNominatimSearch(query);
             }
         }
     }

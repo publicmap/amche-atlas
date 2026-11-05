@@ -180,7 +180,7 @@ test('replacing the source offers to keep the styling or restyle', async ({ page
 });
 
 async function openOverview(page) {
-    await page.evaluate((layer) => window.browserControl._openLayerInfo(layer), EDIT_LAYER);
+    await page.evaluate((layer) => window.browserControl.openLayerEditor(layer, { tab: 'view' }), EDIT_LAYER);
     const frame = await creatorFrame(page);
     await expect.poll(async () => frame.locator('#layer-title').inputValue(), { timeout: 30000 }).toBe('Edit Test');
     return frame;
@@ -341,7 +341,7 @@ test('the legend lists each style rule, and clicking it opens that rule in the s
         style: { 'fill-color': ['match', ['to-string', ['get', 'kind']], 'park', '#00aa00', 'road', '#888888', '#cccccc'], 'fill-opacity': 0.6 }
     };
     await page.evaluate((l) => window.layerControl._addLayerDirectly(l), layer);
-    await page.evaluate((l) => window.browserControl._openLayerInfo(l), layer);
+    await page.evaluate((l) => window.browserControl.openLayerEditor(l, { tab: 'view' }), layer);
     const frame = await creatorFrame(page);
     await expect(frame.locator('#lo-legend-content [data-rule]')).toHaveCount(3, { timeout: 30000 });
 
@@ -367,7 +367,7 @@ test('data filters show as clearable buttons, and clearing one is an edit', asyn
         style: { 'fill-color': '#ff0000', 'hatch/filter': ['==', ['get', 'kind'], 'road'], 'hatch/fill-pattern': 'hatch|horizontal|#000000|8|1' }
     };
     await page.evaluate((l) => window.layerControl._addLayerDirectly(l), layer);
-    await page.evaluate((l) => window.browserControl._openLayerInfo(l), layer);
+    await page.evaluate((l) => window.browserControl.openLayerEditor(l, { tab: 'view' }), layer);
     const frame = await creatorFrame(page);
 
     const chips = frame.locator('#lh-filters .filter-chip');
@@ -411,7 +411,7 @@ test('pointing at a legend item shows only its rule on the map until the pointer
         style: { 'fill-color': ['match', ['to-string', ['get', 'kind']], 'park', '#00aa00', 'road', '#888888', '#cccccc'], 'fill-opacity': 0.6 }
     };
     await page.evaluate((l) => window.layerControl._addLayerDirectly(l), layer);
-    await page.evaluate((l) => window.browserControl._openLayerInfo(l), layer);
+    await page.evaluate((l) => window.browserControl.openLayerEditor(l, { tab: 'view' }), layer);
     const frame = await creatorFrame(page);
     const items = frame.locator('#lo-legend-content [data-rule]');
     await expect(items).toHaveCount(3, { timeout: 30000 });
@@ -506,7 +506,7 @@ test('"supported formats" opens help cards with an icon, description and example
     expect(await cards.count()).toBeGreaterThanOrEqual(15);
     expect(await cards.evaluateAll(els => els.every(el => el.querySelector('sl-icon') && el.querySelector('.fc-name').textContent && el.querySelector('.fc-desc').textContent))).toBe(true);
     const icons = await cards.evaluateAll(els => els.map(el => el.querySelector('sl-icon').getAttribute('name')));
-    expect(new Set(icons)).toEqual(new Set(['filetype-json', 'filetype-csv', 'filetype-xml', 'bounding-box-circles', 'image', 'globe', 'file-earmark-zip']));
+    expect(new Set(icons)).toEqual(new Set(['filetype-json', 'filetype-csv', 'filetype-xml', 'bounding-box-circles', 'image', 'globe', 'file-earmark-zip', 'archive']));
 
     // Clicking a card tries its example, and the card's icon shows up in the header.
     await frame.locator('#formats-help .format-card[data-format="csv"]').click();

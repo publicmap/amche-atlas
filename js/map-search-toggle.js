@@ -1,4 +1,3 @@
-import { SEARCH_SOURCES, isSearchSourceEnabled, setSearchSourceEnabled } from './search/search-sources.js';
 
 const ADMIN_UNITS_FINE_TO_COARSE = [
     'neighbourhood', 'suburb', 'quarter', 'city_district', 'borough', 'village', 'hamlet',
@@ -34,8 +33,8 @@ export function placeLine(address, count = 3) {
 /**
  * The search field of the map console's Find mode (js/map-control-bar.js):
  * the <mapbox-search-box> host behind a search icon, which resets Find to its
- * default atlas view, plus the "Search in" settings menu (`sourcesEl`), which
- * the console places just outside the field, to its right.
+ * default atlas view. Every source is searched; Find's Pins and Routes views
+ * narrow the results to those.
  * The console decides when Find is open; this only reflects it (the
  * `searching` class that shows the field) and offers focus/clear/placeholder
  * helpers.
@@ -58,7 +57,6 @@ export class MapSearchToggle {
         this._glyph.addEventListener('click', () => window.mapConsole?.resetFind());
 
         this._el.append(this._glyph);
-        this.sourcesEl = this._buildSourcesMenu();
         this._el.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 e.stopPropagation();
@@ -70,36 +68,6 @@ export class MapSearchToggle {
             if (e.target.closest?.('mapbox-search-box')) window.mapConsole?.setMode('find', { focus: false });
         });
         return this._el;
-    }
-
-    _buildSourcesMenu() {
-        const dropdown = document.createElement('sl-dropdown');
-        dropdown.className = 'map-search-sources';
-        dropdown.placement = 'bottom-end';
-        dropdown.setAttribute('stay-open-on-select', '');
-        dropdown.hoist = true;
-        const more = document.createElement('button');
-        more.type = 'button';
-        more.slot = 'trigger';
-        more.className = 'console-btn map-search-sources-btn';
-        more.title = 'Search settings: choose what to search';
-        more.setAttribute('aria-label', more.title);
-        more.innerHTML = '<sl-icon name="three-dots-vertical"></sl-icon>';
-        const menu = document.createElement('sl-menu');
-        const label = document.createElement('sl-menu-label');
-        label.textContent = 'Search in';
-        menu.appendChild(label);
-        for (const { id, label: text } of SEARCH_SOURCES) {
-            const item = document.createElement('sl-menu-item');
-            item.type = 'checkbox';
-            item.checked = isSearchSourceEnabled(id);
-            item.textContent = text;
-            item.addEventListener('click', () => setSearchSourceEnabled(id, item.checked));
-            menu.appendChild(item);
-        }
-        dropdown.append(more, menu);
-        dropdown.addEventListener('mousedown', (e) => e.preventDefault());
-        return dropdown;
     }
 
     _searchInput() {

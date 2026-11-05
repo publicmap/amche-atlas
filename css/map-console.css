@@ -460,14 +460,6 @@
     font-size: 9px;
 }
 
-.map-search-sources {
-    flex-shrink: 0;
-}
-
-.map-search-sources .map-search-sources-btn {
-    width: 26px;
-}
-
 .map-search-control mapbox-search-box [class$='--SearchIcon'] {
     display: none !important;
 }
@@ -818,12 +810,34 @@ mapbox-search-box [class$='--Container'] {
     cursor: pointer;
 }
 
-.console-zoom {
+/* Outside the view, zoom is the way there; zoomed, it is the way back */
+.console-zoom.outside,
+.console-zoom.zoomed {
     border-color: rgba(124, 180, 255, 0.45);
     color: var(--console-blue) !important;
 }
 
-.console-zoom:hover,
+.console-external {
+    text-decoration: none;
+}
+
+.console-external[aria-disabled="true"] {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+.console-delete:hover {
+    border-color: #dc2626 !important;
+    background: rgba(220, 38, 38, 0.15) !important;
+    color: #fca5a5 !important;
+}
+
+.console-zoom:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.console-zoom:not(:disabled):hover,
 .console-row-action:hover {
     border-color: rgba(255, 255, 255, 0.5);
     background: var(--console-hover);
@@ -894,6 +908,26 @@ mapbox-search-box [class$='--Container'] {
     font-size: 12px !important;
     white-space: nowrap;
     cursor: pointer;
+}
+
+.console-tag-modes {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    padding-right: 4px;
+    background: var(--console-surface);
+}
+
+.console-tag-divider {
+    flex-shrink: 0;
+    align-self: stretch;
+    width: 1px;
+    margin: 0 2px;
+    background: var(--console-line-strong);
 }
 
 .console-tag-chip:hover {
@@ -1196,6 +1230,20 @@ mapbox-search-box [class$='--Container'] {
     color: var(--console-ink-2);
 }
 
+/* The current atlas as one row, opening the atlas cards beneath it */
+.console-atlas-picker {
+    border-bottom: 1px solid var(--console-line);
+}
+
+.console-atlas-picker.open {
+    border-bottom-color: transparent;
+}
+
+.console-atlas-picker + .console-atlas-cards {
+    padding-top: 6px;
+    border-bottom: 1px solid var(--console-line);
+}
+
 /* ---------- On the map (js/layer-stack-strip.js) ---------- */
 
 .console-onmap-actions {
@@ -1258,102 +1306,24 @@ mapbox-search-box [class$='--Container'] {
     background: var(--console-line);
 }
 
-.layer-stack-row-text {
-    flex: 1;
-    min-width: 0;
-    cursor: pointer;
-}
-
-.layer-stack-row-name {
-    font-size: 13.5px;
-    font-weight: 600;
-    line-height: 1.3;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-
-.layer-stack-row-meta {
-    margin-top: 2px;
-    font-size: 11.5px;
-    color: var(--console-ink-3);
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-
-.layer-stack-empty .layer-stack-row-name {
+.layer-stack-empty .console-row-title {
     color: var(--console-ink-2);
 }
 
-/* Row actions (zoom, remove) appear over the end of the row on hover. The
-   row text already opens the layer's details, so the flyout's own title is
-   not shown. */
-.layer-stack-label {
+/* Rows drag to reorder; the grip only says so */
+.layer-stack-grip {
     position: absolute;
+    left: 0;
     top: 50%;
-    right: 8px;
     transform: translateY(-50%);
-    display: flex;
-    align-items: center;
-    padding: 2px;
-    border-radius: var(--console-radius-sm);
-    background: var(--console-raised);
-    box-shadow: -8px 0 10px var(--console-raised);
+    font-size: 12px;
+    color: var(--console-ink-3);
     opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity 0.12s ease;
+    cursor: grab;
 }
 
-.layer-stack-item:hover .layer-stack-label,
-.layer-stack-item:focus-within .layer-stack-label {
+.layer-stack-item:hover .layer-stack-grip {
     opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
-}
-
-.layer-stack-label-head {
-    display: none;
-}
-
-.layer-stack-label-meta {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-}
-
-.layer-stack-label-action {
-    width: 30px;
-    height: 30px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 0;
-    border-radius: 7px;
-    background: transparent;
-    color: var(--console-ink-2) !important;
-    cursor: pointer;
-}
-
-.layer-stack-label-action sl-icon {
-    font-size: 15px;
-}
-
-.layer-stack-label-action:hover {
-    background: var(--console-hover);
-    color: var(--console-ink) !important;
-}
-
-.layer-stack-label-action-danger:hover {
-    background: #dc2626;
-    color: #fff !important;
-}
-
-.layer-stack-label-action:disabled {
-    color: var(--console-ink-3) !important;
-    cursor: default;
 }
 
 .layer-stack-thumb-spinner {
@@ -1414,10 +1384,6 @@ mapbox-search-box [class$='--Container'] {
 
 .layer-stack-item.drag-over-bottom::after {
     bottom: -1px;
-}
-
-.layer-stack-strip.dragging .layer-stack-label {
-    display: none;
 }
 
 /* Swipe to remove (js/layer-swipe-delete.js) */
@@ -1522,8 +1488,7 @@ body.console-find .marker-dock-routes {
 }
 
 @media (prefers-reduced-motion: reduce) {
-        .layer-stack-item,
-    .layer-stack-label {
+    .layer-stack-item {
         transition: none;
     }
 }
@@ -1603,9 +1568,6 @@ body.console-find .marker-dock-routes {
     transition: transform 0.15s;
 }
 
-.cadastral-toggle.open .cadastral-toggle-chevron {
-    transform: rotate(180deg);
-}
 
 
 /* Sub-search options (js/map-control-bar.js addSubSearch): a row of links
@@ -1650,8 +1612,55 @@ body.console-find .marker-dock-routes {
     padding: 0 12px 8px 7px;
 }
 
-.cadastral-dropdown--inline:has(> .cadastral-search-panel.hidden):has(> .cadastral-results.hidden) {
+.cadastral-dropdown--inline:has(> .cadastral-results.hidden) {
     display: none;
+}
+
+/* Survey search mode (js/cadastral-search-ui.js): the village and survey
+   fields take the search field's place, and Find shows only their results
+   until the mode is left */
+.map-console.survey-mode .map-search-control > mapbox-search-box,
+.map-console.survey-mode .map-search-control > .console-btn,
+.map-console.survey-mode .console-scope-option,
+.map-console.survey-mode .console-find {
+    display: none !important;
+}
+
+.map-search-control > .cadastral-search-panel {
+    flex: 1;
+    min-width: 0;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 0 4px 0 0;
+}
+
+.map-search-control > .cadastral-search-panel.hidden {
+    display: none;
+}
+
+.map-search-control > .cadastral-search-panel > * {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.map-search-control > .cadastral-search-panel > .cadastral-village-select,
+.map-search-control > .cadastral-search-panel > .cadastral-village-trigger {
+    flex-grow: 1.4;
+}
+
+.map-search-control > .cadastral-search-panel sl-select::part(combobox),
+.map-search-control > .cadastral-search-panel sl-input::part(base) {
+    min-height: 30px;
+    height: 30px;
+}
+
+.map-console.survey-mode .console-subsearch > .cadastral-toggle {
+    color: var(--console-ink) !important;
+}
+
+.map-console.survey-mode .cadastral-dropdown.cadastral-dropdown--inline {
+    border-bottom: 0;
 }
 
 /* The console's corner sits above the other corners, so Find covers the

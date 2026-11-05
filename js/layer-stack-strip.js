@@ -13,11 +13,13 @@
  * the options menu shared with the long-press menu) is built here but sits at
  * the foot of Find, under whichever view is showing.
  *
- * Each thumbnail is a LayerThumbnail, and clicking a row opens that layer's
- * details page in Find (js/console/layer-details.js). Hovering a row isolates that layer through
- * MapLayerControl's shared LayerIsolationManager and reveals the layer's details
- * (name, atlas, shortcut actions, opacity) in a panel that opens over the rest
- * of its own row, inside the strip.
+ * It is Find's atlas view under its Active filter, so each row is the same
+ * map row as the rest of Find (layerRow in js/console/find-browse.js: zoom
+ * and show/hide), with the thumbnail showing whether the layer has features
+ * in view. Its meta names the map's tags, or its atlas when that is not the
+ * current one. Clicking a row opens its details page in Find
+ * (js/console/layer-details.js); hovering isolates the layer through
+ * MapLayerControl's shared LayerIsolationManager; rows drag to reorder.
  */
 import { LayerThumbnail } from './layer-thumbnail.js';
 import { LayerOrderManager } from './layer-order-manager.js';
@@ -25,6 +27,7 @@ import { LayerStackFooter } from './layer-stack-footer.js';
 import { MapControlBar } from './map-control-bar.js';
 import { LayerCompareBadge } from './layer-compare-badge.js';
 import { attachSwipeDelete } from './layer-swipe-delete.js';
+import { layerRow, atlasLayers } from './console/find-browse.js';
 
 const THUMB_SIZE = 32;
 
@@ -40,7 +43,6 @@ export class LayerStackStrip {
         this._footer = null;
         this._open = false;
         this._showHidden = false;
-        this._zoomState = null;
         this._map = null;
         this._controlBar = null;
         this._onDataLoading = () => this._controlBar?.setLoading(true);
@@ -55,12 +57,6 @@ export class LayerStackStrip {
         this._onMapIdle = () => {
             this._controlBar?.setLoading(!!window.layerControl?._loadingLayerIds?.size);
             if (this._updateFeatureVisibility()) this.render();
-        };
-        // Moving the map by hand after a layer zoom makes "Reset" meaningless:
-        // the next click zooms again instead. A programmatic move (the zoom
-        // itself) has no originalEvent.
-        this._onMapMoveStart = (e) => {
-            if (e?.originalEvent) this._zoomState = null;
         };
         // Debounced: window.urlManager's active-layers state updates on its own
         // 300ms debounce (see CLAUDE.md), so reading it synchronously on
@@ -120,7 +116,6 @@ export class LayerStackStrip {
         });
         map?.on?.('dataloading', this._onDataLoading);
         map?.on?.('idle', this._onMapIdle);
-        map?.on?.('movestart', this._onMapMoveStart);
         this._controlBar.setLoading(true);
         this._controlBar.update(window.layersInitialized ? this._getVisibleLayers() : null);
 
@@ -186,7 +181,6 @@ export class LayerStackStrip {
         clearTimeout(this._reorderTimer);
         this._map?.off?.('dataloading', this._onDataLoading);
         this._map?.off?.('idle', this._onMapIdle);
-        this._map?.off?.('movestart', this._onMapMoveStart);
         this._clearIsolation({ immediate: true });
         this._footer?.unmount();
         this._footer = null;
@@ -224,7 +218,7 @@ export class LayerStackStrip {
         this._controlBar?.setHidden(allLayers.filter(l => this._noFeatureIds.has(l.id)).length, this._showHidden);
         const maskedId = this._getMaskedLayerId();
         const loadingIds = window.layerControl?._loadingLayerIds;
-        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${compareId}|mask:${maskedId}|open:${this._open}|zoom:${this._zoomState?.layerId}|hidden:${hiddenCount}:${this._showHidden}|empty:${[...this._noFeatureIds].join(',')}`;
+        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${compareId}|mask:${maskedId}|open:${this._open}|atlas:${window.layerRegistry?.getCurrentAtlas?.()}|hidden:${hiddenCount}:${this._showHidden}|empty:${[...this._noFeatureIds].join(',')}`;
         if (!force && signature === this._signature) return;
         this._signature = signature;
 
@@ -232,13 +226,12 @@ export class LayerStackStrip {
         // this method owns.
         this._el.querySelectorAll('[data-layer-item]').forEach(el => el.remove());
 
-        // Reordering happens within a section, so each row needs its position in
-        // its own list to know whether it can still move up or down.
         const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(layers);
+        const inAtlas = this._currentAtlasIds();
 
         [overlays, basemaps].forEach((list, section) => {
             list.forEach((layer, index) => {
-                const item = this._createItem(layer, { index, total: list.length, maskedId });
+                const item = this._createItem(layer, { maskedId, inAtlas });
                 // The two groups meet at the first basemap, which carries the rule
                 if (section === 1 && index === 0 && overlays.length) {
                     item.classList.add('layer-stack-basemap-start');
@@ -269,35 +262,6 @@ export class LayerStackStrip {
         if (!browserButton) return;
         browserButton.classList.add('layer-stack-browser-proxy');
         hostEl.appendChild(browserButton);
-    }
-
-    /**
-     * Zoom doubles as its own undo: the first click remembers the current view
-     * and zooms to the layer, a second click with no map movement since flies
-     * back. Any user-driven move in between drops the remembered view (see
-     * _onMapMoveStart), so the next click is a fresh zoom.
-     */
-    _toggleLayerZoom(layer) {
-        const map = this._map || window.map;
-        if (!map) return;
-
-        const state = this._zoomState;
-        if (state && state.layerId === layer.id) {
-            this._zoomState = null;
-            map.flyTo(state.view);
-        } else {
-            this._zoomState = {
-                layerId: layer.id,
-                view: {
-                    center: map.getCenter().toArray(),
-                    zoom: map.getZoom(),
-                    bearing: map.getBearing(),
-                    pitch: map.getPitch()
-                }
-            };
-            this._post({ type: 'zoom-to-layer', layerId: layer.id });
-        }
-        this._scheduleReorderRepaint();
     }
 
     _animateOut(layerId) {
@@ -368,34 +332,48 @@ export class LayerStackStrip {
         return changed;
     }
 
-    _createItem(layer, position = { index: 0, total: 1, maskedId: null }) {
-        const item = document.createElement('div');
-        item.className = 'layer-stack-item';
-        item.dataset.layerItem = 'true';
-        item.dataset.layerId = layer.id;
-        item.dataset.basemap = String(LayerOrderManager.isBasemap(layer));
-        const noFeatures = this._noFeatureIds.has(layer.id);
-        if (noFeatures) item.classList.add('layer-stack-empty');
+    /** The ids (plain and atlas-prefixed) of the current atlas's maps. */
+    _currentAtlasIds() {
+        const atlasId = window.layerRegistry?.getCurrentAtlas?.() || 'index';
+        return new Set(atlasLayers(atlasId).flatMap(layer => [layer.id, layer._prefixedId]).filter(Boolean));
+    }
 
+    _createItem(layer, { maskedId = null, inAtlas = new Set() } = {}) {
         const title = layer.title || layer.id;
         const atlasName = this._getAtlasName(layer);
+        const tags = Array.isArray(layer.tags) ? layer.tags.join(' › ') : '';
+        const fromElsewhere = atlasName && !inAtlas.has(layer.id) && !inAtlas.has(layer._prefixedId);
+        const meta = fromElsewhere ? [`From ${atlasName}`, tags].filter(Boolean).join(' · ') : tags;
 
         const thumbnail = LayerThumbnail.generate(layer, THUMB_SIZE, {
             hasFeatures: !this._noFeatureIds.has(layer.id),
             layerDefaults: window.layerControl?._defaultStyles || {}
         });
-        thumbnail.classList.add('layer-stack-cell');
-        thumbnail.setAttribute('role', 'button');
-        thumbnail.setAttribute('tabindex', '0');
-        thumbnail.setAttribute('aria-label', atlasName ? `${title} (${atlasName})` : title);
+        thumbnail.classList.add('console-thumb', 'layer-stack-cell');
+
+        // Hovering the row isolates the layer - same effect the feature
+        // control's marker badges apply: only this layer and the other section
+        // (overlay vs basemap) stay visible.
+        const isBasemap = LayerOrderManager.isBasemap(layer);
+        const item = layerRow(layer, {
+            on: true,
+            meta,
+            thumb: thumbnail,
+            className: 'layer-stack-item',
+            onEnter: () => this._isolate(layer.id, isBasemap),
+            onLeave: () => this._clearIsolation()
+        });
+        item.dataset.layerItem = 'true';
+        item.dataset.layerId = layer.id;
+        item.dataset.basemap = String(isBasemap);
+        if (this._noFeatureIds.has(layer.id)) item.classList.add('layer-stack-empty');
+
         // The masked layer steps out of the column: a mask cell takes its slot
         // and the thumbnail is displaced to the right (see the CSS).
-        if (position.maskedId && position.maskedId === layer.id) {
+        if (maskedId && maskedId === layer.id) {
             item.classList.add('layer-stack-comparing', 'layer-stack-masking');
-            item.appendChild(this._createMaskCell(layer, title));
+            item.prepend(this._createMaskCell(layer, title));
         }
-
-        item.appendChild(thumbnail);
 
         // Shown while the layer is still being added to the map on initial
         // load (see MapLayerControl._loadingLayerIds) - the thumbnail itself
@@ -406,91 +384,16 @@ export class LayerStackStrip {
             item.appendChild(spinner);
         }
 
-        item.appendChild(this._createRowText(layer, title, atlasName));
-
-        // Hover panel: the layer name (opens the layer editor (map-creator.html)), then the atlas
-        // name followed by shortcut actions for the layer. It opens over the row text.
-        const label = document.createElement('div');
-        label.className = 'layer-stack-label';
-
-        const titleBtn = document.createElement('button');
-        titleBtn.type = 'button';
-        titleBtn.className = 'layer-stack-label-title';
-        titleBtn.textContent = title;
-        titleBtn.title = `Open details for ${title}`;
-        const head = document.createElement('div');
-        head.className = 'layer-stack-label-head';
-        head.appendChild(titleBtn);
-        head.appendChild(this._createInfoIcon());
-        head.title = `Open details for ${title}`;
-        head.addEventListener('mouseenter', () => head.querySelector('sl-icon').setAttribute('name', 'info-circle-fill'));
-        head.addEventListener('mouseleave', () => head.querySelector('sl-icon').setAttribute('name', 'info-circle'));
-        head.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._post({ type: 'open-layer-info', layer: this._serializable(layer) });
-        });
-        label.appendChild(head);
-
-        const meta = document.createElement('div');
-        meta.className = 'layer-stack-label-meta';
-
-        const zoomed = this._zoomState?.layerId === layer.id;
-        meta.appendChild(zoomed
-            ? this._createLabelAction('arrow-counterclockwise', '', `Return to the view before zooming to ${title}`, () => this._toggleLayerZoom(layer))
-            : this._createLabelAction('zoom-in', '', `Zoom to ${title}`, () => this._toggleLayerZoom(layer)));
-        meta.appendChild(this._createLabelAction('trash', '', `Remove ${title} from the map`, () => {
-            this._post({ type: 'remove-layer', layerId: layer.id });
-        }, 'layer-stack-label-action-danger'));
-
-        label.appendChild(meta);
-        item.appendChild(label);
-
-        // Hovering anywhere on the row (thumbnail, text or hover panel) isolates the layer - same effect
-        // the feature control's marker badges apply: only this layer and the
-        // other section (overlay vs basemap) stay visible.
-        const isBasemap = LayerOrderManager.isBasemap(layer);
-        const isolate = () => this._isolate(layer.id, isBasemap);
-        const clearIsolation = () => this._clearIsolation();
-
-        item.addEventListener('mouseenter', isolate);
-        item.addEventListener('mouseleave', clearIsolation);
-        titleBtn.addEventListener('focus', isolate);
-        titleBtn.addEventListener('blur', clearIsolation);
+        const grip = document.createElement('sl-icon');
+        grip.name = 'grip-vertical';
+        grip.className = 'layer-stack-grip';
+        grip.title = 'Drag to reorder';
+        item.prepend(grip);
 
         this._setupItemDrag(item);
         attachSwipeDelete(item, () => this._post({ type: 'remove-layer', layerId: layer.id }));
 
         return item;
-    }
-
-    /**
-     * The always-visible half of a row: the layer name over its atlas and tags.
-     * Clicking it opens the layer's info panel, like the name in the hover panel.
-     */
-    _createRowText(layer, title, atlasName) {
-        const text = document.createElement('div');
-        text.className = 'layer-stack-row-text';
-
-        const name = document.createElement('div');
-        name.className = 'layer-stack-row-name';
-        name.textContent = title;
-        text.appendChild(name);
-
-        const details = [atlasName, ...(Array.isArray(layer.tags) ? layer.tags : [])]
-            .filter(Boolean)
-            .slice(0, 4);
-        if (details.length) {
-            const meta = document.createElement('div');
-            meta.className = 'layer-stack-row-meta';
-            meta.textContent = details.join(' / ');
-            text.appendChild(meta);
-        }
-
-        text.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._post({ type: 'open-layer-info', layer: this._serializable(layer) });
-        });
-        return text;
     }
 
     /**
@@ -633,37 +536,9 @@ export class LayerStackStrip {
         this._scheduleReorderRepaint();
     }
 
-    _createInfoIcon() {
-        const wrap = document.createElement('span');
-        wrap.className = 'layer-stack-label-info';
-        const icon = document.createElement('sl-icon');
-        icon.name = 'info-circle';
-        wrap.appendChild(icon);
-        return wrap;
-    }
-
-    _createLabelAction(icon, text, title, onClick, variant = '', disabled = false) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'layer-stack-label-action' + (variant ? ` ${variant}` : '');
-        button.title = title;
-        button.innerHTML = `<sl-icon name="${icon}"></sl-icon>` + (text ? `<span>${text}</span>` : '');
-        // Kept in place rather than dropped when unavailable, so the row of
-        // actions doesn't shift as layers move to the ends of the stack.
-        if (disabled) {
-            button.disabled = true;
-        } else {
-            button.addEventListener('click', (e) => {
-                e.stopPropagation();
-                onClick();
-            });
-        }
-        return button;
-    }
-
     /**
-     * These messages cross to handlers in the same window (MapBrowserControl for
-     * open-layer-info / zoom-to-layer, MapFeatureControl for remove-layer), but
+     * These messages cross to handlers in the same window (MapFeatureControl
+     * for remove-layer and the compare / mask toggles), but
      * postMessage still structured-clones the payload, and a resolved layer config
      * can carry values that will not clone.
      */
@@ -673,14 +548,6 @@ export class LayerStackStrip {
         } catch (e) {
             console.warn('[LayerStackStrip] Message not cloneable, sending id only:', e);
             window.postMessage({ ...message, layer: undefined }, '*');
-        }
-    }
-
-    _serializable(layer) {
-        try {
-            return JSON.parse(JSON.stringify(layer));
-        } catch (e) {
-            return { id: layer.id, title: layer.title, type: layer.type, _sourceAtlas: layer._sourceAtlas };
         }
     }
 

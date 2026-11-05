@@ -97,9 +97,9 @@ export function zoomTo({ bbox = null, lngLat = null } = {}) {
     }
 }
 
-/** The trailing button of a row that lies outside the view. */
-export function zoomButton(target, title = 'Outside this view - zoom to it') {
-    const button = el('button', 'console-zoom');
+/** A row's zoom button; marked out when the row lies outside the view. */
+export function zoomButton(target, title = 'Outside this view - zoom to it', { outside = true } = {}) {
+    const button = el('button', 'console-zoom' + (outside ? ' outside' : ''));
     button.type = 'button';
     button.title = title;
     button.setAttribute('aria-label', title);

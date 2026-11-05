@@ -45,15 +45,22 @@ export function createMarkerProvider() {
         const results = []
 
         for (const [markerId, markerData] of markerManager._markers) {
-            const label = markerLabel(stateManager, markerData)
-            if (term && !label.toLowerCase().includes(term)) continue
+            // The name it was saved under, as its own label shows it, over what
+            // is there; an unsaved marker is named after what is there instead
+            const saved = markerManager.savedLabel?.(markerId)
+            const described = markerLabel(stateManager, markerData)
+            const name = saved || described
+            const where = saved
+                ? (markerManager.describeFeatures?.(markerData.features) || markerData.address?.text || described)
+                : (markerData.address?.text || '')
+            if (term && ![name, where].some(text => text.toLowerCase().includes(term))) continue
 
             results.push({
                 _searchResultType: 'marker',
                 icon: '📍',
                 markerId,
                 markerLngLat: markerData.lngLat,
-                properties: { name: label, place_name: 'Your marker' }
+                properties: { name, place_name: where }
             })
             if (results.length >= limit) break
         }

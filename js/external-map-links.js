@@ -15,6 +15,31 @@ export const LINK_GROUPS = [
     ['other', 'Others']
 ];
 
+// Google Maps' travel modes for this app's routing profiles
+const GOOGLE_TRAVEL_MODES = { driving: 'driving', walking: 'walking', cycling: 'bicycling' };
+
+// Google Maps takes at most this many stops between the start and the end
+const GOOGLE_MAX_WAYPOINTS = 9;
+
+/**
+ * A route's stops ([lng, lat] each, start first) as directions in Google
+ * Maps, in the same travel mode. Routes with more stops than Google takes
+ * keep their first ones.
+ */
+export function googleMapsDirectionsUrl(waypoints, profile = 'driving') {
+    if (!Array.isArray(waypoints) || waypoints.length < 2) return null;
+    const point = ([lng, lat]) => `${lat},${lng}`;
+    const stops = waypoints.slice(1, -1).slice(0, GOOGLE_MAX_WAYPOINTS).map(point);
+    const params = new URLSearchParams({
+        api: '1',
+        origin: point(waypoints[0]),
+        destination: point(waypoints[waypoints.length - 1]),
+        travelmode: GOOGLE_TRAVEL_MODES[profile] || 'driving'
+    });
+    if (stops.length) params.set('waypoints', stops.join('|'));
+    return `https://www.google.com/maps/dir/?${params}`;
+}
+
 export function externalMapLinks(lat, lng, zoom) {
     // Calculate mercator coordinates for One Map Goa
     const mercatorCoords = latLngToMercator(lat, lng);

@@ -37,4 +37,21 @@ describe('Find tag filters', () => {
         bar.querySelectorAll('.console-tag-row')[1].querySelector('.selected').click();
         expect(next).toEqual(['Regulatory']);
     });
+
+    it('leads the first row with the modes, chosen only while no tag is', () => {
+        const modes = [{ id: 'active', label: 'Active', count: 2 }, { id: 'all', label: 'All', count: 5 }];
+        const bar = tagFilterBar(layers, [], () => {}, { modes, mode: 'active' });
+        expect(rows(bar)).toEqual([['Active(2)', 'All(5)', 'amenity(1)', 'Regulatory(3)']]);
+        expect(bar.querySelector('.selected').textContent).toBe('Active(2)');
+        const narrowed = tagFilterBar(layers, ['amenity'], () => {}, { modes, mode: 'all' });
+        expect([...narrowed.querySelectorAll('.selected')].map(chip => chip.textContent)).toEqual(['amenity(1)']);
+    });
+
+    it('reports a mode click, and shows the modes when no map has tags', () => {
+        let picked = null;
+        const bar = tagFilterBar([{ id: 'x' }], [], () => {}, { modes: [{ id: 'all', label: 'All', count: 1 }], mode: 'active', onMode: id => { picked = id; } });
+        bar.querySelector('.console-mode-chip').click();
+        expect(picked).toBe('all');
+        expect(tagFilterBar([{ id: 'x' }], [], () => {})).toBeNull();
+    });
 });

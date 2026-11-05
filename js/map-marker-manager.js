@@ -19,6 +19,7 @@ import { formatAttributeValue } from './attribute-value-renderer.js';
 import { sanitizeId, isValidId, nextSerialId, labelToId, uniqueId, sanitizeRouteRefPrefix, isValidRouteRefId } from './shorthand-id-utils.js';
 import * as markerRegistry from './marker-registry.js';
 import { WAYPOINT_PIN_COLOR, routeStore } from './search/route-store.js';
+import { googleMapsDirectionsUrl } from './external-map-links.js';
 import { LANE_WIDTH, gapAfter, groupByRoute, planRouteLanes, renderDockLinks, routeButtonLabel, routeColor, stopMarkers } from './marker-dock-links.js';
 import { RouteDockStack, ROUTE_BUTTON_HEIGHT, ROUTE_BUTTON_GAP } from './route-dock-stack.js';
 import { RasterPixelInspector } from './raster-pixel-inspector.js';
@@ -386,9 +387,7 @@ export class MapMarkerManager {
         // Docked panels hide while the console's Find list covers their column
         // (see .console-find in css/map-console.css) and settle back below the
         // console when it closes.
-        window.addEventListener('mapConsoleModeChanged', (e) => {
-            if (e.detail?.mode === 'explore') requestAnimationFrame(() => this._layoutDockedPanels());
-        });
+        window.addEventListener('mapConsoleModeChanged', () => requestAnimationFrame(() => this._layoutDockedPanels()));
         window.addEventListener('mapConsoleResized', () => requestAnimationFrame(() => this._layoutDockedPanels()));
         document.addEventListener('wheel', (e) => this._scrollDock(e), { passive: false, capture: true });
         window.addEventListener('routes-changed', () => requestAnimationFrame(() => this._layoutDockedPanels()));
@@ -466,6 +465,11 @@ export class MapMarkerManager {
                     const stops = stopMarkers(route, docked);
                     routeStore.reverseRoute(id, stops.every(Boolean) ? stops.map(s => s.id) : []);
                 },
+                onOpenGoogle: (id) => {
+                    const route = routeStore.routes.find(r => r.id === id);
+                    const url = googleMapsDirectionsUrl(route?.waypoints, route?.profile);
+                    if (url) window.open(url, '_blank', 'noopener');
+                },
                 onColor: (id, color) => {
                     routeStore.setRouteColor(id, color);
                     this._layoutDockedPanels();
@@ -475,15 +479,7 @@ export class MapMarkerManager {
                     if (ok) this._layoutDockedPanels();
                     return ok;
                 },
-                onRemove: (id) => {
-                    if (this._routeFilter === id) {
-                        this._routeFilter = null;
-                        window.layerControl?.isolation?.clear();
-                        restoreFeatureFit(this._map);
-                    }
-                    routeStore.removeRoute(id);
-                    this._layoutDockedPanels();
-                },
+                onRemove: (id) => this.deleteRoute(id),
                 onAddMode: async (id, profile) => {
                     const route = await routeStore.duplicateRoute(id, profile);
                     if (route) this._routeFilter = route.id;
@@ -512,6 +508,32 @@ export class MapMarkerManager {
     /** Show only this route's stops in the dock and fit the map to it (the console's Routes list). */
     selectRoute(id) {
         if (this._routeFilter !== id) this._toggleRouteFilter(id);
+    }
+
+    /** Delete a route, leaving its stops as ordinary markers (its dock button's remove, the console's Routes list). */
+    deleteRoute(id) {
+        if (this._routeFilter === id) {
+            this._routeFilter = null;
+            window.layerControl?.isolation?.clear();
+            restoreFeatureFit(this._map);
+        }
+        routeStore.removeRoute(id);
+        this._layoutDockedPanels();
+    }
+
+    /** Delete a marker and take it out of any route it is a stop on (its header's trash, the console's Pins list). */
+    deleteMarker(markerId) {
+        routeStore.removeMarkerFromRoutes(markerId, this._markers.get(markerId)?.lngLat);
+        this.removeMarker(markerId);
+    }
+
+    /** The name a marker was saved under, as its badge shows it; null until it is saved. */
+    savedLabel(markerId) {
+        return this._savedLabelOf(this._markers.get(markerId));
+    }
+
+    _savedLabelOf(markerData) {
+        return markerData?.saved && markerData.urlId ? idToLabel(markerData.urlId) : null;
     }
 
     /** Hover-isolate a route's layer, as hovering its dock button does. */
@@ -547,7 +569,13 @@ export class MapMarkerManager {
         // fills the corner and the column is hidden, so it waits for Find to close.
         const consoleEl = document.querySelector('.map-console');
         const head = consoleEl?.querySelector('.map-control-bar-head');
-        if (!consoleEl || !head || consoleEl.dataset.mode === 'find') return;
+        if (!consoleEl || !head) return;
+        // The points keep their labels while Find covers the column; only the
+        // lines to the hidden panels go.
+        if (consoleEl.dataset.mode === 'find') {
+            this._renderDockedLeaders(container, docked, { lines: false });
+            return;
+        }
         const mainRect = head.getBoundingClientRect();
         if (!mainRect.width) return;
         const canvas = this._map.getCanvas().getBoundingClientRect();
@@ -2165,6 +2193,11 @@ export class MapMarkerManager {
                     </button>
                 </span>
                 <span class="marker-menu-header-spacer" style="flex: 1; display: none;"></span>
+                <button type="button" class="marker-id-action marker-id-zoom" title="Center and zoom to this point"
+                    style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
+                           background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
+                    <sl-icon name="zoom-in" style="font-size: 14px; color: var(--console-ink-2); pointer-events: none;"></sl-icon>
+                </button>
                 <button type="button" class="marker-id-action marker-id-save" title="Save id (Enter)"
                     style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
                            background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
@@ -2303,9 +2336,12 @@ export class MapMarkerManager {
      * coordinates, from each marker's point (wherever it is, even off screen) to
      * its panel's nearer top corner. Not inside the marker element: that is
      * pinned to the container's origin, so a tail living in it would have to be
-     * sized and clipped by it. Shown only while the marker is hovered or selected.
+     * sized and clipped by it. A plain dark line always joins the two, drawn
+     * bold while the marker is hovered or selected, and each point carries its
+     * saved label so it can be found on the map. `lines: false` (Find covering
+     * the column) keeps just the points and labels.
      */
-    _renderDockedLeaders(container, markers) {
+    _renderDockedLeaders(container, markers, { lines = true } = {}) {
         let layer = container.querySelector(':scope > .marker-dock-leaders');
         if (!layer) {
             layer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -2320,47 +2356,67 @@ export class MapMarkerManager {
         layer.setAttribute('height', Math.round(Math.max(box.height, canvas.height)));
 
         const NS = 'http://www.w3.org/2000/svg';
-        const pt = (x, y) => `${Math.round(x * 100) / 100},${Math.round(y * 100) / 100}`;
-        const nodes = [];
+        const leaders = [];
+        const points = [];
         markers.forEach(m => {
             const el = m.marker.getElement();
-            const shown = el.classList.contains('marker-selected') || el.dataset.markerHover === '1';
-            if (!shown || el.style.visibility === 'hidden') return;
-            const panel = m.contentEl.getBoundingClientRect();
-            if (!panel.width || !panel.height) return;
             const point = this._map.project(m.marker.getLngLat());
-
-            const inset = Math.min(MARKER_LEADER_INSET, panel.width / 2, panel.height / 2);
-            const left = panel.left - box.left + inset;
-            const top = panel.top - box.top + inset;
-            const corners = [{ x: left, y: top }, { x: left + panel.width - inset * 2, y: top }];
-            const nearest = corners.reduce((a, b) =>
-                (Math.hypot(a.x - point.x, a.y - point.y) <= Math.hypot(b.x - point.x, b.y - point.y) ? a : b));
-            // A plain line with a dark casing, not the old tapering sliver: a
-            // panel docked far from its point makes a taper far too faint to see.
+            const shown = el.classList.contains('marker-selected') || el.dataset.markerHover === '1';
             const selected = el.classList.contains('marker-selected');
-            const line = (stroke, width) => {
-                const node = document.createElementNS(NS, 'line');
-                node.setAttribute('x1', nearest.x);
-                node.setAttribute('y1', nearest.y);
-                node.setAttribute('x2', point.x);
-                node.setAttribute('y2', point.y);
-                node.setAttribute('stroke', stroke);
-                node.setAttribute('stroke-width', width);
-                node.setAttribute('stroke-linecap', 'round');
-                return node;
-            };
             const colour = selected ? MARKER_SELECTED_BORDER : 'rgba(255, 255, 255, 0.92)';
+
+            // A row scrolled out of the column keeps its point, not its line
+            const panel = lines && el.style.visibility !== 'hidden' ? m.contentEl.getBoundingClientRect() : null;
+            if (panel?.width && panel.height) {
+                const inset = Math.min(MARKER_LEADER_INSET, panel.width / 2, panel.height / 2);
+                const left = panel.left - box.left + inset;
+                const top = panel.top - box.top + inset;
+                const corners = [{ x: left, y: top }, { x: left + panel.width - inset * 2, y: top }];
+                const nearest = corners.reduce((a, b) =>
+                    (Math.hypot(a.x - point.x, a.y - point.y) <= Math.hypot(b.x - point.x, b.y - point.y) ? a : b));
+                const line = (stroke, width) => {
+                    const node = document.createElementNS(NS, 'line');
+                    node.setAttribute('x1', nearest.x);
+                    node.setAttribute('y1', nearest.y);
+                    node.setAttribute('x2', point.x);
+                    node.setAttribute('y2', point.y);
+                    node.setAttribute('stroke', stroke);
+                    node.setAttribute('stroke-width', width);
+                    node.setAttribute('stroke-linecap', 'round');
+                    return node;
+                };
+                // A plain line with a dark casing, not the old tapering sliver: a
+                // panel docked far from its point makes a taper far too faint to see.
+                if (shown) leaders.push(line('rgba(17, 24, 39, 0.7)', 4.5), line(colour, 2));
+                else leaders.push(line('rgba(0, 0, 0, 0.75)', 1.25));
+            }
+
             const dot = document.createElementNS(NS, 'circle');
             dot.setAttribute('cx', point.x);
             dot.setAttribute('cy', point.y);
-            dot.setAttribute('r', 4.5);
-            dot.setAttribute('fill', colour);
-            dot.setAttribute('stroke', 'rgba(17, 24, 39, 0.8)');
+            dot.setAttribute('r', shown ? 4.5 : 4);
+            dot.setAttribute('fill', shown ? colour : '#111827');
+            dot.setAttribute('stroke', shown ? 'rgba(17, 24, 39, 0.8)' : '#ffffff');
             dot.setAttribute('stroke-width', 1.5);
-            nodes.push(line('rgba(17, 24, 39, 0.7)', 4.5), line(colour, 2), dot);
+            points.push(dot);
+
+            const label = this._savedLabelOf(m);
+            if (!label) return;
+            const text = document.createElementNS(NS, 'text');
+            text.setAttribute('x', point.x + 8);
+            text.setAttribute('y', point.y + 4);
+            text.setAttribute('fill', selected ? MARKER_SELECTED_BORDER : '#111827');
+            text.setAttribute('stroke', selected ? '#111827' : '#ffffff');
+            text.setAttribute('stroke-width', 3);
+            text.setAttribute('stroke-linejoin', 'round');
+            text.setAttribute('paint-order', 'stroke');
+            text.setAttribute('font-size', 12);
+            text.setAttribute('font-weight', 700);
+            text.setAttribute('font-family', 'system-ui, -apple-system, sans-serif');
+            text.textContent = label;
+            points.push(text);
         });
-        layer.replaceChildren(...nodes);
+        layer.replaceChildren(...leaders, ...points);
     }
 
     /**
@@ -4168,8 +4224,7 @@ export class MapMarkerManager {
         const removeMarker = (e) => {
             e.stopPropagation();
             if (e.type === 'touchend') e.preventDefault();
-            routeStore.removeMarkerFromRoutes(markerId, this._markers.get(markerId)?.lngLat);
-            this.removeMarker(markerId);
+            this.deleteMarker(markerId);
         };
         removeBtn.addEventListener('click', removeMarker);
         if (this._isTouch) removeBtn.addEventListener('touchend', removeMarker);
@@ -4178,6 +4233,15 @@ export class MapMarkerManager {
         const closeBtn = group.querySelector('.marker-id-close');
         closeBtn.addEventListener('click', removeMarker);
         if (this._isTouch) closeBtn.addEventListener('touchend', removeMarker);
+
+        const zoomBtn = group.querySelector('.marker-id-zoom');
+        const zoomToMarker = (e) => {
+            e.stopPropagation();
+            if (e.type === 'touchend') e.preventDefault();
+            this._zoomToMarker(markerId);
+        };
+        zoomBtn.addEventListener('click', zoomToMarker);
+        if (this._isTouch) zoomBtn.addEventListener('touchend', zoomToMarker);
 
         const pinBtn = group.querySelector('.marker-id-pin');
         const togglePin = (e) => {
@@ -4343,6 +4407,7 @@ export class MapMarkerManager {
         const removeHandle = el.querySelector('.marker-id-remove');
         const moveHandle = el.querySelector('.marker-id-move');
         const pinHandle = el.querySelector('.marker-id-pin');
+        const zoomHandle = el.querySelector('.marker-id-zoom');
         // Pushes the trailing action buttons to the end of the header - kept
         // hidden whenever none of them are, so a collapsed chip (just the id
         // badge) doesn't pick up an extra gap on its trailing edge from a
@@ -4361,6 +4426,7 @@ export class MapMarkerManager {
             if (removeHandle) removeHandle.style.display = 'none';
             if (moveHandle) moveHandle.style.display = 'none';
             if (pinHandle) pinHandle.style.display = 'none';
+            if (zoomHandle) zoomHandle.style.display = 'none';
             if (spacer) spacer.style.display = 'flex';
             return;
         }
@@ -4371,6 +4437,7 @@ export class MapMarkerManager {
         // rows - a chip is just a name. An unsaved one has nothing worth
         // options yet, so it offers a close button instead.
         const expanded = focused || el.dataset.markerHover === '1';
+        if (zoomHandle) zoomHandle.style.display = expanded ? 'flex' : 'none';
         if (shortcuts) shortcuts.style.display = expanded && saved ? 'flex' : 'none';
         if (closeHandle) closeHandle.style.display = expanded && !saved ? 'flex' : 'none';
         if (removeHandle) removeHandle.style.display = expanded && saved ? 'flex' : 'none';
@@ -6301,6 +6368,21 @@ export class MapMarkerManager {
 
         if (!bounds) return;
         CameraUtils.fitBounds(this._map, bounds, { duration: 1000 });
+    }
+
+    /**
+     * The zoom button in a marker's header: frames the marker's features, or
+     * for a bare point (a search result, an empty-map pin) centers on it and
+     * zooms in to at least street level.
+     */
+    _zoomToMarker(markerId) {
+        const markerData = this._markers.get(markerId);
+        if (!this._map || !markerData) return;
+        if (markerData.features.length > 0) {
+            this.zoomToSelected(markerData.lngLat);
+            return;
+        }
+        this._map.flyTo({ center: markerData.lngLat, zoom: Math.max(this._map.getZoom(), 17), duration: 1000, essential: true });
     }
 
     _zoomToFeature(feature) {

@@ -1,20 +1,19 @@
 /**
  * What Find (js/console/find-panel.js) lists for a query, view by view.
  * Results nest under what they belong to: a feature under its map, so a map
- * with matching features is listed even when only its features matched; in
- * the Maps view, a map under its atlas. Maps with matching features lead,
+ * with matching features is listed even when only its features matched.
+ * Maps with matching features lead,
  * then maps matching by name.
  *
  * Every list is scoped to the view (js/console/find-scope.js); what lies
  * outside is either left out and counted, or listed with a zoom button.
  */
-import { el, sectionLabel, row, iconThumb, imageThumb, chevron, moreRow } from './find-rows.js';
-import { layerRow, atlasName, atlasMapCount, activeIds } from './find-browse.js';
+import { el, sectionLabel, row, iconThumb, chevron, moreRow, deleteButton } from './find-rows.js';
+import { layerRow, atlasName, activeIds } from './find-browse.js';
 import { scoped, layerBbox, routeBbox, zoomButton } from './find-scope.js';
 import { byRank, matchRank } from './find-rank.js';
-import { isSearchSourceEnabled } from '../search/search-sources.js';
 import { createMarkerProvider } from '../search/providers/marker-provider.js';
-import { matchingRoutes, routeRow } from './route-list.js';
+import { matchingRoutes, routeRow, googleMapsButton } from './route-list.js';
 
 const markers = createMarkerProvider();
 const FEATURES_PER_MAP = 5;
@@ -35,7 +34,7 @@ function sameLayer(layer, groupId) {
 }
 
 export function matchingLayers(term) {
-    if (!term || !isSearchSourceEnabled('layers')) return [];
+    if (!term) return [];
     const layers = window.layerRegistry?.searchLayers(term.toLowerCase()) || [];
     return byRank(layers, term, layer => layer.title || layer.name || layer.id,
         layer => [layer.id, layer.description, ...(layer.tags || [])]);
@@ -131,49 +130,23 @@ export class ResultsRenderer {
         return groups.length;
     }
 
-    /**
-     * The Maps view: matching maps under their atlas. `groups` arrive ranked
-     * (js/console/find-rank.js), so each atlas is placed by its best match.
-     */
-    mapsByAtlas(container, { groups, outside }) {
-        const byAtlas = new Map();
-        groups.forEach(group => {
-            const atlasId = group.layer._sourceAtlas || 'index';
-            if (!byAtlas.has(atlasId)) byAtlas.set(atlasId, []);
-            byAtlas.get(atlasId).push(group.layer);
-        });
-        const current = window.layerRegistry?.getCurrentAtlas() || 'index';
-        const atlases = [...byAtlas.keys()];
-        const active = activeIds();
-        atlases.forEach(atlasId => {
-            const section = el('section', 'console-section');
-            const meta = window.layerRegistry?.getAtlasMetadata(atlasId);
-            section.appendChild(row({
-                thumb: imageThumb(meta?.icon, 'map'),
-                title: meta?.name || atlasId,
-                meta: [`${byAtlas.get(atlasId).length} of ${atlasMapCount(atlasId)} maps`, atlasId === current && 'Current atlas'].filter(Boolean).join(' · '),
-                className: 'console-parent console-atlas-parent'
-            }));
-            byAtlas.get(atlasId).forEach(layer => {
-                const node = layerRow(layer, { active, meta: (layer.tags || []).join(' › '), outside: outside.has(layer), className: 'console-nested' });
-                section.appendChild(this.ctx.track(node, { layer }));
-            });
-            container.appendChild(section);
-        });
-        return groups.length;
-    }
-
     pins(container, { shown, outside }, { label = 'Pins', side = null } = {}) {
         if (!shown.length) return 0;
         const section = el('section', 'console-section');
         section.appendChild(sectionLabel(label, side));
         this._limited(section, 'pins', shown, item => {
             const key = `pin:${item.markerId}`;
+            const name = item.properties?.name || 'this pin';
+            const actions = el('span', 'console-row-actions');
+            actions.append(
+                zoomButton({ lngLat: item.markerLngLat }, outside.has(item) ? `${name} is outside this view - zoom to it` : `Zoom to ${name}`, { outside: outside.has(item) }),
+                deleteButton(`Delete ${name}`, () => window.featureControl?._markerManager?.deleteMarker(item.markerId))
+            );
             const node = row({
                 thumb: iconThumb('pin-map'),
                 title: item.properties?.name || '',
                 meta: item.properties?.place_name || '',
-                trailing: outside.has(item) ? zoomButton({ lngLat: item.markerLngLat }) : chevron(),
+                trailing: actions,
                 className: [outside.has(item) && 'outside', this.ctx.isSelected(key) && 'selected'].filter(Boolean).join(' '),
                 onClick: () => this.ctx.selectPin(item, key)
             });
@@ -190,10 +163,15 @@ export class ResultsRenderer {
         this._limited(section, 'routes', shown, route => {
             const key = `route:${route.id}`;
             const node = routeRow(route, { onDone: () => this.ctx.selectRoute(key) });
-            if (outside.has(route)) {
-                node.classList.add('outside');
-                node.querySelector('.console-row-go')?.replaceWith(zoomButton({ bbox: routeBbox(route) }));
-            }
+            const name = node.querySelector('.console-row-title')?.textContent || 'this route';
+            const actions = el('span', 'console-row-actions');
+            actions.append(
+                zoomButton({ bbox: routeBbox(route) }, outside.has(route) ? `${name} is outside this view - zoom to it` : `Zoom to ${name}`, { outside: outside.has(route) }),
+                googleMapsButton(route, name),
+                deleteButton(`Delete ${name} (its stops stay as pins)`, () => window.featureControl?._markerManager?.deleteRoute(route.id))
+            );
+            node.querySelector('.console-row-go')?.replaceWith(actions);
+            if (outside.has(route)) node.classList.add('outside');
             if (this.ctx.isSelected(key)) node.classList.add('selected');
             return [this.ctx.track(node, route)];
         });

@@ -9,7 +9,8 @@
 import { el, icon, row, eyeButton, setEyeState, layerThumb, imageThumb } from './find-rows.js';
 import { pendingState, setPending, eyeKey, trackEye, isLayerLoading } from './layer-loading.js';
 import { matchRank } from './find-rank.js';
-import { viewBbox, bboxInView, parseBbox, layerBbox, isIncludingOutside, zoomButton } from './find-scope.js';
+import { viewBbox, bboxInView, parseBbox, isIncludingOutside } from './find-scope.js';
+import { layerZoomButton } from './layer-zoom.js';
 
 const browser = () => window.browserControl;
 const registry = () => window.layerRegistry;
@@ -152,6 +153,22 @@ export function atlasCards(entries, onPick = switchAtlas) {
     return strip;
 }
 
+/** The current atlas as one row; clicking it opens or closes the atlas cards beneath. */
+export function atlasPicker(atlasId, { open = false, onToggle } = {}) {
+    const caret = icon(open ? 'chevron-up' : 'chevron-down');
+    caret.classList.add('console-row-go');
+    const node = row({
+        thumb: imageThumb(registry()?.getAtlasMetadata(atlasId)?.icon, 'map'),
+        title: atlasName(atlasId),
+        meta: `Atlas · ${atlasMapCount(atlasId)} maps · ${open ? 'Pick another below' : 'Change atlas'}`,
+        trailing: caret,
+        className: 'console-atlas-picker' + (open ? ' open' : ''),
+        onClick: onToggle
+    });
+    node.setAttribute('aria-expanded', String(open));
+    return node;
+}
+
 // The selected atlas leads the strip, with the index atlas before it clipped
 // at the left edge, so the strip reads from the current atlas but still shows
 // there is one before it.
@@ -167,20 +184,24 @@ function scrollToCurrent(strip) {
     });
 }
 
-export function layerRow(layer, { active = activeIds(), meta = null, outside = false, className = '' } = {}) {
+/**
+ * The one row every map list in Find uses: thumbnail, title over meta, then
+ * zoom (which flies back on a second click) and the show/hide eye. The on-map
+ * list passes its own thumbnail and hover (isolating the layer on the map).
+ */
+export function layerRow(layer, { active = activeIds(), on, meta = null, outside = false, className = '', thumb = null, onEnter = null, onLeave = null } = {}) {
     const title = layer.title || layer.name || layer.id;
     const trailing = el('span', 'console-row-actions');
-    if (outside) trailing.appendChild(zoomButton({ bbox: layerBbox(layer) }, `${title} is outside this view - zoom to it`));
-    trailing.appendChild(layerEye(layer, { active }));
+    trailing.append(layerZoomButton(layer, { outside }), layerEye(layer, on === undefined ? { active } : { active, on }));
     return row({
-        thumb: layerThumb(layer),
+        thumb: thumb || layerThumb(layer),
         title,
         meta: meta ?? (plainText(layer.description) || (layer.tags || []).join(' › ')),
         trailing,
         className: [className, outside && 'outside'].filter(Boolean).join(' '),
         onClick: () => openLayerInfo(layer),
-        onEnter: () => previewLayer(layer),
-        onLeave: clearPreview
+        onEnter: onEnter || (() => previewLayer(layer)),
+        onLeave: onLeave || clearPreview
     });
 }
 

@@ -1381,7 +1381,7 @@ mapbox-search-listbox {
         max-width: 100%;
     }
 
-    .cadastral-search-panel {
+    .cadastral-search-panel:not(.map-search-control > *) {
         flex-direction: column;
         gap: 0.375rem;
     }

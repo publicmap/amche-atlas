@@ -14,7 +14,8 @@ const ACTION_STYLE = 'display:flex;align-items:center;justify-content:center;wid
 /**
  * One button per route in a column above the marker stack. Clicking toggles
  * the route as a filter on the marker list; dragging reorders the buttons. A
- * selected button also offers rename, another travel mode, and delete.
+ * selected button also offers rename, another travel mode, opening it in
+ * Google Maps, and delete.
  * Buttons are kept between renders (keyed by route id) so a drag or an edit in
  * progress is not torn down by the layout that follows every map move.
  */
@@ -116,6 +117,7 @@ export class RouteDockStack {
                 <button type="button" class="route-dock-profile" title="Switch the routing profile" style="${ACTION_STYLE}"><sl-icon name="signpost-split" style="pointer-events:none;"></sl-icon></button>
                 <button type="button" class="route-dock-reverse" title="Reverse the order of the stops" style="${ACTION_STYLE}"><sl-icon name="arrow-down-up" style="pointer-events:none;"></sl-icon></button>
                 <button type="button" class="route-dock-mode" title="Add a route in another mode" style="${ACTION_STYLE}"><sl-icon name="plus-circle" style="pointer-events:none;"></sl-icon></button>
+                <button type="button" class="route-dock-google" title="Open this route in Google Maps" style="${ACTION_STYLE}"><sl-icon name="google" style="pointer-events:none;"></sl-icon></button>
                 <button type="button" class="route-dock-remove" title="Delete this route" style="${ACTION_STYLE}"><sl-icon name="trash" style="pointer-events:none;"></sl-icon></button>
             </span>
         `;
@@ -129,6 +131,7 @@ export class RouteDockStack {
             if (action?.classList.contains('route-dock-reverse')) return this._handlers.onReverse(id);
             if (action?.classList.contains('route-dock-profile')) return this._openMenu(el, id, 'switch');
             if (action?.classList.contains('route-dock-mode')) return this._openMenu(el, id, 'add');
+            if (action?.classList.contains('route-dock-google')) return this._handlers.onOpenGoogle(id);
             if (action?.classList.contains('route-dock-remove')) return this._handlers.onRemove(id);
             this._handlers.onToggle(id);
         });
