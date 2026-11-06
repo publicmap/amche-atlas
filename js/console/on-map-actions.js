@@ -1,7 +1,7 @@
 /**
- * The actions in the header of Find's "On the map" list: how many maps have no
- * features in view (and whether to list them anyway), and Clear all, which
- * turns into Undo for a few seconds after it runs.
+ * The action in the header of Find's "On the map" list: Clear all, which
+ * turns into Undo for a few seconds after it runs. (Maps with no features in
+ * view are left out by Find's in-view filter, js/console/find-filters.js.)
  *
  * Clear takes the overlays first and leaves the basemaps; a second Clear with
  * only basemaps left takes those too (MapBrowserControl.hideAllLayers). Each
@@ -13,24 +13,14 @@ import { el, icon } from './find-rows.js';
 const UNDO_MS = 5000;
 
 export class OnMapActions {
-    constructor({ onToggleHidden } = {}) {
-        this._onToggleHidden = onToggleHidden;
+    constructor() {
         this._undoStack = [];
         this._undoTimer = null;
         this._undoActive = false;
         this._undoExpired = false;
-        this._hiddenShown = false;
         this._layers = null;
 
         this.el = el('span', 'console-onmap-actions');
-
-        this._hiddenBtn = el('button', 'console-link console-onmap-hidden');
-        this._hiddenBtn.type = 'button';
-        this._hiddenBtn.hidden = true;
-        this._hiddenBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._onToggleHidden?.(!this._hiddenShown);
-        });
 
         this._clearBtn = el('button', 'console-link console-onmap-clear');
         this._clearBtn.type = 'button';
@@ -42,20 +32,13 @@ export class OnMapActions {
             this._onClearClick();
         });
 
-        this.el.append(this._hiddenBtn, this._clearBtn);
+        this.el.append(this._clearBtn);
         this._setMode('remove');
     }
 
     update(layers) {
         this._layers = layers;
         this._syncMode();
-    }
-
-    setHidden(count, shown) {
-        this._hiddenShown = !!shown;
-        this._hiddenBtn.hidden = !count;
-        this._hiddenBtn.textContent = shown ? `Hide ${count} not in view` : `${count} not in view`;
-        this._hiddenBtn.title = shown ? 'Hide maps with no features in view' : 'List maps with no features in view';
     }
 
     destroy() {

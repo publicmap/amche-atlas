@@ -53,8 +53,7 @@
 .map-console {
     width: 320px;
     max-width: calc(100vw - 2 * var(--console-gap) - 52px);
-    /* less the amche.in menu above it */
-    max-height: calc(100dvh - 2 * var(--console-gap) - 34px);
+    max-height: calc(100dvh - 2 * var(--console-gap));
     display: flex;
     flex-direction: column;
     background: var(--console-surface);
@@ -136,39 +135,19 @@
     font-size: 18px;
 }
 
-/* The amche.in menu: a small logo and name just above the console card */
+/* The menu button at the start of the head (js/console/console-head.js) */
 .console-home {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0 0 6px;
-    padding: 3px 10px 3px 3px;
-    border: 1px solid var(--console-line-strong);
-    border-radius: 999px;
-    background: var(--console-surface);
-    box-shadow: var(--console-shadow);
     color: var(--console-ink);
-    font: 700 12.5px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    letter-spacing: 0.01em;
-    cursor: pointer;
 }
 
-.console-home:hover {
-    background: var(--console-raised);
-}
-
-.console-home img {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    object-fit: contain;
+.console-home sl-icon {
+    font-size: 22px;
 }
 
 .console-home-dev {
     position: absolute;
-    left: 16px;
-    bottom: 2px;
+    right: 6px;
+    top: 6px;
     width: 8px;
     height: 8px;
     border-radius: 50%;
@@ -198,87 +177,125 @@
     display: none;
 }
 
-/* A query's result count for the view, inverted from the on-map count */
-.console-badge.is-result {
-    background: #000;
-    color: var(--console-amber);
-    box-shadow: inset 0 0 0 1.5px var(--console-amber);
-}
-
-/* The view Find is showing */
-/* The open view: solid amber, like a map that is on */
-.map-console .console-btn.view-active,
-.map-console .console-btn.view-active:hover {
-    background: var(--console-amber);
-    color: var(--console-amber-ink);
-}
-
-.map-console .console-btn.view-active .console-badge {
-    box-shadow: 0 0 0 2px var(--console-surface);
-}
-
-.map-console .console-btn.view-active .console-badge.is-result {
-    box-shadow: inset 0 0 0 1.5px var(--console-amber), 0 0 0 2px var(--console-surface);
-}
-
-/* Find's heading: which view is open and what it lists */
-.console-view-title[hidden] {
-    display: none;
-}
-
-.console-view-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 12px 4px;
-}
-
-.console-view-title-text {
-    min-width: 0;
-}
-
-.console-view-title-name {
-    font-size: 17px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    line-height: 1.25;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-
-.console-view-title-sub {
-    margin-top: 1px;
-    font-size: 12px;
-    color: var(--console-ink-2);
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-
-.console-view-title .console-thumb-icon {
-    background: var(--console-amber);
-    border-color: var(--console-amber);
-    color: var(--console-amber-ink);
-}
-
 .map-control-bar-main {
     flex: 1;
     min-width: 0;
-    height: 38px;
+    min-height: 40px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 0 8px 0 11px;
+    gap: 10px;
+    padding: 4px 8px 4px 6px;
     border: 0;
     border-radius: var(--console-radius-sm);
     background: transparent;
+    text-align: left;
     cursor: pointer;
     transition: background 0.12s;
 }
 
 .map-control-bar-main:hover {
     background: var(--console-raised);
+}
+
+.console-atlas-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.console-atlas-chevron {
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--console-ink-3);
+}
+
+/* The head is a header bar over the atlas's header image, its icon and name
+   at one size - all there is of it collapsed; Find adds menu, info, close */
+.map-control-bar-head {
+    min-height: 0;
+    padding: 6px;
+    background-color: var(--console-raised);
+    background-image: linear-gradient(90deg, rgba(17, 24, 39, 0.92), rgba(17, 24, 39, 0.72)), var(--head-image, none);
+    background-size: cover;
+    background-position: center;
+}
+
+.map-console[data-mode="find"] .map-control-bar-head {
+    border-bottom: 1px solid var(--console-line);
+}
+
+.map-control-bar-head .map-control-bar-main {
+    min-height: 38px;
+    padding: 0 8px;
+    gap: 9px;
+}
+
+.map-control-bar-head .map-control-bar-main:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.map-console .map-control-bar-main .map-control-bar-icon-wrap,
+.map-console .map-control-bar-main .map-control-bar-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.map-control-bar-head .map-control-bar-name {
+    font-size: 19px;
+    line-height: 24px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* The picker's trigger at the end of the atlas label; while it is open the
+   label is a way back - "‹ Select Atlas" - and the menu, info icon, atlas
+   icon and image step aside */
+.console-atlas-back,
+.console-atlas-maps {
+    display: none;
+    flex-shrink: 0;
+    font-size: 18px;
+    color: var(--console-ink-2);
+}
+
+.map-console.picking-atlas .console-atlas-back,
+.map-console.picking-atlas .console-atlas-maps {
+    display: inline-block;
+}
+
+.map-console.picking-atlas .console-atlas-back {
+    margin-right: -4px;
+}
+
+.map-console.picking-atlas .console-home,
+.map-console.picking-atlas .console-atlas-chevron {
+    display: none !important;
+}
+
+.map-console .map-control-bar-main .console-atlas-chevron {
+    font-size: 16px;
+}
+
+.map-console.picking-atlas .map-control-bar-head {
+    background-image: none;
+}
+
+.map-console.picking-atlas .map-control-bar-main .map-control-bar-icon-wrap {
+    display: none;
+}
+
+.map-console[data-mode="find"] .map-control-bar-head .console-btn:hover,
+.map-console[data-mode="find"] .map-control-bar-head .console-btn.active {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Narrow screens drop the section tabs' names but the open one's */
+@media (max-width: 480px) {
+    .console-tab:not(.active) .console-tab-name {
+        display: none;
+    }
 }
 
 .map-control-bar-icon-wrap {
@@ -332,20 +349,17 @@
     white-space: nowrap;
     text-overflow: ellipsis;
     font-size: 15px;
-    color: var(--console-ink-3);
-}
-
-.map-control-bar-name.has-query {
+    font-weight: 600;
     color: var(--console-ink);
 }
 
-.map-control-bar-search {
-    flex-shrink: 0;
-    font-size: 15px;
-    color: var(--console-ink-3);
-}
-
 /* ---------- Search field (Find only) ---------- */
+
+/* Under the atlas picker, its filters at the right end */
+.map-console-body > .map-search-control {
+    flex: 0 0 auto;
+    margin: 8px;
+}
 
 .map-search-control {
     flex: 1;
@@ -382,17 +396,6 @@
     cursor: pointer;
 }
 
-/* The atlas's icon: the first view button, inside the field */
-.map-console .console-atlas-btn .map-control-bar-icon-wrap,
-.map-console .console-atlas-btn .map-control-bar-icon {
-    width: 22px;
-    height: 22px;
-}
-
-.map-console .console-atlas-btn.view-active .map-control-bar-icon {
-    box-shadow: 0 0 0 1px var(--console-amber-ink);
-}
-
 .map-console .map-search-glyph:hover {
     background: var(--console-hover);
     color: var(--console-ink);
@@ -405,59 +408,6 @@
     width: auto;
     height: 36px;
     box-sizing: border-box;
-}
-
-.map-control-bar-field {
-    flex: 1;
-    min-width: 0;
-    height: 38px;
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    padding: 0 3px 0 0;
-    box-sizing: border-box;
-    border: 1px solid var(--console-line-strong);
-    border-radius: var(--console-radius-sm);
-    background: var(--console-raised);
-}
-
-.map-control-bar-field:hover {
-    border-color: rgba(255, 255, 255, 0.5);
-}
-
-.map-control-bar-field .map-control-bar-main {
-    height: 36px;
-    background: transparent;
-}
-
-.map-control-bar-field .map-control-bar-main:hover {
-    background: transparent;
-}
-
-.map-control-bar-field .console-btn:hover {
-    background: var(--console-hover);
-}
-
-.map-control-bar-field .console-btn,
-.map-search-control .console-btn {
-    order: 2;
-    width: 30px;
-    height: 30px;
-}
-
-.map-control-bar-field .console-btn sl-icon,
-.map-search-control .console-btn sl-icon {
-    font-size: 16px;
-}
-
-.map-control-bar-field .console-badge,
-.map-search-control .console-badge {
-    top: 0;
-    right: -2px;
-    min-width: 14px;
-    height: 14px;
-    line-height: 14px;
-    font-size: 9px;
 }
 
 .map-search-control mapbox-search-box [class$='--SearchIcon'] {
@@ -660,88 +610,210 @@ mapbox-search-box [class$='--Container'] {
     flex-direction: column;
 }
 
-/* Find's sections as tabs stacked down one column (js/console/find-sections.js) */
-.console-acc {
+/* Find's list under its section tabs (js/console/find-sections.js) */
+.console-find-main {
     flex: 0 1 auto;
     min-height: 0;
     display: flex;
-    align-items: stretch;
-}
-
-.console-acc > .console-find-body {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-.console-acc-rail {
-    flex: 0 0 38px;
-    display: flex;
     flex-direction: column;
-    border-right: 1px solid var(--console-line);
-    background: var(--console-raised);
-    overflow-y: auto;
+}
+
+.console-tabs {
+    flex-shrink: 0;
+    display: flex;
+    gap: 4px;
+    padding: 0 8px 8px;
+    overflow-x: auto;
     scrollbar-width: none;
+    border-bottom: 1px solid var(--console-line);
 }
 
-.console-acc-strip {
-    display: flex;
-    flex-direction: column;
+.console-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.console-tabs[hidden],
+.console-tab[hidden] {
+    display: none;
+}
+
+.console-tab {
+    flex-shrink: 0;
+    display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 9px 0;
-    border: 0;
-    border-bottom: 1px solid var(--console-line);
+    height: 28px;
+    padding: 0 9px;
+    border: 1px solid var(--console-line);
+    border-radius: 999px;
     background: transparent;
-    color: var(--console-ink-3) !important;
+    color: var(--console-ink-2) !important;
+    font-size: 12px !important;
+    font-weight: 600;
+    white-space: nowrap;
     cursor: pointer;
 }
 
-.console-acc-strip:hover {
-    background: var(--console-hover);
+.console-tab:hover {
+    background: var(--console-raised);
     color: var(--console-ink) !important;
 }
 
-.console-acc-strip.active {
-    background: var(--console-surface);
-    box-shadow: inset 3px 0 0 var(--console-amber);
+.console-tab.active {
+    border-color: var(--console-amber);
+    background: var(--console-amber-soft);
     color: var(--console-ink) !important;
-    margin-right: -1px;
 }
 
-.console-acc-strip sl-icon {
-    font-size: 15px;
+.console-tab sl-icon {
+    font-size: 13px;
 }
 
-.console-acc-name {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    font-size: 11.5px !important;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
-}
-
-.console-acc-count {
-    min-width: 18px;
-    padding: 1px 4px;
+.console-tab-count {
+    min-width: 16px;
+    padding: 0 4px;
+    box-sizing: border-box;
     border-radius: 999px;
-    background: var(--console-amber);
-    color: var(--console-amber-ink);
+    background: var(--console-line-strong);
+    color: var(--console-ink);
     font-size: 10.5px !important;
     font-weight: 700;
-    line-height: 14px;
+    line-height: 16px;
     text-align: center;
-    box-sizing: border-box;
+    font-variant-numeric: tabular-nums;
 }
 
-.console-acc-count.is-result {
+/* A query's match count */
+.console-tab-count.is-result {
     background: var(--console-blue);
     color: #0b1220;
 }
 
-.console-acc-count.is-empty {
+.console-tab.active .console-tab-count {
+    background: var(--console-amber);
+    color: var(--console-amber-ink);
+}
+
+/* The filters at the right end of the search field (js/console/find-filters.js) */
+.console-filters {
+    order: 2;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding-right: 2px;
+}
+
+.map-console .console-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    height: 28px;
+    min-width: 28px;
+    padding: 0 6px;
+    border: 0;
+    border-radius: 6px;
     background: transparent;
     color: var(--console-ink-3);
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+}
+
+.map-console .console-filter:hover {
+    background: var(--console-hover);
+    color: var(--console-ink);
+}
+
+.map-console .console-filter.on {
+    color: var(--console-amber);
+}
+
+.console-filter sl-icon {
+    font-size: 15px;
+}
+
+.console-filter-count[hidden] {
+    display: none;
+}
+
+.map-console .console-filter.open {
+    background: var(--console-hover);
+}
+
+/* Under the search field: the filter toggles or the tag chips */
+.console-search-options {
+    flex-shrink: 0;
+}
+
+.console-search-options:not(:has(> :not([hidden]):not(:empty))) {
+    display: none;
+}
+
+.console-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 8px 8px;
+}
+
+.console-filter-row[hidden] {
+    display: none;
+}
+
+.map-console .console-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--console-line);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--console-ink-2);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.map-console .console-filter-chip:hover {
+    background: var(--console-raised);
+    color: var(--console-ink);
+}
+
+.map-console .console-filter-chip.on {
+    border-color: var(--console-amber);
+    background: var(--console-amber-soft);
+    color: var(--console-ink);
+}
+
+.console-filter-chip sl-icon {
+    font-size: 14px;
+}
+
+.console-filter-chip.on sl-icon {
+    color: var(--console-amber);
+}
+
+.console-filter-chip .console-filter-count {
+    min-width: 16px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 999px;
+    background: var(--console-amber);
+    color: var(--console-amber-ink);
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+}
+
+.console-tag-slot {
+    padding-bottom: 8px;
+}
+
+.console-tag-slot:empty {
+    display: none;
 }
 
 .console-more-section {
@@ -749,6 +821,7 @@ mapbox-search-box [class$='--Container'] {
 }
 
 .console-find-body {
+    position: relative;
     flex: 0 1 auto;
     min-height: 0;
     overflow-y: auto;
@@ -1220,116 +1293,179 @@ mapbox-search-box [class$='--Container'] {
 }
 
 /* Atlas cards */
+/* Atlas cards (js/console/atlas-cards.js): rows like Find's other results
+   over a faint wash of each atlas's header image */
 .console-atlas-cards {
     display: flex;
-    gap: 8px;
-    padding: 2px 12px 8px;
-    overflow-x: auto;
-    scrollbar-width: thin;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px 8px 8px;
 }
 
 .console-atlas-card {
-    position: relative;
-    flex: 0 0 136px;
-    height: 96px;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    align-items: flex-start;
-    gap: 1px;
-    padding: 8px;
-    box-sizing: border-box;
-    overflow: hidden;
+    display: block;
     border: 1px solid var(--console-line);
     border-radius: 10px;
     background: var(--console-raised);
-    text-align: left;
+    overflow: hidden;
     cursor: pointer;
-    isolation: isolate;
-}
-
-/* The header image on its own layer, so hovering can blur it behind the
-   name rather than fading it */
-.console-atlas-card-bg {
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background-image: linear-gradient(180deg, rgba(10, 14, 21, 0) 30%, rgba(10, 14, 21, 0.85)), var(--card-image, none);
-    background-size: cover;
-    background-position: center;
-    transition: filter 0.2s, transform 0.2s;
-}
-
-.console-atlas-card:hover .console-atlas-card-bg,
-.console-atlas-card:focus-visible .console-atlas-card-bg {
-    filter: blur(3px) brightness(0.8);
-    transform: scale(1.08);
 }
 
 .console-atlas-card:hover {
     border-color: var(--console-line-strong);
 }
 
-.console-atlas-card-outside {
-    display: grid;
-    place-items: center;
-    padding: 2px 4px;
-    background: rgba(8, 12, 20, 0.75);
-    color: var(--console-blue);
-    font-size: 11px;
+.console-atlas-card:focus-visible {
+    outline: 2px solid var(--console-blue);
+    outline-offset: -2px;
 }
 
 .console-atlas-card.current {
     border-color: var(--console-amber);
+    cursor: default;
 }
 
-.console-atlas-card .console-thumb {
-    width: 24px !important;
-    height: 24px !important;
-    border-radius: 5px !important;
-    margin-bottom: auto;
+/* Picked, waiting for the atlas to switch */
+.console-atlas-card.pending {
+    border-color: var(--console-amber);
+    opacity: 0.75;
 }
 
-.console-atlas-card-tag {
-    position: absolute;
-    top: 7px;
-    right: 7px;
-    padding: 1px 6px;
-    border-radius: 4px;
-    background: var(--console-amber);
-    color: var(--console-amber-ink);
-    font-size: 10px;
-    font-weight: 700;
+/* Header row: icon, name, zoom and eye over the atlas's header image */
+.console-atlas-card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 46px;
+    padding: 6px 8px 6px 10px;
+    box-sizing: border-box;
+    background-image: linear-gradient(90deg, rgba(17, 24, 39, 0.9) 25%, rgba(17, 24, 39, 0.45)), var(--card-image, none);
+    background-size: cover;
+    background-position: center;
+}
+
+.console-atlas-card:not(.current):hover .console-atlas-card-head {
+    background-image: linear-gradient(90deg, rgba(17, 24, 39, 0.8) 25%, rgba(17, 24, 39, 0.25)), var(--card-image, none);
 }
 
 .console-atlas-card-name {
-    max-width: 100%;
-    font-size: 13px;
-    font-weight: 700;
-    line-height: 1.25;
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
 }
 
-.console-atlas-card-meta {
-    font-size: 11px;
+.console-atlas-card.outside .console-atlas-card-name {
     color: var(--console-ink-2);
 }
 
-/* The current atlas as one row, opening the atlas cards beneath it */
-.console-atlas-picker {
-    border-bottom: 1px solid var(--console-line);
+/* A collapsed card shows its eye only while hovered, and its badge only
+   while hovered or when it lies outside the view */
+.console-atlas-card:not(.current):not(:hover):not(:focus-within) .console-eye,
+.console-atlas-card:not(.current):not(.outside):not(:hover):not(:focus-within) .console-atlas-card-badge {
+    visibility: hidden;
 }
 
-.console-atlas-picker.open {
-    border-bottom-color: transparent;
+/* The badge before the eye: the area of interest on an active card (current
+   or hovered), otherwise how far away and which way; a click zooms there */
+.map-console .console-atlas-card-badge {
+    flex-shrink: 1;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 8px;
+    border: 1px solid var(--console-line);
+    border-radius: 999px;
+    background: rgba(17, 24, 39, 0.82);
+    color: var(--console-ink-2);
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    cursor: pointer;
 }
 
-.console-atlas-picker + .console-atlas-cards {
-    padding-top: 6px;
-    border-bottom: 1px solid var(--console-line);
+.map-console button.console-atlas-card-badge:hover {
+    border-color: var(--console-line-strong);
+    background: var(--console-hover);
+    color: var(--console-ink);
+}
+
+.console-atlas-card-badge.is-global {
+    cursor: default;
+}
+
+.console-atlas-card.outside .console-atlas-card-badge {
+    border-color: rgba(124, 180, 255, 0.45);
+    color: var(--console-blue);
+}
+
+.console-atlas-card-badge sl-icon {
+    flex-shrink: 0;
+    font-size: 12px;
+}
+
+.console-atlas-card-area {
+    min-width: 0;
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.console-atlas-card-away {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.console-atlas-card-away[hidden],
+.console-atlas-card:not(.current):not(:hover):not(:focus-within) .console-atlas-card-badge:has(.console-atlas-card-away:not([hidden])) .console-atlas-card-area,
+.console-atlas-card:is(.current, :hover, :focus-within) .console-atlas-card-away {
+    display: none;
+}
+
+/* Outside the view an atlas cannot be switched to, so it has no eye */
+.console-atlas-card.outside:not(.current) .console-eye {
+    display: none;
+}
+
+/* Not a button: the current atlas is on, and picking another turns it off */
+.console-atlas-card-eye {
+    cursor: default;
+}
+
+/* Under the header: the maps it opens with, and the current atlas's description */
+.console-atlas-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 7px 10px 8px;
+    border-top: 1px solid var(--console-line);
+}
+
+.console-atlas-card-meta {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--console-ink-2);
+}
+
+.console-atlas-card-desc {
+    display: block;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--console-ink-2);
+    cursor: auto;
+}
+
+.console-atlas-card-desc a {
+    color: var(--console-blue);
+    text-decoration: underline;
 }
 
 /* ---------- On the map (js/layer-stack-strip.js) ---------- */
@@ -1591,29 +1727,6 @@ body.console-find .marker-docked {
     box-shadow: none;
 }
 
-/* A sub-search checkbox, e.g. Search Within Map (js/console/find-scope.js) */
-.console-subsearch-option {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    color: var(--console-ink-2);
-    font-size: 12.5px;
-    cursor: pointer;
-    user-select: none;
-}
-
-.console-subsearch-option:hover {
-    color: var(--console-ink);
-}
-
-.console-subsearch-option input {
-    width: 13px;
-    height: 13px;
-    margin: 0;
-    accent-color: var(--console-amber);
-    cursor: pointer;
-}
-
 /* The survey search's one action - a text link under the search field -
    opening its village and survey fields */
 .cadastral-toggle {
@@ -1672,9 +1785,28 @@ body.console-find .marker-docked {
     margin-left: auto;
 }
 
-/* The atlas selector opens Find straight under the search field */
-.console-atlas-selector > .console-atlas-cards:first-child {
-    padding-top: 6px;
+/* The atlas picker open: its cards, one under another, in place of
+   everything else in Find */
+.map-console.picking-atlas .map-console-body > :not(.console-atlas-slot) {
+    display: none !important;
+}
+
+.map-console-body > .console-atlas-slot {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+}
+
+/* The atlas cards under the atlas picker */
+.console-atlas-selector[hidden],
+.console-atlas-selector:empty {
+    display: none;
+}
+
+.console-atlas-selector {
+    padding-bottom: 8px;
 }
 
 .console-subsearch:not(:has(> :not([hidden]))) {
@@ -1707,7 +1839,9 @@ body.console-find .marker-docked {
    until the mode is left */
 .map-console.survey-mode .map-search-control > mapbox-search-box,
 .map-console.survey-mode .map-search-control > .console-btn,
-.map-console.survey-mode .console-scope-option,
+.map-console.survey-mode .console-filters,
+.map-console.survey-mode .console-search-options,
+.map-console.survey-mode .console-atlas-selector,
 .map-console.survey-mode .console-find {
     display: none !important;
 }
@@ -1802,7 +1936,7 @@ body.console-find .marker-docked {
 
 /* ---------- Layer details (js/console/layer-details.js) ---------- */
 
-.console-find.showing-details > .console-acc {
+.console-find.showing-details > .console-find-main {
     display: none;
 }
 

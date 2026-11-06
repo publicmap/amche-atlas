@@ -4,8 +4,8 @@
  * the first row offers the top-level tags with how many maps carry each;
  * picking one narrows the maps to it and opens a row with the next level
  * within it, and so on. Picking a chosen tag again steps back to its level.
- * Browsing an atlas, the first row starts with Active (the maps on the map)
- * and All, before its tags.
+ * The chips sit under the atlas picker; what is on the map is the search
+ * field's eye filter (js/console/find-filters.js), not a chip.
  */
 import { el } from './find-rows.js';
 

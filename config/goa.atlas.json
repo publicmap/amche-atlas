@@ -3,7 +3,7 @@
   "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/BeachFun.jpg/330px-BeachFun.jpg",
   "attribution": "Header image: <a href='https://commons.wikimedia.org/wiki/File:BeachFun.jpg'>BeachFun</a> via Wikimedia Commons.",
   "areaOfInterest": "Goa, India",
-  "description": "Atlas of Goa curated by the <a href='https://github.com/publicmap/amche-atlas/issues'>Amche Atlas community</a> ",
+  "description": "Explore the latest land and coastal zoning maps from the Government of Goa and other sources gathered by the <a href='https://chat.whatsapp.com/BbzANbnXuekARMMSyeo6Pf'>Amche.in community</a> ",
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/goa.atlas.json",
   "color": "#059669",

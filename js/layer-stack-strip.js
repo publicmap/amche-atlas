@@ -28,6 +28,7 @@ import { MapControlBar } from './map-control-bar.js';
 import { LayerCompareBadge } from './layer-compare-badge.js';
 import { attachSwipeDelete } from './layer-swipe-delete.js';
 import { layerRow, atlasLayers } from './console/find-browse.js';
+import { isIncludingOutside } from './console/find-scope.js';
 
 const THUMB_SIZE = 32;
 
@@ -42,7 +43,8 @@ export class LayerStackStrip {
         this._draggedItem = null;
         this._footer = null;
         this._open = false;
-        this._showHidden = false;
+        // Maps with no features in view are listed only while Find includes outside the view
+        this._showHidden = isIncludingOutside();
         this._map = null;
         this._controlBar = null;
         this._onDataLoading = () => this._controlBar?.setLoading(true);
@@ -274,22 +276,13 @@ export class LayerStackStrip {
         });
     }
 
-    _resetShowHidden() {
-        if (!this._showHidden) return;
-        this._showHidden = false;
-        this.render();
-    }
-
     /** Find opened or closed: the list only does work while it can be seen. */
     _setOpen(open) {
         if (open === this._open) return;
         this._open = open;
         this._clearIsolation({ immediate: true });
         if (open) this._updateFeatureVisibility();
-        else {
-            this._footer?.closeMenu();
-            this._resetShowHidden();
-        }
+        else this._footer?.closeMenu();
         this.render({ force: true });
     }
 

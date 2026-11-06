@@ -6,10 +6,10 @@
  * details, previewing its extent - which all go through MapBrowserControl so
  * Find behaves exactly as the old map browser panel did.
  */
-import { el, icon, row, eyeButton, setEyeState, layerThumb, imageThumb } from './find-rows.js';
+import { el, row, eyeButton, setEyeState, layerThumb } from './find-rows.js';
 import { pendingState, setPending, eyeKey, trackEye, isLayerLoading } from './layer-loading.js';
 import { matchRank } from './find-rank.js';
-import { viewBbox, bboxInView, parseBbox, isIncludingOutside } from './find-scope.js';
+import { viewBbox, bboxInView, parseBbox, isIncludingOutside, bboxDistance } from './find-scope.js';
 import { layerZoomButton } from './layer-zoom.js';
 
 const browser = () => window.browserControl;
@@ -78,13 +78,14 @@ export function atlasMapCount(atlasId) {
 }
 
 /**
- * The atlas selector's order: the index atlas, the current atlas, then the
- * rest - those covering the view first, smallest first, then by name. Atlases
- * outside the view are left out unless Find includes outside the view (the
- * index and current atlases always stay). With a `term`, only the atlases
- * whose name matches, best match first.
+ * The atlas selector's order, which follows the map and not the choice of
+ * atlas: the index atlas, then those covering the view, smallest first, then
+ * those outside it, nearest first. Atlases outside the view are left out
+ * unless Find includes outside the view or `all` is asked for (the current
+ * atlas always stays). With a `term`, only the atlases whose name matches,
+ * best match first.
  */
-export function atlasesForSelector(term = '') {
+export function atlasesForSelector(term = '', { all = false } = {}) {
     const reg = registry();
     if (!reg) return [];
     const current = reg.getCurrentAtlas() || 'index';
@@ -93,13 +94,14 @@ export function atlasesForSelector(term = '') {
     const entries = reg.getAllAtlasMetadata().map(([id, meta]) => {
         const inView = !parseBbox(meta?.bbox) || bboxInView(meta.bbox, view);
         const nameRank = needle ? matchRank(meta?.name || id, needle, [id]) : 5;
-        return { id, meta, current: id === current, inView, match: nameRank < 5, nameRank, outside: !inView };
+        const away = inView ? 0 : (bboxDistance(meta.bbox)?.km ?? Infinity);
+        return { id, meta, current: id === current, inView, match: nameRank < 5, nameRank, outside: !inView, away };
     });
-    const rank = (e) => (e.id === 'index' ? 0 : e.current ? 1 : 2);
+    const isIndex = (e) => (e.id === 'index' ? 0 : 1);
     const sorted = entries
-        .filter(e => (needle ? e.match : (rank(e) < 2 || e.inView || isIncludingOutside())))
-        .sort((a, b) => (b.match - a.match) || (a.match && a.nameRank - b.nameRank) || (rank(a) - rank(b)) || (b.inView - a.inView) ||
-            (a.inView ? bboxArea(a.meta?.bbox) - bboxArea(b.meta?.bbox) : 0) ||
+        .filter(e => (needle ? e.match : (e.current || e.id === 'index' || e.inView || all || isIncludingOutside())))
+        .sort((a, b) => (b.match - a.match) || (a.match && a.nameRank - b.nameRank) || (isIndex(a) - isIndex(b)) || (b.inView - a.inView) ||
+            (a.inView ? bboxArea(a.meta?.bbox) - bboxArea(b.meta?.bbox) : a.away - b.away) ||
             (a.meta?.name || a.id).localeCompare(b.meta?.name || b.id));
     return { entries: sorted, hidden: needle ? 0 : entries.length - sorted.length };
 }
@@ -124,64 +126,6 @@ export function switchAtlas(atlasId) {
     const target = moving ? atlasBox : viewBbox();
     control.switchAtlasLive(atlasId, { viewBbox: isIncludingOutside() ? null : target });
     if (moving) control._handleResetView(meta.map || null, meta.bbox);
-}
-
-export function atlasCards(entries, onPick = switchAtlas) {
-    const strip = el('div', 'console-atlas-cards');
-    entries.forEach(({ id, meta, current, outside }) => {
-        const card = el('button', 'console-atlas-card' + (current ? ' current' : ''));
-        card.type = 'button';
-        card.title = current ? `${meta?.name || id} (selected atlas)` : `Switch to ${meta?.name || id}`;
-        if (meta?.headerImage) card.style.setProperty('--card-image', `url("${String(meta.headerImage).replace(/"/g, '%22')}")`);
-        card.appendChild(el('span', 'console-atlas-card-bg'));
-        if (current) card.appendChild(el('span', 'console-atlas-card-tag', 'Selected Atlas'));
-        else if (outside) {
-            const tag = el('span', 'console-atlas-card-tag console-atlas-card-outside');
-            tag.title = 'Outside this view - picking it zooms to it';
-            tag.appendChild(icon('zoom-in'));
-            card.appendChild(tag);
-        }
-        card.appendChild(imageThumb(meta?.icon, 'map'));
-        card.appendChild(el('span', 'console-atlas-card-name', meta?.name || id));
-        card.appendChild(el('span', 'console-atlas-card-meta', `${atlasMapCount(id)} maps`));
-        card.addEventListener('click', () => onPick(id));
-        card.addEventListener('mouseenter', () => previewAtlas(id));
-        card.addEventListener('mouseleave', clearPreview);
-        strip.appendChild(card);
-    });
-    scrollToCurrent(strip);
-    return strip;
-}
-
-/** The current atlas as one row; clicking it opens or closes the atlas cards beneath. */
-export function atlasPicker(atlasId, { open = false, onToggle } = {}) {
-    const caret = icon(open ? 'chevron-up' : 'chevron-down');
-    caret.classList.add('console-row-go');
-    const node = row({
-        thumb: imageThumb(registry()?.getAtlasMetadata(atlasId)?.icon, 'map'),
-        title: atlasName(atlasId),
-        meta: `Atlas · ${atlasMapCount(atlasId)} maps · ${open ? 'Pick another below' : 'Change atlas'}`,
-        trailing: caret,
-        className: 'console-atlas-picker' + (open ? ' open' : ''),
-        onClick: onToggle
-    });
-    node.setAttribute('aria-expanded', String(open));
-    return node;
-}
-
-// The selected atlas leads the strip, with the index atlas before it clipped
-// at the left edge, so the strip reads from the current atlas but still shows
-// there is one before it.
-const INDEX_PEEK = 28;
-
-function scrollToCurrent(strip) {
-    requestAnimationFrame(() => {
-        const current = strip.querySelector('.console-atlas-card.current');
-        if (!current || current === strip.firstElementChild) return;
-        const padding = parseFloat(getComputedStyle(strip).paddingLeft) || 0;
-        const offset = current.getBoundingClientRect().left - strip.getBoundingClientRect().left + strip.scrollLeft;
-        strip.scrollLeft = Math.max(0, offset - padding - INDEX_PEEK);
-    });
 }
 
 /**

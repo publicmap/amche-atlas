@@ -1,6 +1,7 @@
 /**
  * Find's view scope (js/console/find-panel.js): every list is limited to what
- * lies in the current map view unless "Include outside this view" is on. The
+ * lies in the current map view unless the in-view filter in the search field
+ * (js/console/find-filters.js) is off. The
  * choice is remembered per viewer and also decides whether picking an atlas
  * turns on its default maps that lie outside the view
  * (MapBrowserControl.switchAtlasLive).
@@ -25,6 +26,14 @@ let includeOutside = load();
 
 export function isIncludingOutside() {
     return includeOutside;
+}
+
+// Browsing by tag lists every map wherever it lies, without changing the
+// viewer's own choice (js/console/find-filters.js)
+let browseAll = false;
+
+export function setBrowseAll(on) {
+    browseAll = !!on;
 }
 
 export function setIncludeOutside(on) {
@@ -69,6 +78,44 @@ export function layerBbox(layer) {
     if (own) return own;
     const meta = layer?._sourceAtlas ? window.layerRegistry?.getAtlasMetadata(layer._sourceAtlas) : null;
     return parseBbox(meta?.bbox) || parseBbox(meta?.bounds);
+}
+
+const EARTH_KM = 6371;
+const rad = (deg) => deg * Math.PI / 180;
+
+function mapCenter() {
+    try {
+        const c = window.map?.getCenter?.();
+        return c ? [c.lng, c.lat] : null;
+    } catch (error) {
+        return null;
+    }
+}
+
+/**
+ * How far a bbox lies from the map center - to its nearest edge, in km - and
+ * the compass bearing to its middle; null when there is no map or bbox.
+ */
+export function bboxDistance(bbox, from = mapCenter()) {
+    const box = parseBbox(bbox);
+    if (!box || !from) return null;
+    const [lng, lat] = from;
+    const near = [Math.min(Math.max(lng, box[0]), box[2]), Math.min(Math.max(lat, box[1]), box[3])];
+    const mid = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2];
+    const dLat = rad(near[1] - lat);
+    const dLng = rad(near[0] - lng);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat)) * Math.cos(rad(near[1])) * Math.sin(dLng / 2) ** 2;
+    const km = 2 * EARTH_KM * Math.asin(Math.min(1, Math.sqrt(h)));
+    const y = Math.sin(rad(mid[0] - lng)) * Math.cos(rad(mid[1]));
+    const x = Math.cos(rad(lat)) * Math.sin(rad(mid[1])) - Math.sin(rad(lat)) * Math.cos(rad(mid[1])) * Math.cos(rad(mid[0] - lng));
+    const bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    return { km, bearing };
+}
+
+/** "800 m away", "32 km away", "1,240 km away". */
+export function formatAway(km) {
+    if (km < 1) return `${Math.max(10, Math.round(km * 100) * 10)} m away`;
+    return `${Math.round(km).toLocaleString()} km away`;
 }
 
 export function routeBbox(route) {
@@ -125,28 +172,7 @@ export function scoped(items, where) {
         const inView = !target || (target.bbox ? bboxInView(target.bbox, view) : pointInView(target.lngLat, view));
         (inView ? inside : outside).push(item);
     });
-    return includeOutside
+    return includeOutside || browseAll
         ? { shown: items, outside: new Set(outside), hidden: 0 }
         : { shown: inside, outside: new Set(), hidden: outside.length };
-}
-
-/**
- * The "Search Within Map" sub-search option under the search field: checked
- * keeps every list to the map view, unchecked includes what lies outside.
- * `sync(hiddenCount)` keeps it in step and says how much the scope leaves out.
- */
-export function scopeOption() {
-    const label = el('label', 'console-subsearch-option console-scope-option');
-    const box = el('input');
-    box.type = 'checkbox';
-    box.addEventListener('change', () => setIncludeOutside(!box.checked));
-    label.append(box, el('span', '', 'Search Within Map'));
-    const sync = (hiddenCount = 0) => {
-        box.checked = !includeOutside;
-        label.title = includeOutside
-            ? 'Including results outside the map view'
-            : (hiddenCount ? `${hiddenCount} more outside the map view - uncheck to include them` : 'Only results within the map view');
-    };
-    sync();
-    return { el: label, sync };
 }
