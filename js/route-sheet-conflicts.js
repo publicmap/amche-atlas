@@ -6,12 +6,12 @@
  * an edit made by the Apps Script (which bumps `version`) and a hand edit in
  * the sheet (which changes the content) both read as "changed upstream".
  */
-import { normalizeRow, splitWaypointIds, freshId } from './route-sheet-format.js';
+import { normalizeRow, splitLocationIds, freshId } from './route-sheet-format.js';
 
-export const TABLES = ['waypoints', 'routes'];
+export const TABLES = ['locations', 'routes'];
 const FIELDS = {
-    waypoints: ['id', 'name', 'lng', 'lat', 'description'],
-    routes: ['id', 'name', 'profile', 'service', 'color', 'waypoints']
+    locations: ['id', 'name', 'lng', 'lat', 'description', 'pinned'],
+    routes: ['id', 'name', 'profile', 'service', 'color', 'locations']
 };
 
 function canonical(table, row, withVersion) {
@@ -19,7 +19,8 @@ function canonical(table, row, withVersion) {
     const values = FIELDS[table].map(field => {
         const v = r[field] === undefined || r[field] === null ? '' : String(r[field]).trim();
         if ((field === 'lng' || field === 'lat') && v !== '' && Number.isFinite(Number(v))) return String(parseFloat(Number(v).toFixed(6)));
-        if (field === 'waypoints') return splitWaypointIds(v).join(',');
+        if (field === 'pinned') return /^(true|yes|y|1|on|x|✓)$/i.test(v) ? 'true' : '';
+        if (field === 'locations') return splitLocationIds(v).join(',');
         if (field === 'color' || field === 'profile' || field === 'service') return v.toLowerCase();
         return v;
     });

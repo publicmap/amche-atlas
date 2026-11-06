@@ -14,6 +14,7 @@ import { ZoomToParam } from './zoom-to-param.js';
 import ConfigManager from './config-manager.js';
 import { installHatchPatterns } from './hatch-patterns.js';
 import { isRouteLayer } from './route-legend.js';
+import { routeBadgeAt, isRouteBadge, routeBadgeId, setActiveRouteBadge } from './search/route-badge.js';
 
 /**
  * Layer config fields that can be written onto a layer that is already on the
@@ -1559,6 +1560,7 @@ export class MapFeatureControl {
         // canvas and re-triggers hover — an endless flicker loop. Ignore leaves whose
         // related target is one of our own overlays so hover stays stable.
         this._map.on('mouseleave', (e) => {
+            setActiveRouteBadge(this._map, 'map', null);
             if (this._isPointerEnteringOwnOverlay(e)) return;
             this._stateManager.handleMapMouseLeave();
         });
@@ -1675,6 +1677,13 @@ export class MapFeatureControl {
         // drag release — see `_suppressClickUntil`'s definition for why it happens.
         if (Date.now() < this._stateManager._suppressClickUntil) return;
 
+        // A route's badge on its line opens the route's card instead of selecting there
+        const route = window.mapConsole && routeBadgeAt(this._map, point);
+        if (route) {
+            window.mapConsole.openRoute(route);
+            return;
+        }
+
         const interactiveFeatures = this._queryInteractiveFeaturesAt(point, lngLat);
 
         if (interactiveFeatures.length > 0) {
@@ -1726,6 +1735,17 @@ export class MapFeatureControl {
                 console.error('[MapFeatureControl] Error querying rendered features:', error);
                 throw error;
             }
+        }
+
+        // A route's badge takes the pointer, as a location's pin does: nothing
+        // beneath it is hovered, and a click opens the route (_processClickAtPoint)
+        const onBadge = !usedFallback && rawFeatures.some(isRouteBadge);
+        if (onBadge && !this._overRouteBadge) this._stateManager.handleMapMouseLeave();
+        this._overRouteBadge = onBadge;
+        setActiveRouteBadge(this._map, 'map', onBadge ? routeBadgeId(rawFeatures) : null);
+        if (onBadge) {
+            this._updateCursor(true);
+            return;
         }
 
         const layerGroups = new Map();

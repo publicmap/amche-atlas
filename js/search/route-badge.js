@@ -1,19 +1,34 @@
 /**
- * A route's badge: a disc in the route's colour with its travel mode's icon in
- * white, on a white rim so it holds up over any colour or imagery. The same
- * mark sits on the route's card in Find (../console/route-card.js)
- * and on the route line itself (route-geojson.js's `badge/` layer).
+ * A route's badge: a pill in the route's colour with its travel mode's icon
+ * and its ref (the `<rid>` of `route-<rid>:`) in white, on a white rim so it
+ * holds up over any colour or imagery. The same mark sits on the route's card
+ * in Find (../console/route-card.js's routeSymbol, .route-symbol in
+ * css/route-card.css) and on the route line itself (route-geojson.js's
+ * `badge/` layer), where a click opens the route's card (routeBadgeAt).
  *
- * On the map it is a style image made on demand, one per profile and colour,
- * the first time a layer asks for it (`styleimagemissing`) - so a basemap
- * switch, which drops every added image, recovers on its own.
+ * A badge whose route is active - its badge or card pointed at, or its card
+ * open - is drawn again on top with a dark rim, the way a location's pin is
+ * outlined (setActiveRouteBadge, the `badgeactive/` pass of ROUTE_STYLE).
+ *
+ * On the map it is a style image made on demand, one per profile, colour and
+ * ref, the first time a layer asks for it (`styleimagemissing`) - so a
+ * basemap switch, which drops every added image, recovers on its own.
  */
 
 const LOCATION_BLUE = '#1da1f2';
 const PREFIX = 'route-badge:';
-const SIZE = 28;
-const RADIUS = 11;
-const ICON = 14;
+const ACTIVE_PREFIX = 'route-badge-active:';
+const ACTIVE_RIM = '#111827';
+const ACTIVE_PASS = '--badgeactive';
+// .route-symbol's box: 26px tall with a 2px rim, padding 6 / 7, a 3px gap
+const HEIGHT = 26;
+const RIM = 2;
+const PAD_LEFT = 6;
+const PAD_RIGHT = 7;
+const GAP = 3;
+const ICON = 13;
+const SHADOW = 3;
+const FONT = '700 11.5px system-ui, -apple-system, sans-serif';
 
 /** The Bootstrap icon per travel mode, as the dock shows it. */
 export const PROFILE_ICONS = { driving: 'car-front-fill', cycling: 'bicycle', walking: 'person-walking' };
@@ -38,41 +53,112 @@ export function profileIcon(profile) {
     return PROFILE_ICONS[badgeMode(profile)];
 }
 
-/** The style image a route feature's badge is drawn with. */
-export const ROUTE_BADGE_IMAGE = ['concat', PREFIX,
+const badgeImage = (prefix) => ['concat', prefix,
     ['match', ['get', 'profile'], 'cycling', 'cycling', 'walking', 'walking', 'driving'],
-    ':', ['to-string', ['coalesce', ['get', 'color'], LOCATION_BLUE]]];
+    ':', ['to-string', ['coalesce', ['get', 'color'], LOCATION_BLUE]],
+    ':', ['to-string', ['coalesce', ['get', 'rid'], '']]];
 
-function drawBadge(mode, color, ratio) {
+/** The style image a route feature's badge is drawn with: `route-badge:<mode>:<color>:<rid>`. */
+export const ROUTE_BADGE_IMAGE = badgeImage(PREFIX);
+/** The same badge with a dark rim, for an active route. */
+export const ROUTE_BADGE_ACTIVE_IMAGE = badgeImage(ACTIVE_PREFIX);
+
+const activeFilter = (routeIds) => ['all', ['==', ['get', 'kind'], 'route-badge'], ['in', ['get', 'routeId'], ['literal', routeIds]]];
+/** The active pass's filter until a route is active: no badge. */
+export const ROUTE_BADGE_ACTIVE_FILTER = activeFilter([]);
+
+// Why a route is active: its badge pointed at on the map, its card pointed at, its card open
+const active = { map: null, card: null, open: null };
+
+/** Marks a route active (`routeId`) or not (null) for one reason, and redraws the active badges. */
+export function setActiveRouteBadge(map, reason, routeId) {
+    if (active[reason] === routeId) return;
+    active[reason] = routeId || null;
+    const ids = [...new Set(Object.values(active).filter(Boolean))];
+    (map?.getStyle?.()?.layers || [])
+        .filter(layer => layer.id.endsWith(ACTIVE_PASS))
+        .forEach(layer => map.setFilter(layer.id, activeFilter(ids)));
+}
+
+function drawBadge(mode, color, rid, ratio, rim = '#ffffff') {
+    const measure = document.createElement('canvas').getContext('2d');
+    measure.font = FONT;
+    const text = rid ? measure.measureText(rid).width : 0;
+    const width = Math.ceil(RIM + PAD_LEFT + ICON + (rid ? GAP + text : 0) + PAD_RIGHT + RIM);
     const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = SIZE * ratio;
+    canvas.width = (width + SHADOW * 2) * ratio;
+    canvas.height = (HEIGHT + SHADOW * 2) * ratio;
     const ctx = canvas.getContext('2d');
     ctx.scale(ratio, ratio);
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+    ctx.translate(SHADOW, SHADOW);
+    const r = HEIGHT / 2;
+    const pill = new Path2D();
+    pill.moveTo(r, 0);
+    pill.arcTo(width, 0, width, HEIGHT, r);
+    pill.arcTo(width, HEIGHT, 0, HEIGHT, r);
+    pill.arcTo(0, HEIGHT, 0, 0, r);
+    pill.arcTo(0, 0, width, 0, r);
+    pill.closePath();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
     ctx.shadowBlur = 3;
-    ctx.beginPath();
-    ctx.arc(SIZE / 2, SIZE / 2, RADIUS, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
+    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = rim;
+    ctx.fill(pill);
     ctx.shadowColor = 'transparent';
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#ffffff';
-    ctx.stroke();
-    ctx.translate((SIZE - ICON) / 2, (SIZE - ICON) / 2);
+    ctx.save();
+    ctx.translate(RIM, RIM);
+    const inner = new Path2D();
+    const w = width - RIM * 2;
+    const h = HEIGHT - RIM * 2;
+    inner.roundRect(0, 0, w, h, h / 2);
+    ctx.fillStyle = color;
+    ctx.fill(inner);
+    ctx.restore();
+    ctx.save();
+    ctx.translate(RIM + PAD_LEFT, (HEIGHT - ICON) / 2);
     ctx.scale(ICON / 16, ICON / 16);
     ctx.fillStyle = '#ffffff';
     ICON_PATHS[mode].forEach(d => ctx.fill(new Path2D(d)));
+    ctx.restore();
+    if (rid) {
+        ctx.font = FONT;
+        ctx.fillStyle = '#ffffff';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(rid, RIM + PAD_LEFT + ICON + GAP, HEIGHT / 2 + 0.5);
+    }
     return ctx.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+/** Whether a rendered feature is a route's badge. */
+export function isRouteBadge(feature) {
+    return feature?.properties?.kind === 'route-badge' && !!feature.properties.routeId;
+}
+
+/** The route id of the badge among `features`, or null. */
+export function routeBadgeId(features) {
+    return features.find(isRouteBadge)?.properties.routeId || null;
+}
+
+/**
+ * The route whose badge is under a map point, from the route store; null when
+ * there is none. Anywhere on the badge's pill counts: a symbol is hit by its
+ * whole icon. `features` reuses a query already made at that point.
+ */
+export function routeBadgeAt(map, point, features = null) {
+    const hit = (features || map.queryRenderedFeatures(point)).find(isRouteBadge);
+    return hit ? (window.routeStore?.routes || []).find(route => route.id === hit.properties.routeId) || null : null;
 }
 
 export function installRouteBadgeImages(map) {
     if (!map || map._routeBadgeImages) return;
     map._routeBadgeImages = true;
     map.on('styleimagemissing', ({ id }) => {
-        if (!id?.startsWith(PREFIX) || map.hasImage(id)) return;
-        const [mode, color] = id.slice(PREFIX.length).split(':');
+        const prefix = [ACTIVE_PREFIX, PREFIX].find(p => id?.startsWith(p));
+        if (!prefix || map.hasImage(id)) return;
+        const [mode, color, ...rid] = id.slice(prefix.length).split(':');
         if (!ICON_PATHS[mode]) return;
         const ratio = Math.max(1, Math.ceil(window.devicePixelRatio || 1));
-        map.addImage(id, drawBadge(mode, color || LOCATION_BLUE, ratio), { pixelRatio: ratio });
+        const rim = prefix === ACTIVE_PREFIX ? ACTIVE_RIM : '#ffffff';
+        map.addImage(id, drawBadge(mode, color || LOCATION_BLUE, rid.join(':'), ratio, rim), { pixelRatio: ratio });
     });
 }

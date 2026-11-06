@@ -58,6 +58,9 @@ const MARKER_MATCH_METERS = 25;
 // Directions API for frames nobody sees. Trailing edge only, then once more on
 // release, so the line keeps up without a request per pixel.
 const LIVE_REROUTE_MS = 220;
+// A location shared by routes waits this long per route it is on, so dragging
+// a busy stop sends one batch of requests, not one per route per pause.
+const LOCATION_REROUTE_MS_PER_ROUTE = 100;
 
 let nextRouteNumber = 1;
 
@@ -165,7 +168,7 @@ export class RouteStore {
                 // resolving them to the live markers now means removing the
                 // route releases the pins it was drawn on, without waiting for
                 // a re-route to rebuild markerIds through _syncMarkers.
-                adopted.markerIds = waypointMarkerIds(group, adopted.waypoints.length);
+                adopted.markerIds = waypointMarkerIds(group, adopted);
                 this._routes.push(adopted);
                 this._pushGeojson(adopted.groupId);
             });
@@ -192,11 +195,12 @@ export class RouteStore {
             const live = route.markerIds.length === route.waypoints.length
                 && route.markerIds.every(id => id && markers._markers?.has(id));
             if (live) return;
-            const ids = waypointMarkerIds(groups.find(group => group.id === route.groupId), route.waypoints.length);
+            const ids = waypointMarkerIds(groups.find(group => group.id === route.groupId), route);
             if (!ids.length) return;
             route.markerIds = ids;
             changed = true;
         });
+        this._bindLocations(markers);
         if (!changed) return;
         this._recolor().forEach(groupId => this._writeGeojson(groupId));
         if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('routes-changed'));
@@ -262,6 +266,32 @@ export class RouteStore {
 
         route.waypoints[index] = [lngLat.lng, lngLat.lat];
         this._scheduleResolve(route, live);
+    }
+
+    /**
+     * A location moved (its pin or panel dragged): every route stopping at it
+     * follows. While the drag runs the routes re-route after a pause of
+     * LOCATION_REROUTE_MS_PER_ROUTE for each of them; on release, any route
+     * not yet routed through the final position re-routes at once.
+     */
+    moveLocation(markerId, lngLat, { live = false } = {}) {
+        const routes = this._routes.filter(route => route.markerIds.includes(markerId));
+        if (!routes.length) return;
+        routes.forEach(route => route.markerIds.forEach((id, i) => {
+            if (id === markerId) route.waypoints[i] = [lngLat.lng, lngLat.lat];
+        }));
+        this._locationTimers ??= new Map();
+        clearTimeout(this._locationTimers.get(markerId));
+        const reroute = () => {
+            this._locationTimers.delete(markerId);
+            routes.forEach(route => {
+                clearTimeout(route._rerouteTimer);
+                if (route._routedKey === JSON.stringify(route.waypoints)) return;
+                this._resolve(route).catch(error => console.warn('[directions] re-route failed:', error));
+            });
+        };
+        if (live) this._locationTimers.set(markerId, setTimeout(reroute, LOCATION_REROUTE_MS_PER_ROUTE * routes.length));
+        else reroute();
     }
 
     /**
@@ -624,6 +654,7 @@ export class RouteStore {
 
     async _resolve(route) {
         const seq = route._resolveSeq = (route._resolveSeq || 0) + 1;
+        route._routedKey = JSON.stringify(route.waypoints);
         const result = await fetchRouteForWaypoints(route.waypoints, {
             engine: route.engine,
             profile: route.profile
@@ -725,12 +756,30 @@ export class RouteStore {
         });
     }
 
+    /**
+     * Every location a route stops at moves its routes when dragged, whoever
+     * made the marker: one bound from a link or a sheet has no handlers of its
+     * own until now.
+     */
+    _bindLocations(markers) {
+        const ids = new Set(this._routes.flatMap(route => route.markerIds).filter(Boolean));
+        ids.forEach(id => {
+            if (markers._markers?.get(id)?.onDrag) return;
+            markers.adoptAsWaypoint?.(id, {
+                pinColor: WAYPOINT_PIN_COLOR,
+                onDrag: (moved) => this.moveLocation(id, moved, { live: true }),
+                onDragEnd: (moved) => this.moveLocation(id, moved),
+                onRemove: () => this.removeMarkerFromRoutes(id)
+            });
+        });
+    }
+
     _waypointHandlers(route, ref) {
         const indexOf = () => route.markerIds.indexOf(ref.id);
         return {
             pinColor: WAYPOINT_PIN_COLOR,
-            onDrag: (moved) => this.moveWaypoint(route.id, indexOf(), moved, { live: true }),
-            onDragEnd: (moved) => this.moveWaypoint(route.id, indexOf(), moved),
+            onDrag: (moved) => this.moveLocation(ref.id, moved, { live: true }),
+            onDragEnd: (moved) => this.moveLocation(ref.id, moved),
             onRemove: () => this.removeWaypoint(route.id, indexOf())
         };
     }
@@ -842,6 +891,7 @@ export class RouteStore {
                     ...feature.properties,
                     id: `${route.id}-${featureKey(feature)}`,
                     routeId: route.id,
+                    rid: route.rid,
                     routeName: route.name,
                     color: route.color,
                     colorCustom: route.colorCustom
@@ -1022,10 +1072,17 @@ export class RouteStore {
  * `markers=` ids its layer carries (route-url-api.js's `_waypointMarkerIds`).
  * All or nothing: a partial list would pair waypoints with the wrong pins.
  */
-function waypointMarkerIds(group, count) {
-    const urlIds = group?._waypointMarkerIds;
+function waypointMarkerIds(group, route) {
+    const count = route.waypoints.length;
+    // A link's route names its stops by `markers=` id on the group; a sheet's
+    // routes each carry theirs as the waypoints' `markerId` (route-sheet-layer.js)
+    const own = (group?.geojson?.features || [])
+        .filter(f => f.properties?.kind === 'waypoint' && (f.properties.routeId || `${group.id}:0`) === route.id)
+        .sort((a, b) => (a.properties.index ?? 0) - (b.properties.index ?? 0))
+        .map(f => f.properties.markerId);
+    const urlIds = Array.isArray(group?._waypointMarkerIds) ? group._waypointMarkerIds : own;
     const markers = window.featureControl?._markerManager;
-    if (!Array.isArray(urlIds) || urlIds.length !== count || !markers) return [];
+    if (!Array.isArray(urlIds) || urlIds.length !== count || !urlIds.every(Boolean) || !markers) return [];
 
     const ids = urlIds.map(urlId => markers.getMarkerByUrlId(urlId));
     return ids.every(Boolean) ? ids : [];

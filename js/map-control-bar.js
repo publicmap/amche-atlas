@@ -9,16 +9,16 @@
  * starts with the search field at the card's left edge.
  *
  * - explore: one bar row (the atlas field with its Find icon, the atlas button
- *   counting the maps on the map, Pins and - once there is a route - Routes,
+ *   counting the maps on the map, Locations and - once there is a route - Routes,
  *   with their counts) over a line naming the place at the map center -
  *   starting with the Share panel's link icon (js/share-view-panel.js), ending
  *   in the 3D terrain and location status icons; the place name and each icon
  *   toggle a panel of their own (js/console-panel.js) - then, when opened, Share
- *   for the pins (js/console/share-pins.js). Marker panels dock in a column
+ *   for the locations (js/console/share-locations.js). Marker panels dock in a column
  *   beneath the console (map-marker-manager.js).
  * - find: the same row with the atlas name turned into the search field (its
  *   search icon moved to the left, the search settings at the right end) over
- *   Find's results (js/console/find-panel.js). The atlas, Pins and Routes
+ *   Find's results (js/console/find-panel.js). The atlas, Locations and Routes
  *   buttons stay and pick Find's view; the atlas view opens on the maps on
  *   the map (its Active filter). With a query their badges count the view's results instead of what
  *   is on the map.
@@ -32,7 +32,7 @@
  * classes: map-marker-manager.js docks marker panels beneath that row.
  */
 import { FindPanel, VIEWS, viewFor } from './console/find-panel.js';
-import { SharePanel } from './console/share-pins.js';
+import { SharePanel } from './console/share-locations.js';
 import { createMarkerProvider } from './search/providers/marker-provider.js';
 import { routeStore } from './search/route-store.js';
 import { placeLine } from './map-search-toggle.js';
@@ -82,10 +82,10 @@ export class MapControlBar {
             else if (this.share?.isOpen) this.closeShare();
         };
         this._onUrlUpdated = () => {
-            this._updatePins();
+            this._updateLocations();
             this.share?.render();
         };
-        this._onRoutesChanged = () => setTimeout(() => this._updatePins());
+        this._onRoutesChanged = () => setTimeout(() => this._updateLocations());
     }
 
     mount(hostEl, { map = null, searchToggle = null, stripEl = null, footerEl = null, onModeChange = null, onToggleHidden = null } = {}) {
@@ -122,9 +122,9 @@ export class MapControlBar {
         const searchEl = searchToggle?._el || null;
         if (searchEl) searchEl.classList.add('when-find');
 
-        this._pinsBtn = button('console-btn console-pins-btn', 'pin-map', 'Pins');
-        this._pinsBadge = badge(this._pinsBtn);
-        this._pinsBtn.addEventListener('click', () => this.toggleFind('pins'));
+        this._locationsBtn = button('console-btn console-locations-btn', 'pin-map', 'Locations');
+        this._locationsBadge = badge(this._locationsBtn);
+        this._locationsBtn.addEventListener('click', () => this.toggleFind('locations'));
 
         // The current atlas's icon is the first view button - Find's default
         // view - and carries the loading spinner
@@ -155,7 +155,7 @@ export class MapControlBar {
         this._routesBtn = button('console-btn console-routes-btn', 'signpost-split', 'Routes');
         this._routesBadge = badge(this._routesBtn);
         this._routesBtn.addEventListener('click', () => this.toggleFind('routes'));
-        this._viewButtons = { atlas: this._atlasBtn, pins: this._pinsBtn, routes: this._routesBtn };
+        this._viewButtons = { atlas: this._atlasBtn, locations: this._locationsBtn, routes: this._routesBtn };
 
         this._field.append(...Object.values(this._viewButtons));
 
@@ -183,7 +183,7 @@ export class MapControlBar {
                 this.setMode('explore', { keepQuery: true });
             },
             onHover: (item, hovering) => window.searchControl?.handleSuggestionHover(item, hovering),
-            onSharePins: () => this.openShare(),
+            onShareLocations: () => this.openShare(),
             clearQuery: () => this._searchToggle?.clear(),
             onDone: () => this.setMode('explore', { keepQuery: true }),
             onViewChange: () => this._syncHead()
@@ -207,7 +207,7 @@ export class MapControlBar {
         window.addEventListener('urlUpdated', this._onUrlUpdated);
         window.addEventListener('marker-saved', this._onUrlUpdated);
         ['routes-changed', 'layersInitialized'].forEach(type => window.addEventListener(type, this._onRoutesChanged));
-        this._updatePins();
+        this._updateLocations();
 
         window.addEventListener('atlasChanged', this._onAtlasChanged);
         window.addEventListener('mapLocationChanged', this._onLocation);
@@ -234,7 +234,7 @@ export class MapControlBar {
     /**
      * @param {'explore'|'find'} mode
      * @param {{view?: string, filter?: string, focus?: boolean, keepQuery?: boolean}} [options]
-     *   view - Find's view to open on (atlas, pins, routes; `filter`
+     *   view - Find's view to open on (atlas, locations, routes; `filter`
      *   takes Find's old filter names); focus - move focus to the field;
      *   keepQuery - leave a picked result's name in the field when closing
      */
@@ -262,7 +262,7 @@ export class MapControlBar {
         if (this._el.contains(document.activeElement)) document.activeElement.blur();
     }
 
-    /** Where to keep the pins on the map: the share link or the atlas config. */
+    /** Where to keep the locations on the map: the share link or the atlas config. */
     openShare() {
         if (this._mode !== 'explore') this.setMode('explore', { keepQuery: true });
         this.share.open();
@@ -278,6 +278,13 @@ export class MapControlBar {
         if (window.cadastralSearchUI?.exitSurveyMode?.()) return;
         if (this.find.detailsOpen) this.find.closeDetails();
         else this.setMode('explore');
+    }
+
+    /** A route's card, open, in Find's Routes (a click on its badge on the map). */
+    openRoute(route) {
+        if (!route) return;
+        this.setMode('find', { focus: false });
+        this.find.openRoute(route);
     }
 
     /** Open a map's details page in Find. */
@@ -340,8 +347,8 @@ export class MapControlBar {
 
     _paintBadges() {
         const counts = this._mode === 'find' ? this.find?.counts : null;
-        const own = { layers: this._layerCount || 0, pins: markers.list().length, routes: routeStore.routes.length };
-        [['layers', this._badge], ['pins', this._pinsBadge], ['routes', this._routesBadge]].forEach(([id, node]) => {
+        const own = { layers: this._layerCount || 0, locations: markers.list().length, routes: routeStore.routes.length };
+        [['layers', this._badge], ['locations', this._locationsBadge], ['routes', this._routesBadge]].forEach(([id, node]) => {
             const value = counts ? counts[id] : own[id];
             node.classList.toggle('is-result', !!counts);
             node.hidden = !value && !counts;
@@ -385,7 +392,7 @@ export class MapControlBar {
         this._main.title = name ? `Search in ${name}: atlases, maps and places ( / )` : 'Find atlases, maps and places ( / )';
         this._setIcon(metadata?.icon || null);
 
-        const count = Array.isArray(layers) ? layers.filter(l => l.id !== 'selection').length : 0;
+        const count = Array.isArray(layers) ? layers.filter(l => l.id !== 'locations').length : 0;
         this._layerCount = count;
         this._atlasBtn.title = `${name || 'Atlas'}: ${count ? `${count} maps on the map` : 'atlas and its maps'} ( Ctrl+L )`;
         this._atlasBtn.setAttribute('aria-label', this._atlasBtn.title);
@@ -395,11 +402,11 @@ export class MapControlBar {
         this.find.refresh();
     }
 
-    _updatePins() {
-        if (!this._pinsBtn) return;
+    _updateLocations() {
+        if (!this._locationsBtn) return;
         const count = markers.list().length;
-        this._pinsBtn.title = count ? `${count} pin${count === 1 ? '' : 's'} on the map` : 'Pins';
-        this._pinsBtn.setAttribute('aria-label', this._pinsBtn.title);
+        this._locationsBtn.title = count ? `${count} location${count === 1 ? '' : 's'} on the map` : 'Locations';
+        this._locationsBtn.setAttribute('aria-label', this._locationsBtn.title);
 
         const routes = routeStore.routes.length;
         this._paintBadges();

@@ -6433,6 +6433,40 @@ sl-tab:hover::part(base) {
     cursor: pointer;
 }
 
+/* A location's pin on the map (js/location-pins.js): click opens its panel, drag moves it */
+.location-pin {
+    width: 24px;
+    height: 32px;
+    cursor: grab;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+.location-pin:active {
+    cursor: grabbing;
+}
+
+.location-pin svg {
+    display: block;
+}
+
+.location-pin-body {
+    fill: var(--pin-color, #f97316);
+    stroke: #fff;
+    stroke-width: 1.5;
+}
+
+.location-pin:hover .location-pin-body,
+.location-pin.active .location-pin-body,
+.location-pin.selected .location-pin-body {
+    stroke: #111827;
+    stroke-width: 2;
+}
+
+.location-pin.selected {
+    transform-origin: bottom center;
+    z-index: 1;
+}
+
 .selection-popup .mapboxgl-popup-content {
     padding: 0 !important;
     border-radius: 8px !important;

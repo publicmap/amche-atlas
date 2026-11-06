@@ -42,9 +42,40 @@ function markerUrlId(markerId) {
     return (markerId && markers()?.getMarkerUrlId?.(markerId)) || null;
 }
 
+// The stop picked out on an open route card, and its ring on the map
+let stopFocus = null;
+let stopRing = null;
+
+function ringAt(route, index) {
+    const host = routeHost();
+    const point = route.waypoints[index];
+    if (!host?.map || !host.mapboxgl || !point) return;
+    if (!stopRing) {
+        const node = document.createElement('div');
+        node.className = 'route-stop-ring';
+        stopRing = new host.mapboxgl.Marker({ element: node }).setLngLat(point).addTo(host.map);
+    }
+    stopRing.setLngLat(point);
+    stopRing.getElement().style.setProperty('--route-color', routeColorOf(route));
+}
+
 export const routeActions = {
     select(id) { markers()?.selectRoute(id); },
-    deselect(id) { markers()?.clearRouteSelection?.(id); },
+    deselect(id) {
+        if (stopFocus?.routeId === id) this.clearStopHighlight();
+        markers()?.clearRouteSelection?.(id);
+    },
+    /** Picks out one stop of a route: in its card's diagram (route-stops.js) and with a ring on the map. */
+    highlightStop(route, index) {
+        stopFocus = { routeId: route.id, index };
+        ringAt(route, index);
+    },
+    highlightedStop() { return stopFocus; },
+    clearStopHighlight() {
+        stopFocus = null;
+        stopRing?.remove();
+        stopRing = null;
+    },
     hover(id) { markers()?.hoverRoute(id); },
     toggleHidden(route) { store()?.setRouteHidden(route.id, !route.hidden); },
     reverse(route) { store()?.reverseRoute(route.id); },
@@ -75,6 +106,7 @@ export const routeActions = {
     setColor(route, color) { store()?.setRouteColor(route.id, color); },
     remove(route) { markers()?.deleteRoute(route.id); },
     focusStop(route, index) {
+        this.highlightStop(route, index);
         const id = route.markerIds?.[index];
         const point = route.waypoints[index];
         const map = routeHost()?.map;

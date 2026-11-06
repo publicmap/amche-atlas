@@ -2,7 +2,7 @@ import { ExportFrame } from './export-frame.js';
 import { InspectionHandlerLoader } from './inspection-handler-loader.js';
 import { trackEvent } from './analytics.js';
 import { collectSourceFeatures, prefetchGeoJSONSources } from './source-feature-collector.js';
-import { routesFromGeojson, routesToRows, toCsv, toAmcheUrl, WAYPOINT_COLUMNS, ROUTE_COLUMNS } from './route-sheet-format.js';
+import { routesFromGeojson, routesToRows, toCsv, toAmcheUrl, LOCATION_COLUMNS, ROUTE_COLUMNS } from './route-sheet-format.js';
 import { isNominatimBackedOff, reportNominatimFailure, nominatimLanguage } from './nominatim-search.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 
@@ -1517,7 +1517,7 @@ export class MapExportControl {
 
     /**
      * Routes as the two tabs of a route sheet (docs/route-sheets.md): one CSV
-     * of waypoints, one of routes with each route's amche link, ready to paste
+     * of locations, one of routes with each route's amche link, ready to paste
      * into a Google Sheet that a `"type": "routes"` layer reads.
      */
     async _exportRouteSheet(config) {
@@ -1531,7 +1531,7 @@ export class MapExportControl {
         rows.routes.forEach(row => { row.link = toAmcheUrl({ routes, markers }, { base, atlas, routeIds: [row.id] }); });
         const stem = this._generateFilenameFromFeatures(items, 'csv', true).replace(/\.csv$/, '');
         this._sendProgress(80, 'Downloading files');
-        this._downloadFile(toCsv(rows.waypoints, WAYPOINT_COLUMNS), `${stem}-waypoints.csv`, 'text/csv');
+        this._downloadFile(toCsv(rows.locations, LOCATION_COLUMNS), `${stem}-locations.csv`, 'text/csv');
         this._downloadFile(toCsv(rows.routes, [...ROUTE_COLUMNS, 'link']), `${stem}-routes.csv`, 'text/csv');
     }
 
@@ -2348,8 +2348,8 @@ export class MapExportControl {
                     }
 
                     const filteredLayers = layerItems.filter(layer => {
-                        return !layer.includes('"id":"selection"') &&
-                               !layer.includes("'id':'selection'");
+                        return !layer.includes('"id":"locations"') &&
+                               !layer.includes("'id':'locations'");
                     });
 
                     if (filteredLayers.length > 0) {

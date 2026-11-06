@@ -126,7 +126,7 @@ export class URLManager {
                         const isClearing = eventType === 'selections-cleared' || eventType === 'selection-cleared';
                         let updateLayers = isClearing;
                         if (!updateLayers && this.mapLayerControl) {
-                            const selectionLayer = this.mapLayerControl._state.groups.find(g => g.id === 'selection');
+                            const selectionLayer = this.mapLayerControl._state.groups.find(g => g.id === 'locations');
                             if (selectionLayer?.geojson?.features?.length > 0) {
                                 updateLayers = true;
                             }
@@ -343,17 +343,17 @@ export class URLManager {
 
         // Iterate through all groups in the layer control
         this.mapLayerControl._state.groups.forEach((group, groupIndex) => {
-            // Special case: skip the system layers ('selection' markers,
+            // Special case: skip the system layers ('locations' markers,
             // 'directions' routes, 'gpx' tracks) while they hold nothing - they
             // are always present, so listing them empty would only pad every URL.
-            const isEmptySystemLayer = ['selection', 'directions', 'gpx'].includes(group.id) &&
+            const isEmptySystemLayer = ['locations', 'directions', 'gpx'].includes(group.id) &&
                 (!group.geojson || !group.geojson.features || group.geojson.features.length === 0);
             if (isEmptySystemLayer) {
                 return;
             }
 
             // Special case: always include selection layer if it has features
-            const isSelectionWithFeatures = group.id === 'selection' &&
+            const isSelectionWithFeatures = group.id === 'locations' &&
                 group.geojson &&
                 group.geojson.features &&
                 group.geojson.features.length > 0;
@@ -402,7 +402,7 @@ export class URLManager {
                     // excluded here — its markers are carried in the compact `markers=` param
                     // instead of inlining a full FeatureCollection (see serializeMarkersForURL),
                     // and a layer whose data stays on the device (config/index.js) never inlines it.
-                    if (group.id !== 'selection' && !isLocalDataLayer(group.id) && group.geojson && group.geojson.features && group.geojson.features.length > 0) {
+                    if (group.id !== 'locations' && !isLocalDataLayer(group.id) && group.geojson && group.geojson.features && group.geojson.features.length > 0) {
                         layerObj.geojson = group.geojson;
                     }
                     copyEditedFields(group, layerObj);
@@ -1536,7 +1536,7 @@ export class URLManager {
                             // Preferred path: rebuild the selection layer geojson from the
                             // compact `markers=` param, then restore markers + selections from it.
                             const selectionGeojson = this.parseMarkersFromURL(markersParam);
-                            const selectionGroup = window.layerControl?._state?.groups?.find(g => g.id === 'selection');
+                            const selectionGroup = window.layerControl?._state?.groups?.find(g => g.id === 'locations');
                             if (selectionGroup) {
                                 selectionGroup.geojson = selectionGeojson;
                             }

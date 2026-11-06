@@ -8,7 +8,7 @@
  * title, style and inspect settings: the type and the data come from here, and
  * their ids are reserved (docs/API.md "Reserved layer ids").
  *
- * - selection:  markers placed on the map (js/map-marker-manager.js)
+ * - locations:  locations saved on the map (js/map-marker-manager.js)
  * - directions: routes drawn by navigation (js/search/route-store.js)
  * - mask:       the cutout for `?mask=` (js/map-mask-manager.js)
  * - gpx:        the device's logged tracks (js/gpx-log.js), kept on the
@@ -17,7 +17,7 @@
  */
 
 export const systemLayers = {
-    selection: { initiallyChecked: true },
+    locations: { initiallyChecked: true },
     directions: { initiallyChecked: false },
     mask: { initiallyChecked: false },
     gpx: { initiallyChecked: false, localData: true }

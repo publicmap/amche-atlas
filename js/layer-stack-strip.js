@@ -307,7 +307,7 @@ export class LayerStackStrip {
         const visible = [];
         groups.forEach((group, index) => {
             // Internal scratch layer for inspected features, not a browsable map
-            if (group.id === 'selection') return;
+            if (group.id === 'locations') return;
             if (!urlManager.isGroupActive(index)) return;
 
             const registryLayer = window.layerRegistry?.getLayer?.(group.id, null, true);

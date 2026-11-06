@@ -298,7 +298,7 @@ export class LayerHeader {
 
         const visible = [];
         groups.forEach((group, index) => {
-            if (group.id === 'selection' || !urlManager.isGroupActive(index)) return;
+            if (group.id === 'locations' || !urlManager.isGroupActive(index)) return;
             const registryLayer = parent.layerRegistry?.getLayer?.(group.id, null, true);
             visible.push(registryLayer ? { ...registryLayer, ...group } : group);
         });

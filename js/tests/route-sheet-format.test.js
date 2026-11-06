@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
     routesToRows, rowsToRoutes, toAmcheUrl, toCsv, fromCsv, routesFromGeojson, routesFromCsv,
-    WAYPOINT_COLUMNS, ROUTE_COLUMNS, freshId
+    LOCATION_COLUMNS, ROUTE_COLUMNS, freshId
 } from '../route-sheet-format.js';
 import { parseMarkersParam, setAll } from '../marker-registry.js';
 import { RouteApi } from '../route-url-api.js';
@@ -31,10 +31,10 @@ function readLink(href) {
 describe('route-sheet-format rows', () => {
     it('round-trips routes and markers through sheet rows', () => {
         const rows = routesToRows(routes, markers);
-        expect(Object.keys(rows.waypoints[0])).toEqual(WAYPOINT_COLUMNS.slice(0, 5));
+        expect(Object.keys(rows.locations[0])).toEqual(LOCATION_COLUMNS.slice(0, 5));
         expect(Object.keys(rows.routes[0])).toEqual(ROUTE_COLUMNS.slice(0, 6));
-        expect(rows.routes[0].waypoints).toBe('panjim,ribandar,old_goa');
-        const back = rowsToRoutes(rows.waypoints, rows.routes);
+        expect(rows.routes[0].locations).toBe('panjim,ribandar,old_goa');
+        const back = rowsToRoutes(rows.locations, rows.routes);
         expect(back.errors).toEqual([]);
         expect(back.markers).toEqual(markers);
         expect(back.routes).toEqual(routes);
@@ -45,14 +45,14 @@ describe('route-sheet-format rows', () => {
             [{ rid: '1', markerIds: ['a', 'b'], engine: 'osrm', profile: 'driving' }],
             [{ id: 'a', coordinates: [73.8, 15.5] }, { id: 'b', coordinates: [73.9, 15.6] }]
         );
-        expect(rows.routes[0]).toMatchObject({ id: '1', service: 'osrm', waypoints: 'a,b' });
-        expect(rows.waypoints[1]).toMatchObject({ id: 'b', lng: 73.9, lat: 15.6 });
+        expect(rows.routes[0]).toMatchObject({ id: '1', service: 'osrm', locations: 'a,b' });
+        expect(rows.locations[1]).toMatchObject({ id: 'b', lng: 73.9, lat: 15.6 });
     });
 
     it('reads loosely written sheets: header aliases, spaces between stops, bare colours', () => {
         const { routes: r, markers: m, errors } = rowsToRoutes(
             [{ ID: 'a', Longitude: '73.8', Latitude: '15.5' }, { ID: 'b', lon: '73.9', lat: '15.6', Name: 'B' }],
-            [{ Route_ID: 'route-7', Stops: 'a  b', Colour: 'E32017', Mode: 'Walking' }]
+            [{ ID: 'route-7', Locations: 'a  b', Colour: 'E32017', Mode: 'Walking' }]
         );
         expect(errors).toEqual([]);
         expect(m[1]).toMatchObject({ id: 'b', name: 'B' });
@@ -63,21 +63,21 @@ describe('route-sheet-format rows', () => {
         const { routes: r, markers: m, errors } = rowsToRoutes(
             [{ id: 'a', lng: '73.8', lat: '15.5' }, { id: 'a', lng: '1', lat: '1' }, { id: 'c', lng: 'x', lat: '15' }, { id: 'd', lng: '200', lat: '1' }],
             [
-                { id: 'ok', waypoints: 'a,a' },
-                { id: 'no stops', waypoints: 'a,a' },
-                { id: 'r2', waypoints: 'a,missing' },
-                { id: 'r3', waypoints: 'a' },
-                { id: 'r4', waypoints: 'a,a', profile: 'flying' },
-                { id: 'r5', waypoints: 'a,a', service: 'teleport' },
-                { id: 'r6', waypoints: 'a,a', color: 'red' },
-                { id: 'ok', waypoints: 'a,a' }
+                { id: 'ok', locations: 'a,a' },
+                { id: 'no stops', locations: 'a,a' },
+                { id: 'r2', locations: 'a,missing' },
+                { id: 'r3', locations: 'a' },
+                { id: 'r4', locations: 'a,a', profile: 'flying' },
+                { id: 'r5', locations: 'a,a', service: 'teleport' },
+                { id: 'r6', locations: 'a,a', color: 'red' },
+                { id: 'ok', locations: 'a,a' }
             ]
         );
         expect(m.map(x => x.id)).toEqual(['a']);
         expect(r.map(x => x.id)).toEqual(['ok', 'r6']);
         expect(r[1].color).toBeUndefined();
         const lines = errors.map(e => `${e.table}:${e.row}`);
-        expect(lines).toEqual(['waypoints:3', 'waypoints:4', 'waypoints:5', 'routes:3', 'routes:4', 'routes:5', 'routes:6', 'routes:7', 'routes:8', 'routes:9']);
+        expect(lines).toEqual(['locations:3', 'locations:4', 'locations:5', 'routes:3', 'routes:4', 'routes:5', 'routes:6', 'routes:7', 'routes:8', 'routes:9']);
         expect(errors.find(e => e.id === 'r2').message).toMatch(/missing/);
     });
 
@@ -102,12 +102,12 @@ describe('toAmcheUrl', () => {
     });
 
     it('matches the example link in docs/route-sheets.md', () => {
-        const waypoints = [
+        const locations = [
             ['panjim_market', 'Panjim Market', 73.8278, 15.4989, 'Start of every ride'],
             ['ribandar', 'Ribandar Causeway', 73.8597, 15.5008, 'Flat ride along the Mandovi'],
             ['old_goa', 'Basilica of Bom Jesus', 73.9116, 15.5009, '']
         ].map(([id, name, lng, lat, description]) => ({ id, name, lng, lat, description }));
-        const net = rowsToRoutes(waypoints, [{ id: 'heritage', profile: 'cycling', service: 'mapbox', color: '#e32017', waypoints: 'panjim_market ribandar old_goa' }]);
+        const net = rowsToRoutes(locations, [{ id: 'heritage', profile: 'cycling', service: 'mapbox', color: '#e32017', locations: 'panjim_market ribandar old_goa' }]);
         expect(toAmcheUrl(net, { atlas: 'goa' })).toBe('https://amche.in/?atlas=goa&markers=panjim_market(73.8278,15.4989,Panjim%20Market,Start%20of%20every%20ride),ribandar(73.8597,15.5008,Ribandar%20Causeway,Flat%20ride%20along%20the%20Mandovi),old_goa(73.9116,15.5009,Basilica%20of%20Bom%20Jesus)&layers=route-heritage:mapbox-cycling(panjim_market,ribandar,old_goa,%23e32017)');
     });
 
@@ -130,9 +130,9 @@ describe('toAmcheUrl', () => {
 describe('CSV', () => {
     it('round-trips rows with quotes, commas and line breaks', () => {
         const rows = routesToRows(routes, markers);
-        rows.waypoints[0].description = 'Says "hi",\nthen leaves';
-        const text = toCsv(rows.waypoints, WAYPOINT_COLUMNS);
-        expect(text.split('\n')[0]).toBe(WAYPOINT_COLUMNS.join(','));
+        rows.locations[0].description = 'Says "hi",\nthen leaves';
+        const text = toCsv(rows.locations, LOCATION_COLUMNS);
+        expect(text.split('\n')[0]).toBe(LOCATION_COLUMNS.join(','));
         const back = fromCsv(text);
         expect(back[0].description).toBe('Says "hi",\nthen leaves');
         expect(back[1].$row).toBe(3);
@@ -180,7 +180,7 @@ describe('routesFromGeojson', () => {
         expect(fromExport.markers).toEqual(net.markers);
 
         const rows = routesToRows(net.routes, net.markers);
-        expect(rowsToRoutes(rows.waypoints, rows.routes).routes).toEqual(net.routes);
+        expect(rowsToRoutes(rows.locations, rows.routes).routes).toEqual(net.routes);
         vi.restoreAllMocks();
     });
 

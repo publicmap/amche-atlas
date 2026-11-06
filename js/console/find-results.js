@@ -16,8 +16,10 @@ import { createMarkerProvider } from '../search/providers/marker-provider.js';
 import { matchingRoutes } from './route-list.js';
 import { routeCard } from './route-card.js';
 import { routeTitle } from '../search/route-meta.js';
+import { routeBadges } from './location-routes.js';
 
 const markers = createMarkerProvider();
+const pins = () => window.featureControl?._markerManager?._locationPins;
 const FEATURES_PER_MAP = 5;
 const PREVIEW_COUNT = 5;
 const OWN_SECTIONS = new Set(['Atlases', 'Layers', 'Features', 'Your markers', 'Data link']);
@@ -79,9 +81,9 @@ export function mapResults(term, sections) {
     };
 }
 
-export function pinResults(term) {
-    const pins = byRank(markers.list(term.toLowerCase()), term, item => item.properties?.name);
-    return scoped(pins, item => ({ lngLat: item.markerLngLat }));
+export function locationResults(term) {
+    const locations = byRank(markers.list(term.toLowerCase()), term, item => item.properties?.name);
+    return scoped(locations, item => ({ lngLat: item.markerLngLat }));
 }
 
 export function routeResults(term) {
@@ -96,8 +98,8 @@ export function placeResults(sections) {
 /**
  * Renders into Find. `ctx` carries Find's own hooks: track(node, item) for
  * keyboard order, featureSync (js/console/feature-sync.js), expanded/toggle
- * for "Show more", selectFeature, selectPin, selectRoute, selectPlace and
- * isSelected(key).
+ * for "Show more", selectFeature, selectLocation, openRouteStop, selectRoute,
+ * selectPlace, isSelected(key) and stopFocus (the highlighted route stop).
  */
 export class ResultsRenderer {
     constructor(ctx) {
@@ -132,25 +134,30 @@ export class ResultsRenderer {
         return groups.length;
     }
 
-    pins(container, { shown, outside }, { label = 'Pins', side = null } = {}) {
+    /** Locations; one that is a stop on routes carries a badge per route. */
+    locations(container, { shown, outside }, { label = 'Locations', side = null } = {}) {
         if (!shown.length) return 0;
         const section = el('section', 'console-section');
         section.appendChild(sectionLabel(label, side));
-        this._limited(section, 'pins', shown, item => {
-            const key = `pin:${item.markerId}`;
-            const name = item.properties?.name || 'this pin';
+        this._limited(section, 'locations', shown, item => {
+            const key = `location:${item.markerId}`;
+            const name = item.properties?.name || 'this location';
             const actions = el('span', 'console-row-actions');
+            const badges = routeBadges(item.markerId, (route, index) => this.ctx.openRouteStop(route, index));
             actions.append(
+                ...(badges ? [badges] : []),
                 zoomButton({ lngLat: item.markerLngLat }, outside.has(item) ? `${name} is outside this view - zoom to it` : `Zoom to ${name}`, { outside: outside.has(item) }),
                 deleteButton(`Delete ${name}`, () => window.featureControl?._markerManager?.deleteMarker(item.markerId))
             );
             const node = row({
-                thumb: iconThumb('pin-map'),
+                thumb: iconThumb(badges ? 'signpost-split' : 'pin-map'),
                 title: item.properties?.name || '',
                 meta: item.properties?.place_name || '',
                 trailing: actions,
                 className: [outside.has(item) && 'outside', this.ctx.isSelected(key) && 'selected'].filter(Boolean).join(' '),
-                onClick: () => this.ctx.selectPin(item, key)
+                onClick: () => this.ctx.selectLocation(item, key),
+                onEnter: () => pins()?.highlight(item.markerId, true),
+                onLeave: () => pins()?.highlight(item.markerId, false)
             });
             return [this.ctx.track(node, item)];
         });
@@ -166,6 +173,7 @@ export class ResultsRenderer {
         this._limited(cards, 'routes', shown, route => {
             const key = `route-card:${route.id}`;
             const card = routeCard(route, { open: this.ctx.expanded.has(key), onToggle: () => this.ctx.toggle(key) });
+            if (this.ctx.stopFocus?.routeId === route.id) requestAnimationFrame(() => card.querySelector('.route-stop.highlighted')?.scrollIntoView({ block: 'nearest' }));
             if (outside.has(route)) {
                 card.classList.add('outside');
                 card.querySelector('.route-card-chevron')?.before(zoomButton({ bbox: routeBbox(route) }, 'This route is outside this view - zoom to it'));

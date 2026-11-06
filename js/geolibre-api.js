@@ -305,7 +305,7 @@ export class GeoLibreAPI {
         const skipped = [];
 
         groups.forEach((group, index) => {
-            if (!group || group.id === 'selection') return;
+            if (!group || group.id === 'locations') return;
             const isActive = typeof urlManager?.isGroupActive === 'function' && urlManager.isGroupActive(index);
             if (!isActive) return;
 

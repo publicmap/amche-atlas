@@ -13,19 +13,20 @@
  *    `config` (anything else) hold JSON, `tags` is comma-separated,
  *    `read-only` becomes the layer's `readOnly` (no writes back to the sheet),
  *    `enabled` FALSE leaves a row out
- *  - `markers`: pins that are not stops of a route - id, name, lng, lat,
- *    description, pinned - the atlas's own `markers`
- *  - `waypoints` and `routes`: a route network (docs/route-sheets.md), drawn
- *    as one `routes` layer reading this same sheet, editable when the atlas
- *    tab names the Apps Script `saveUrl`
+ *  - `locations`: every location - id, name, lng, lat, description, pinned -
+ *    the atlas's own `markers`. One that a route lists is a stop of it, bound
+ *    to the route by its id (search/route-store.js)
+ *  - `routes`: a route network through those locations (docs/route-sheets.md),
+ *    each row listing its stops in order in a `locations` column, drawn as
+ *    one `routes` layer reading this same sheet, editable when the atlas tab
+ *    names the Apps Script `saveUrl`
  */
 import { extractSpreadsheetId, buildCsvUrl, buildEditUrl, fetchSheetTabs, fetchCsvRows } from './google-sheets-api.js';
 
 const TABS = {
     atlas: /^(atlas|settings|config)$/i,
     layers: /^(layers|maps)$/i,
-    markers: /^(markers|pins)$/i,
-    waypoints: /^(waypoints?|stops)$/i,
+    locations: /^locations$/i,
     routes: /^routes?$/i
 };
 const JSON_FIELDS = new Set(['style', 'inspect', 'config', 'filter', 'bbox', 'legendMap', 'layers']);
@@ -112,7 +113,7 @@ export function layerFromRow(raw) {
     return { ...layer, ...(parseJson(row.config, `layer ${id} config`) || {}) };
 }
 
-export function markerFromRow(raw) {
+export function locationFromRow(raw) {
     const row = trimKeys(raw);
     const id = clean(row.id);
     const lng = Number(row.lng ?? row.lon ?? row.longitude ?? row.x);
@@ -136,14 +137,13 @@ function bboxOf(points) {
 
 /**
  * The atlas a sheet's tabs make.
- * @param {{atlas?, layers?, markers?, waypoints?, routes?}} tabs - rows per tab
+ * @param {{atlas?, layers?, locations?, routes?}} tabs - rows per tab
  * @param {{url: string, gids?: Object<string, string>}} source - the sheet, and its tabs' gids
  */
 export function sheetToAtlas(tabs, { url, gids = {} } = {}) {
     const atlas = { name: 'Google Sheet atlas', ...atlasSettings(tabs.atlas) };
     const layers = (tabs.layers || []).map(layerFromRow).filter(Boolean);
-    const markers = (tabs.markers || []).map(markerFromRow).filter(Boolean);
-    const waypoints = (tabs.waypoints || []).map(markerFromRow).filter(Boolean);
+    const locations = (tabs.locations || []).map(locationFromRow).filter(Boolean);
     const hasRoutes = (tabs.routes || []).some(row => clean(trimKeys(row).id));
 
     if (hasRoutes && !layers.some(layer => layer.type === 'routes')) {
@@ -153,16 +153,16 @@ export function sheetToAtlas(tabs, { url, gids = {} } = {}) {
             type: 'routes',
             url,
             ...(atlas.saveUrl ? { saveUrl: atlas.saveUrl } : {}),
-            ...(gids.waypoints ? { waypointsGid: gids.waypoints } : {}),
+            ...(gids.locations ? { locationsGid: gids.locations } : {}),
             ...(gids.routes ? { routesGid: gids.routes } : {}),
             initiallyChecked: true
         });
     }
     delete atlas.routesTitle;
     atlas.layers = [...layers, ...(atlas.layers || [])];
-    if (markers.length) atlas.markers = markers;
+    if (locations.length) atlas.markers = locations;
 
-    const bbox = bboxOf([...markers, ...waypoints].map(m => m.coordinates));
+    const bbox = bboxOf(locations.map(m => m.coordinates));
     if (bbox && !atlas.bbox) atlas.bbox = bbox;
     if (bbox && !atlas.map?.center) {
         atlas.map = { zoom: 13, ...(atlas.map || {}), center: [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2] };
@@ -185,7 +185,7 @@ export async function loadSheetAtlas(url) {
         const tab = found.find(t => pattern.test(t.name.trim()));
         if (tab) gids[key] = tab.gid;
     });
-    if (!Object.keys(gids).length) throw new Error('The sheet has none of the tabs atlas, layers, markers, waypoints, routes');
+    if (!Object.keys(gids).length) throw new Error('The sheet has none of the tabs atlas, layers, locations, routes');
     const tabs = {};
     await Promise.all(Object.entries(gids).map(async ([key, gid]) => {
         tabs[key] = await fetchCsvRows(buildCsvUrl(id, gid));

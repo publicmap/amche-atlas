@@ -6,8 +6,8 @@
  *   cards, the only place an atlas is switched), then its maps filtered by
  *   Active (what is on the map, from any atlas: the layer stack strip, moved
  *   in here), All or a tag; with a query the matching maps with their
- *   matching features nested beneath, atlases, pins, routes and places.
- * - pins, routes: the pins and routes on the map, matching the query.
+ *   matching features nested beneath, atlases, locations, routes and places.
+ * - locations, routes: the locations and routes on the map, matching the query.
  *
  * Every view is scoped to the map view and follows it as it moves; the scope
  * switch (js/console/find-scope.js) includes what lies outside, with zoom
@@ -17,18 +17,19 @@ import { el, icon, sectionLabel, linkButton, hint, imageThumb } from './find-row
 import { watchLoading } from './layer-loading.js';
 import { atlasesForSelector, atlasCards, atlasPicker, atlasName, atlasLayers, layerRow, activeIds, switchAtlas, clearPreview } from './find-browse.js';
 import { scoped, layerBbox, scopeOption } from './find-scope.js';
-import { ResultsRenderer, mapResults, matchingLayers, pinResults, routeResults, placeResults, liveLayer } from './find-results.js';
+import { ResultsRenderer, mapResults, matchingLayers, locationResults, routeResults, placeResults, liveLayer } from './find-results.js';
 import { featureResults } from './find-features.js';
 import { FindSections } from './find-sections.js';
 import { FeatureSync } from './feature-sync.js';
 import { tagFilterBar, filterByTags } from './tag-filter.js';
 import { OnMapActions } from './on-map-actions.js';
 import { LayerDetails } from './layer-details.js';
+import { routeActions } from './route-actions.js';
 
 export const VIEWS = {
     atlas: { label: 'Map', icon: 'map', browse: 'Atlases and maps in this view', search: 'Maps, features and places matching' },
     features: { label: 'Features', icon: 'bounding-box-circles', placeholder: 'Search features', browse: 'Features on the map', search: 'Features matching' },
-    pins: { label: 'Pins', icon: 'pin-map', placeholder: 'Search pins', browse: 'Pins on the map', search: 'Pins matching' },
+    locations: { label: 'Locations', icon: 'pin-map', placeholder: 'Search locations', browse: 'Locations on the map', search: 'Locations matching' },
     routes: { label: 'Routes', icon: 'signpost-split', placeholder: 'Search routes', browse: 'Routes on the map', search: 'Routes matching' }
 };
 
@@ -41,9 +42,9 @@ export function viewFor(name) {
 }
 
 export class FindPanel {
-    constructor({ onSelect, onHover, clearQuery, onDone, onSharePins, onViewChange } = {}) {
+    constructor({ onSelect, onHover, clearQuery, onDone, onShareLocations, onViewChange } = {}) {
         this._onSelect = onSelect;
-        this._onSharePins = onSharePins;
+        this._onShareLocations = onShareLocations;
         this._onDone = onDone;
         this._clearQuery = clearQuery;
         this._onHover = onHover;
@@ -136,11 +137,14 @@ export class FindPanel {
             },
             isSelected: (key) => key === this._selectedKey,
             selectFeature: (item) => this.featureSync.select(item.mapFeature),
-            selectPin: (item, key) => {
+            selectLocation: (item, key) => {
                 this._selectedKey = key;
+                window.featureControl?._markerManager?.selectLocation(item.markerId);
                 this._map?.flyTo({ center: [item.markerLngLat.lng, item.markerLngLat.lat], duration: 500 });
                 this.render();
             },
+            openRouteStop: (route, index) => this.openRouteStop(route, index),
+            get stopFocus() { return routeActions.highlightedStop(); },
             selectRoute: (key) => {
                 this._selectedKey = key;
                 this.render();
@@ -148,6 +152,19 @@ export class FindPanel {
             selectPlace: (item) => this._onSelect?.(item),
             hoverPlace: (item, on) => this._onHover?.(item, on)
         };
+    }
+
+    /** The Routes list with this route's card open, the route isolated on the map. */
+    openRoute(route) {
+        this._expanded.add(`route-card:${route.id}`);
+        routeActions.select(route.id);
+        this.setView('routes');
+    }
+
+    /** As openRoute, with one stop highlighted in the diagram and on the map. */
+    openRouteStop(route, index) {
+        routeActions.highlightStop(route, index);
+        this.openRoute(route);
     }
 
     /** A map's details page, over the list it was opened from. */
@@ -188,7 +205,7 @@ export class FindPanel {
 
     /** The maps on the map, in stack order (js/layer-stack-strip.js). */
     setOnMap(layers) {
-        this._onMapLayers = Array.isArray(layers) ? layers.filter(layer => layer.id !== 'selection') : [];
+        this._onMapLayers = Array.isArray(layers) ? layers.filter(layer => layer.id !== 'locations') : [];
     }
 
     setVisible(visible) {
@@ -198,6 +215,7 @@ export class FindPanel {
             clearPreview();
             this.closeDetails();
             this._selectedKey = null;
+            routeActions.clearStopHighlight();
         }
     }
 
@@ -265,7 +283,7 @@ export class FindPanel {
         let hidden = 0;
         if (this._view === 'atlas') hidden = this._renderAtlasView();
         else if (this._view === 'features') hidden = this._renderFeaturesView();
-        else if (this._view === 'pins') hidden = this._renderPinsView();
+        else if (this._view === 'locations') hidden = this._renderLocationsView();
         else if (this._view === 'routes') hidden = this._renderRoutesView();
         this._scope.sync(hidden);
 
@@ -273,13 +291,13 @@ export class FindPanel {
         this.counts = this._query ? {
             layers: scoped(matchingLayers(this._query), layer => ({ bbox: layerBbox(layer) })).shown.length,
             features: features.savedCount + features.moreCount,
-            pins: pinResults(this._query).shown.length,
+            locations: locationResults(this._query).shown.length,
             routes: routeResults(this._query).shown.length
         } : null;
         this._sectionsBar.sync(this._view, this.counts ? { atlas: this.counts.layers, ...this.counts } : {
             atlas: this._onMapLayers.length,
             features: features.savedCount,
-            pins: pinResults('').shown.length,
+            locations: locationResults('').shown.length,
             routes: routeResults('').shown.length
         }, !!this.counts);
         this._onViewChange?.(this._view);
@@ -341,7 +359,7 @@ export class FindPanel {
 
     /**
      * With a query the atlas view lists features on the map (under their
-     * maps) first, then atlases and maps by name, places, pins and routes.
+     * maps) first, then atlases and maps by name, places, locations and routes.
      */
     _renderAtlasView() {
         const { entries, hidden: hiddenAtlases } = atlasesForSelector(this._query);
@@ -350,7 +368,7 @@ export class FindPanel {
         this._atlasHead.hidden = !!this._query;
         if (!this._query) return this._renderAtlasBrowse(cards, hiddenAtlases);
         const maps = mapResults(this._query, this._sections);
-        const pins = pinResults(this._query);
+        const locations = locationResults(this._query);
         const routes = routeResults(this._query);
         const places = placeResults(this._sections);
         const featureGroups = new Set(maps.groups.slice(0, maps.featureGroups));
@@ -365,10 +383,10 @@ export class FindPanel {
         }
         shown += this._results.maps(this._content, byName, { label: 'Maps' })
             + this._results.places(this._content, places)
-            + this._results.pins(this._content, pins)
+            + this._results.locations(this._content, locations)
             + this._results.routes(this._content, routes);
         if (!shown) this._content.appendChild(hint(`Nothing found for “${this._query}” in this view yet. Results from place search can take a moment.`));
-        return hiddenAtlases + maps.hidden + pins.hidden + routes.hidden + places.hidden;
+        return hiddenAtlases + maps.hidden + locations.hidden + routes.hidden + places.hidden;
     }
 
     /**
@@ -408,7 +426,7 @@ export class FindPanel {
     }
 
     /**
-     * Features under their maps: those saved pins stand on first, the rest in
+     * Features under their maps: those saved locations stand on first, the rest in
      * view under "more" - all at once when the link names nothing of its own.
      */
     _renderFeaturesView() {
@@ -416,7 +434,7 @@ export class FindPanel {
         const none = () => ({ outside: new Set() });
         const shown = this._results.maps(this._content, { groups: saved, ...none() },
             { label: showAll ? 'Features in view' : 'Saved features', key: 'features-saved', source: showAll ? 'all maps on the map' : 'kept in the link' });
-        if (!showAll && !savedCount && moreCount) this._content.appendChild(hint('No features are saved in this link yet. Pin a feature to keep it.'));
+        if (!showAll && !savedCount && moreCount) this._content.appendChild(hint('No features are saved in this link yet. Save a feature as a location to keep it.'));
         if (more.length) {
             if (this._expanded.has('features-more')) {
                 this._results.maps(this._content, { groups: more, ...none() }, { label: 'More in this view', key: 'features-more-list', source: `${moreCount}` });
@@ -436,19 +454,19 @@ export class FindPanel {
         return 0;
     }
 
-    _renderPinsView() {
-        const pins = pinResults(this._query);
-        const share = pins.shown.length && this._onSharePins ? linkButton('Share', () => this._onSharePins()) : null;
-        if (!this._results.pins(this._content, pins, { side: share })) {
-            this._content.appendChild(hint(this._query ? `No pins match “${this._query}” in this view.`
-                : (pins.hidden ? 'No pins in this view.' : 'No pins yet. Pins you save on the map are listed here.')));
+    _renderLocationsView() {
+        const locations = locationResults(this._query);
+        const share = locations.shown.length && this._onShareLocations ? linkButton('Share', () => this._onShareLocations()) : null;
+        if (!this._results.locations(this._content, locations, { side: share })) {
+            this._content.appendChild(hint(this._query ? `No locations match “${this._query}” in this view.`
+                : (locations.hidden ? 'No locations in this view.' : 'No locations yet. Places you save on the map, and the stops of routes, are listed here.')));
         }
-        return pins.hidden;
+        return locations.hidden;
     }
 
     _renderRoutesView() {
         const routes = routeResults(this._query);
-        const share = routes.shown.length && this._onSharePins ? linkButton('Share', () => this._onSharePins()) : null;
+        const share = routes.shown.length && this._onShareLocations ? linkButton('Share', () => this._onShareLocations()) : null;
         if (!this._results.routes(this._content, routes, { side: share })) {
             this._content.appendChild(hint(this._query ? `No routes match “${this._query}” in this view.`
                 : (routes.hidden ? 'No routes in this view.' : 'No routes yet. Right-click the map and pick Route From, then Route To.')));

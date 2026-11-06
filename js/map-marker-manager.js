@@ -26,6 +26,8 @@ import { inspectStyleLayers, buildStyleInspectionHTML } from './style-layer-insp
 import { fitToFeature, restoreFeatureFit } from './feature-camera-fit.js';
 import { resolveLocalizedProperty } from './locale-text-field.js';
 import { localeManager } from './locale-manager.js';
+import { LocationPins } from './location-pins.js';
+import { setActiveRouteBadge } from './search/route-badge.js';
 
 // Raster layer types whose tiles carry a baked-in colormap rather than
 // vector properties — the only types a legendMap (see docs/API.md) can
@@ -269,7 +271,8 @@ export class MapMarkerManager {
         this._suppressReplaceClear = false;
         this._isMapMoving = false;
         this._isProgrammaticZoom = false; // Track programmatic zooms
-        this._selectionLayerId = 'selection'; // Layer ID for selection markers
+        this._selectionLayerId = 'locations'; // The locations layer: every marker, saved or a route stop
+        this._locationPins = new LocationPins(this);
         this._selectedBadges = new Set(); // Expanded (selected) feature badges
         // Marker select mode: the marker last clicked or created (see _selectMarker).
         this._selectedMarkerId = null;
@@ -317,7 +320,7 @@ export class MapMarkerManager {
         if (this._onOutsidePress) return;
         this._onOutsidePress = (e) => {
             if (!this._selectedMarkerId) return;
-            if (e.target.closest?.('.selection-marker')) return;
+            if (e.target.closest?.('.selection-marker, .location-pin')) return;
             // The shortcut menu (route-from/route-to among its items) lives
             // outside the marker's own DOM, so a press on it would otherwise
             // read as "outside" and deselect - discarding an unsaved marker
@@ -441,6 +444,7 @@ export class MapMarkerManager {
         clearTimeout(this._routeHoverTimer);
         const apply = () => {
             this._routeHover = id;
+            setActiveRouteBadge(this._map, 'card', id);
             const route = id ? routeStore.routes.find(r => r.id === id) : null;
             if (route) window.layerControl?.isolation?.hoverIsolate(route.groupId, false);
             else window.layerControl?.isolation?.clearHover();
@@ -458,6 +462,7 @@ export class MapMarkerManager {
         const route = routeStore.routes.find(r => r.id === id);
         if (!route) return;
         this._routeFilter = id;
+        setActiveRouteBadge(this._map, 'open', id);
         window.layerControl?.isolation?.isolate(route.groupId, false);
         const geometry = route.geojson?.features?.find(f => f.properties?.kind === 'route')?.geometry;
         const rect = document.querySelector('.map-console')?.getBoundingClientRect();
@@ -469,6 +474,7 @@ export class MapMarkerManager {
     clearRouteSelection(id = null) {
         if (!this._routeFilter || (id && this._routeFilter !== id)) return;
         this._routeFilter = null;
+        setActiveRouteBadge(this._map, 'open', null);
         window.layerControl?.isolation?.clear();
         restoreFeatureFit(this._map);
     }
@@ -480,10 +486,31 @@ export class MapMarkerManager {
         this._layoutDockedPanels();
     }
 
-    /** Delete a marker and take it out of any route it is a stop on (its header's trash, the console's Pins list). */
+    /** Delete a marker and take it out of any route it is a stop on (its header's trash, the console's Locations list). */
     deleteMarker(markerId) {
         routeStore.removeMarkerFromRoutes(markerId, this._markers.get(markerId)?.lngLat);
         this.removeMarker(markerId);
+    }
+
+    /**
+     * A location's pin clicked (js/location-pins.js): its panel opens where it
+     * lives - in the dock column under the console in Explore (Find, covering
+     * that column, closes), else beside its point.
+     */
+    openLocation(markerId) {
+        if (!this._markers.has(markerId)) return;
+        if (document.querySelector('.map-console')?.dataset.mode === 'find') {
+            window.mapConsole?.setMode('explore', { keepQuery: true });
+        }
+        this._selectMarker(markerId);
+        this._layoutDockedPanels();
+    }
+
+    /** A location chosen in Find: selected, so its pin is outlined, without leaving Find. */
+    selectLocation(markerId) {
+        if (!this._markers.has(markerId)) return;
+        this._selectMarker(markerId);
+        this._layoutDockedPanels();
     }
 
     /** Hides a pin with its route (route-store.js's setRouteHidden), or shows it again. */
@@ -492,6 +519,7 @@ export class MapMarkerManager {
         if (!m) return;
         m.routeHidden = !!hidden;
         m.marker.getElement().style.display = hidden ? 'none' : '';
+        this._locationPins?.sync();
         this._layoutDockedPanels();
     }
 
@@ -2224,8 +2252,8 @@ export class MapMarkerManager {
      * its panel's nearer top corner. Not inside the marker element: that is
      * pinned to the container's origin, so a tail living in it would have to be
      * sized and clipped by it. A plain dark line always joins the two, drawn
-     * bold while the marker is hovered or selected, and each point carries its
-     * saved label so it can be found on the map. `lines: false` (Find covering
+     * bold while the marker is hovered or selected, and each point (its pin, see
+     * js/location-pins.js) carries its saved label so it can be found on the map. `lines: false` (Find covering
      * the column) keeps just the points and labels.
      */
     _renderDockedLeaders(container, markers, { lines = true } = {}) {
@@ -2278,20 +2306,12 @@ export class MapMarkerManager {
                 else leaders.push(line('rgba(0, 0, 0, 0.75)', 1.25));
             }
 
-            const dot = document.createElementNS(NS, 'circle');
-            dot.setAttribute('cx', point.x);
-            dot.setAttribute('cy', point.y);
-            dot.setAttribute('r', shown ? 4.5 : 4);
-            dot.setAttribute('fill', shown ? colour : '#111827');
-            dot.setAttribute('stroke', shown ? 'rgba(17, 24, 39, 0.8)' : '#ffffff');
-            dot.setAttribute('stroke-width', 1.5);
-            points.push(dot);
-
+            // The point itself is the location's pin (js/location-pins.js)
             const label = this._savedLabelOf(m);
             if (!label) return;
             const text = document.createElementNS(NS, 'text');
-            text.setAttribute('x', point.x + 8);
-            text.setAttribute('y', point.y + 4);
+            text.setAttribute('x', point.x + 12);
+            text.setAttribute('y', point.y - 12);
             text.setAttribute('fill', selected ? MARKER_SELECTED_BORDER : '#111827');
             text.setAttribute('stroke', selected ? '#111827' : '#ffffff');
             text.setAttribute('stroke-width', 3);
@@ -4354,6 +4374,7 @@ export class MapMarkerManager {
             this._syncIdActions(el);
             this._syncMarkerContent(el, id);
         });
+        this._locationPins?.sync();
     }
 
     /**
@@ -4875,6 +4896,7 @@ export class MapMarkerManager {
             const tail = el?.querySelector('.marker-tail polygon');
             if (tail) tail.setAttribute('stroke', pinColor);
         }
+        this._locationPins?.sync();
     }
 
     /**
@@ -5583,6 +5605,7 @@ export class MapMarkerManager {
         marker.on('dragstart', () => this._handleMarkerDragStart(markerId));
         marker.on('drag', () => {
             if (this._markers.get(markerId)?.docked) this._layoutDockedPanels();
+            this._locationPins?.follow(markerId);
             if (dragRAF) return;
             dragRAF = requestAnimationFrame(() => {
                 dragRAF = null;
@@ -6443,6 +6466,7 @@ export class MapMarkerManager {
      * Update the selection GeoJSON layer with current marker positions
      */
     _updateSelectionLayer() {
+        this._locationPins?.sync();
         // Get mapboxAPI from global layerControl if not set
         if (!this._mapboxAPI && window.layerControl?._mapboxAPI) {
             this._mapboxAPI = window.layerControl._mapboxAPI;

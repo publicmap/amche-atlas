@@ -29,7 +29,7 @@ export function createStyleReferenceContext(win = window) {
     const listLayers = () => {
         const byId = new Map();
         activeGroups(win).forEach(group => {
-            if (group.id && group.style && group.id !== 'selection') byId.set(group.id, { id: group.id, title: group.title || group.id, style: group.style });
+            if (group.id && group.style && group.id !== 'locations') byId.set(group.id, { id: group.id, title: group.title || group.id, style: group.style });
         });
         (registry()?.getAtlasLayers?.(atlasId()) || []).forEach(layer => {
             if (layer.id && layer.style && !byId.has(layer.id)) byId.set(layer.id, { id: layer.id, title: layer.title || layer.id, style: layer.style });

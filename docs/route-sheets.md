@@ -1,8 +1,8 @@
 # Route networks in a Google Sheet
 
-A route network (a set of pins and the routes between them) can be kept in a Google Sheet instead of in a link or an atlas file. The sheet holds two tables, one row per pin and one row per route. Anyone can edit the sheet directly, amche can read it as a layer, and the sheet's own formulas can build an amche link for every route.
+A route network (a set of locations and the routes between them) can be kept in a Google Sheet instead of in a link or an atlas file. The sheet holds two tables: one row per location and one row per route. A location is any place saved on the map. Each route lists the locations it stops at, in order, so one location can be a stop on any number of routes, or on none. Anyone can edit the sheet directly, amche can read it as a layer, and the sheet's own formulas can build an amche link for every route.
 
-The rows map one-to-one onto the URL shorthand amche already uses: a waypoint row is one [`?markers=`](API.md#markers) entry and a route row is one [`route-<rid>:`](API.md#dynamic-layer-shortcuts) layer entry. The same network round-trips through a sheet, a link, an atlas config and a CSV or GeoJSON exported from a route layer.
+The rows map one-to-one onto the URL shorthand amche already uses: a location row is one [`?markers=`](API.md#markers) entry and a route row is one [`route-<rid>:`](API.md#dynamic-layer-shortcuts) layer entry. The same network round-trips through a sheet, a link, an atlas config and a CSV or GeoJSON exported from a route layer.
 
 - [1. Sheet layout](#1-sheet-layout)
 - [2. Formulas that build amche links](#2-formulas-that-build-amche-links)
@@ -13,19 +13,22 @@ The rows map one-to-one onto the URL shorthand amche already uses: a waypoint ro
 
 ## 1. Sheet layout
 
-Make two tabs named **waypoints** and **routes**. Column names are read case-insensitively and in any order. Columns the app doesn't know, such as the formula columns in section 2, are left alone.
+Make two tabs named **locations** and **routes**. Column names are read case-insensitively and in any order. Columns the app doesn't know, such as the formula columns in section 2, are left alone.
 
-### `waypoints`: one row per pin
+### `locations`: one row per location
 
 | Column | Required | Notes |
 |---|---|---|
-| `id` | yes | The marker id. Same rules as a [`markers`](API.md#markers) id: no spaces (a space is read as `_`) and none of `( ) , :`. Unique within the tab. Routes refer to the pin by this id. Also read from `waypoint_id`, `marker_id`. |
-| `name` | no | The pin's title. Also read from `title`, `label`. |
+| `id` | yes | The location id. Same rules as a [`markers`](API.md#markers) id: no spaces (a space is read as `_`) and none of `( ) , :`. Unique within the tab. Routes refer to the location by this id. |
+| `name` | no | The location's title. Also read from `title`, `label`. |
 | `lng` | yes | Longitude, -180 to 180. Also read from `lon`, `long`, `longitude`, `x`. |
 | `lat` | yes | Latitude, -90 to 90. Also read from `latitude`, `y`. |
 | `description` | no | A line of text under the name. Also read from `desc`, `notes`. |
+| `pinned` | no | `TRUE` opens the location's panel when the map loads (a checkbox in the sheet). |
 | `version` | no | Written by the Apps Script. Leave it alone. See [conflicts](#how-conflicts-are-detected). |
 | `updated_at` | no | Written by the Apps Script, as an ISO timestamp. |
+
+A location that a route lists is a stop on that route. In amche it is still one location: Find's Locations list shows it with a badge for each route it is on.
 
 ### `routes`: one row per route
 
@@ -36,28 +39,31 @@ Make two tabs named **waypoints** and **routes**. Column names are read case-ins
 | `profile` | no | `driving`, `walking` or `cycling`. Defaults to the service's default (`driving`). Also read from `mode`. |
 | `service` | no | The routing service: a key of `ROUTING_ENGINES` in `js/search/directions-router.js` (`mapbox`, `osrm`). Defaults to `mapbox`. Also read from `engine`. |
 | `color` | no | `#rrggbb`. The `#` is optional. Leave it blank to use the route's default colour. |
-| `waypoints` | yes | Two or more waypoint ids separated by commas or spaces, start first and destination last. Every id must be a row in `waypoints`. Also read from `stops`. |
-| `version`, `updated_at` | no | As in `waypoints`. |
+| `locations` | yes | Two or more location ids separated by commas or spaces, start first and destination last. Every id must be a row in `locations`. |
+| `version`, `updated_at` | no | As in `locations`. |
 
-A row that can't be used is skipped and reported with its sheet line: a missing or duplicate id, coordinates out of range, an unknown service or profile, fewer than two stops, or a stop with no waypoint row. A colour that isn't `#rrggbb` is ignored and the route is kept.
+A row that can't be used is skipped and reported with its sheet line: a missing or duplicate id, coordinates out of range, an unknown service or profile, fewer than two stops, or a stop with no `locations` row. A colour that isn't `#rrggbb` is ignored and the route is kept.
 
 ### Example: a small Goa cycling network
 
-**waypoints**
+**locations**
 
-| id | name | lng | lat | description | version | updated_at |
-|---|---|---|---|---|---|---|
-| panjim_market | Panjim Market | 73.8278 | 15.4989 | Start of every ride | 1 | 2026-11-05T09:00:00.000Z |
-| miramar | Miramar Beach | 73.8079 | 15.4826 | | 1 | 2026-11-05T09:00:00.000Z |
-| dona_paula | Dona Paula Jetty | 73.8053 | 15.4558 | Viewpoint at the end of the headland | 1 | 2026-11-05T09:00:00.000Z |
-| ribandar | Ribandar Causeway | 73.8597 | 15.5008 | Flat ride along the Mandovi | 1 | 2026-11-05T09:00:00.000Z |
-| old_goa | Basilica of Bom Jesus | 73.9116 | 15.5009 | | 1 | 2026-11-05T09:00:00.000Z |
-| betim | Betim Jetty | 73.8238 | 15.5034 | | 1 | 2026-11-05T09:00:00.000Z |
-| reis_magos | Reis Magos Fort | 73.8091 | 15.4967 | | 1 | 2026-11-05T09:00:00.000Z |
+| id | name | lng | lat | description | pinned | version | updated_at | routes |
+|---|---|---|---|---|---|---|---|---|
+| panjim_market | Panjim Market | 73.8278 | 15.4989 | Start of every ride | | 1 | 2026-11-05T09:00:00.000Z | heritage, coast |
+| miramar | Miramar Beach | 73.8079 | 15.4826 | | | 1 | 2026-11-05T09:00:00.000Z | coast |
+| dona_paula | Dona Paula Jetty | 73.8053 | 15.4558 | Viewpoint at the end of the headland | | 1 | 2026-11-05T09:00:00.000Z | coast |
+| ribandar | Ribandar Causeway | 73.8597 | 15.5008 | Flat ride along the Mandovi | | 1 | 2026-11-05T09:00:00.000Z | heritage |
+| old_goa | Basilica of Bom Jesus | 73.9116 | 15.5009 | | | 1 | 2026-11-05T09:00:00.000Z | heritage |
+| betim | Betim Jetty | 73.8238 | 15.5034 | | | 1 | 2026-11-05T09:00:00.000Z | fort |
+| reis_magos | Reis Magos Fort | 73.8091 | 15.4967 | | | 1 | 2026-11-05T09:00:00.000Z | fort |
+| bike_repair | Bike repair shop | 73.8262 | 15.4985 | Open 9 to 7 | TRUE | 1 | 2026-11-05T09:00:00.000Z | |
+
+`routes` is a formula column (section 2) listing the routes that stop at each location. amche doesn't read it. `bike_repair` is on no route, so it is a plain location.
 
 **routes**
 
-| id | name | profile | service | color | waypoints | version | updated_at |
+| id | name | profile | service | color | locations | version | updated_at |
 |---|---|---|---|---|---|---|---|
 | heritage | Panjim to Old Goa | cycling | mapbox | #e32017 | panjim_market ribandar old_goa | 1 | 2026-11-05T09:00:00.000Z |
 | coast | Coastal ride | cycling | mapbox | #00a651 | panjim_market, miramar, dona_paula | 1 | 2026-11-05T09:00:00.000Z |
@@ -73,7 +79,16 @@ https://amche.in/?atlas=goa&markers=panjim_market(73.8278,15.4989,Panjim%20Marke
 
 These formulas sit in columns to the right of the data. They use `MAP`/`LAMBDA`, so each one is entered once in row 2 and fills the whole column, including rows the Apps Script adds later. Change `https://amche.in/?atlas=goa` to your own atlas.
 
-**waypoints!H1** `marker`, and **waypoints!H2**: each pin's `markers=` entry.
+**locations!I1** `routes`, and **locations!I2**: the routes that stop at each location, from the `locations` column of the routes tab (`F`).
+
+```
+=MAP(A2:A, LAMBDA(id,
+  IF(id = "", "",
+    IFERROR(TEXTJOIN(", ", TRUE, FILTER(routes!A2:A,
+      ISNUMBER(FIND("," & id & ",", "," & REGEXREPLACE(routes!F2:F & "", "[\s,;]+", ",") & ",")))), ""))))
+```
+
+**locations!J1** `marker`, and **locations!J2**: each location's `markers=` entry.
 
 ```
 =MAP(A2:A, B2:B, C2:C, D2:D, E2:E, LAMBDA(id, name, lng, lat, desc,
@@ -99,20 +114,20 @@ A link's reader splits on `,` `(` `)` even when they are percent-encoded, so the
     ")")))
 ```
 
-**routes!J1** `link`, and **routes!J2**: a link that opens one route with only the pins it passes through. `VLOOKUP` finds each stop's `marker` entry in the waypoints tab, `UNIQUE` drops a repeated stop (a loop that returns to its start), and `TEXTJOIN` joins them.
+**routes!J1** `link`, and **routes!J2**: a link that opens one route with only the locations it stops at. `VLOOKUP` finds each stop's `marker` entry in the locations tab, `UNIQUE` drops a repeated stop (a loop that returns to its start), and `TEXTJOIN` joins them.
 
 ```
 =MAP(A2:A, F2:F, I2:I, LAMBDA(id, stops, layer,
   IF(layer = "", "",
     LET(ids, TRANSPOSE(SPLIT(REGEXREPLACE(TRIM(stops), "[\s,;]+", ","), ",")),
-        pins, TEXTJOIN(",", TRUE, UNIQUE(IFERROR(VLOOKUP(ids, waypoints!A:H, 8, FALSE), ""))),
-        "https://amche.in/?atlas=goa&markers=" & pins & "&layers=" & layer))))
+        entries, TEXTJOIN(",", TRUE, UNIQUE(IFERROR(VLOOKUP(ids, locations!A:J, 10, FALSE), ""))),
+        "https://amche.in/?atlas=goa&markers=" & entries & "&layers=" & layer))))
 ```
 
 **The whole network** in one link, in any cell, for example on a third `links` tab:
 
 ```
-="https://amche.in/?atlas=goa&markers=" & TEXTJOIN(",", TRUE, waypoints!H2:H) & "&layers=" & TEXTJOIN(",", TRUE, routes!I2:I)
+="https://amche.in/?atlas=goa&markers=" & TEXTJOIN(",", TRUE, locations!J2:J) & "&layers=" & TEXTJOIN(",", TRUE, routes!I2:I)
 ```
 
 To make the links clickable, wrap them as `HYPERLINK(<link>, "Open")`. Keep ids to ASCII letters, digits, `_`, `-` and `.` if you build links with these formulas. amche accepts any id, but the formulas don't percent-encode them.
@@ -123,15 +138,15 @@ Writes go through a small Google Apps Script web app deployed on the sheet, the 
 
 The script:
 
-- **`GET ?action=list`** returns both tabs as `{status: "ok", waypoints: [...], routes: [...]}`, keyed by the canonical column names. amche reads through the script, not the CSV export, when the layer has a `saveUrl`. The script reads the live sheet, while the CSV export can lag behind recent edits by a minute or more, which would hide conflicts.
-- **`POST {action: "apply", ops: [...]}`** applies a batch of `insert`, `update` and `delete` operations atomically under a script lock. Each `update` and `delete` carries `base`, the row as the client last saw it. If any row in the batch no longer matches its `base`, or an `insert` id is already taken, nothing is written and the response is `{status: "conflict", conflicts: [{table, id, remote, reason}]}`. Otherwise every written row gets `version + 1` and a fresh `updated_at`, and the response is `{status: "ok", rows: {waypoints, routes}, deleted: {waypoints, routes}}`.
+- **`GET ?action=list`** returns both tabs as `{status: "ok", locations: [...], routes: [...]}`, keyed by the canonical column names. amche reads through the script, not the CSV export, when the layer has a `saveUrl`. The script reads the live sheet, while the CSV export can lag behind recent edits by a minute or more, which would hide conflicts.
+- **`POST {action: "apply", ops: [...]}`** applies a batch of `insert`, `update` and `delete` operations atomically under a script lock. Each `update` and `delete` carries `base`, the row as the client last saw it. If any row in the batch no longer matches its `base`, or an `insert` id is already taken, nothing is written and the response is `{status: "conflict", conflicts: [{table, id, remote, reason}]}`. Otherwise every written row gets `version + 1` and a fresh `updated_at`, and the response is `{status: "ok", rows: {locations, routes}, deleted: {locations, routes}}`.
 - A single operation can also be posted on its own: `{action: "insert" | "update" | "delete", table, id, row, base}`.
 - **`onEdit`** (optional) bumps `version` and `updated_at` on rows edited by hand in the sheet. Conflicts are detected without it, because `base` is compared field by field, but with it the `version` column shows every change.
 
 ### How conflicts are detected
 
 1. When the user starts editing, amche reads the sheet and keeps that copy as the *base snapshot* (`RouteSheetSync.refresh()`).
-2. On save or delete, amche reads the sheet again. Each row being written is compared with its base: its content (`id`, names, coordinates, stops, colour, profile, service) and its `version` / `updated_at`. A row that changed, was deleted upstream, or whose id was taken by a new row since is a conflict. Nothing is written.
+2. On save or delete, amche reads the sheet again. Each row being written is compared with its base: its content (`id`, names, coordinates, `pinned`, stops, colour, profile, service) and its `version` / `updated_at`. A row that changed, was deleted upstream, or whose id was taken by a new row since is a conflict. Nothing is written.
 3. The script repeats the comparison under a lock, which catches a write that lands between steps 2 and 3.
 4. While conflicts remain, amche refuses further updates and deletes to those rows. Each conflict is settled in one of two ways: **insert as new** writes the local version as a new row with a fresh id (`heritage` becomes `heritage_2`) and leaves the sheet's row as it is, and **discard** drops the local version and takes the sheet's. Conflict mode ends when none remain.
 
@@ -141,24 +156,25 @@ Open the sheet → **Extensions → Apps Script**, delete the placeholder and pa
 
 ```javascript
 var TABLES = {
-  waypoints: { tabs: ['waypoints', 'waypoint', 'stops', 'markers', 'pins'], gidParam: 'waypointsGid',
-               columns: ['id', 'name', 'lng', 'lat', 'description', 'version', 'updated_at'],
-               content: ['id', 'name', 'lng', 'lat', 'description'] },
+  locations: { tabs: ['locations'], gidParam: 'locationsGid',
+               columns: ['id', 'name', 'lng', 'lat', 'description', 'pinned', 'version', 'updated_at'],
+               content: ['id', 'name', 'lng', 'lat', 'description', 'pinned'] },
   routes:    { tabs: ['routes', 'route'], gidParam: 'routesGid',
-               columns: ['id', 'name', 'profile', 'service', 'color', 'waypoints', 'version', 'updated_at'],
-               content: ['id', 'name', 'profile', 'service', 'color', 'waypoints'] }
+               columns: ['id', 'name', 'profile', 'service', 'color', 'locations', 'version', 'updated_at'],
+               content: ['id', 'name', 'profile', 'service', 'color', 'locations'] }
 };
 
 var ALIASES = {
-  id: ['id', 'rid', 'route_id', 'waypoint_id', 'marker_id'],
+  id: ['id'],
   name: ['name', 'title', 'label'],
   lng: ['lng', 'lon', 'long', 'longitude', 'x'],
   lat: ['lat', 'latitude', 'y'],
   description: ['description', 'desc', 'notes'],
+  pinned: ['pinned'],
   profile: ['profile', 'mode'],
   service: ['service', 'engine'],
   color: ['color', 'colour'],
-  waypoints: ['waypoints', 'stops', 'markers'],
+  locations: ['locations'],
   version: ['version'],
   updated_at: ['updated_at', 'updatedat', 'updated']
 };
@@ -237,7 +253,8 @@ function normalized(table, field, v) {
   var s = v === undefined || v === null ? '' : String(cellValue(v)).trim();
   if (field === 'id') return table === 'routes' ? s.replace(/^route-/, '') : s.replace(/\s+/g, '_');
   if ((field === 'lng' || field === 'lat') && s !== '' && isFinite(Number(s))) return String(parseFloat(Number(s).toFixed(6)));
-  if (field === 'waypoints') return s.split(/[\s,;]+/).filter(String).join(',');
+  if (field === 'locations') return s.split(/[\s,;]+/).filter(String).join(',');
+  if (field === 'pinned') return /^(true|yes|y|1|on|x|✓)$/i.test(s) ? 'true' : '';
   if (field === 'color' || field === 'profile' || field === 'service') return s.toLowerCase();
   return s;
 }
@@ -297,7 +314,7 @@ function doPost(e) {
     if (conflicts.length) return json({ status: 'conflict', conflicts: conflicts });
 
     var now = new Date().toISOString();
-    var rows = { waypoints: [], routes: [] }, deleted = { waypoints: [], routes: [] }, toDelete = {};
+    var rows = { locations: [], routes: [] }, deleted = { locations: [], routes: [] }, toDelete = {};
     ops.forEach(function (op) {
       var t = state[op.table], cols = t.data.cols, id = normalized(op.table, 'id', op.id);
       var current = t.data.byId[id];
@@ -308,6 +325,7 @@ function doPost(e) {
       var row = {};
       TABLES[op.table].content.forEach(function (field) { row[field] = op.row[field] === undefined ? '' : op.row[field]; });
       row.id = id;
+      if (op.table === 'locations') row.pinned = normalized('locations', 'pinned', row.pinned) === 'true';
       row.version = (current ? Number(current.row.version) || 0 : 0) + 1;
       row.updated_at = now;
       var rowNumber = current ? current.rowNumber : ++t.data.lastRow;
@@ -355,7 +373,7 @@ A write never touches a column the script doesn't own, so the formula columns fr
 1. **Save** the script, then **Deploy → New deployment**, type **Web app**.
 2. **Execute as:** *Me*. **Who has access:** *Anyone*. Not "Anyone with Google account": that makes the browser's request fail with a CORS/401 error.
 3. **Deploy**, authorize the script for your account, and copy the **Web app URL** (`https://script.google.com/macros/s/…/exec`).
-4. Check it: open `<web app URL>?action=list` in an incognito window. It should return `{"status":"ok","waypoints":[…],"routes":[…]}`.
+4. Check it: open `<web app URL>?action=list` in an incognito window. It should return `{"status":"ok","locations":[…],"routes":[…]}`.
 5. After any change to the script, use **Manage deployments → Edit → Version: New version**. The `/exec` URL stays the same.
 
 The `onEdit` function runs as a simple trigger once the script is saved. It needs no deployment.
@@ -372,7 +390,7 @@ A sheet-backed route network is a layer of `"type": "routes"`:
   "title": "Goa cycle network",
   "type": "routes",
   "url": "https://docs.google.com/spreadsheets/d/<SHEET_ID>/edit",
-  "waypointsGid": "0",
+  "locationsGid": "0",
   "routesGid": "123456789",
   "saveUrl": "https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec"
 }
@@ -381,7 +399,7 @@ A sheet-backed route network is a layer of `"type": "routes"`:
 | Field | Required | Notes |
 |---|---|---|
 | `url` | yes | The spreadsheet's URL. Share the sheet as *Anyone with the link can view*. |
-| `waypointsGid` | no | The `gid` of the waypoints tab (the `#gid=` in its URL). Without it, the tab is found by name: `waypoints`, `waypoint`, `stops`, `markers` or `pins`. |
+| `locationsGid` | no | The `gid` of the locations tab (the `#gid=` in its URL). Without it, the tab named `locations` is used. |
 | `routesGid` | no | The `gid` of the routes tab. Without it, the tab named `routes` or `route` is used. |
 | `saveUrl` | no | The Apps Script web app URL. Without it the layer is read-only, and it is read through the CSV export instead of the script. |
 
@@ -394,8 +412,9 @@ import { RouteSheetSync } from './route-sheet-sync.js';
 
 const sync = new RouteSheetSync(layerConfig);
 const { routes, markers, errors, fingerprint } = await sync.refresh(); // base snapshot for editing
+// `markers` are the locations; a route's `waypoints` are its location ids in order
 
-const result = await sync.save({ markers: [{ id: 'miramar', lng: 73.8079, lat: 15.4826, name: 'Miramar' }],
+const result = await sync.save({ locations: [{ id: 'miramar', lng: 73.8079, lat: 15.4826, name: 'Miramar' }],
                                  routes: [{ id: 'coast', waypoints: ['panjim_market', 'miramar'], profile: 'cycling' }] });
 if (result.conflict) {
   // result.conflicts: [{ table, id, local, remote, reason: 'changed' | 'deleted' | 'exists' }]
@@ -408,33 +427,33 @@ await sync.delete({ routes: ['fort'] });
 
 ## 5. CSV and GeoJSON from amche back into the sheet
 
-**From a route layer.** Exporting a route layer as CSV from the export panel writes one row per feature. `routesFromCsv()` (or `routesFromGeojson()` for a GeoJSON export) reads it back into pins and routes:
+**From a route layer.** Exporting a route layer as CSV from the export panel writes one row per feature. `routesFromCsv()` (or `routesFromGeojson()` for a GeoJSON export) reads it back into locations and routes:
 
 | Exported column | Sheet column |
 |---|---|
-| waypoint feature `X`, `Y` | `waypoints.lng`, `waypoints.lat` |
-| waypoint feature `name` | `waypoints.name` |
-| waypoint feature `markerId`, or else its `name` made into an id (`Panjim Market` → `Panjim_Market`) | `waypoints.id`. Stops at the same point on several routes are one waypoint. |
+| waypoint feature `X`, `Y` | `locations.lng`, `locations.lat` |
+| waypoint feature `name` | `locations.name` |
+| waypoint feature `markerId`, or else its `name` made into an id (`Panjim Market` → `Panjim_Market`) | `locations.id`. Stops at the same point on several routes are one location. |
 | route feature `routeId` without `route-` | `routes.id` |
 | `routeName` | `routes.name` |
 | route feature `profile` | `routes.profile` |
 | route feature `source` | `routes.service` |
 | `color`, when the route's colour was picked rather than the default | `routes.color` |
-| waypoint features ordered by `index` | `routes.waypoints` |
+| waypoint features ordered by `index` | `routes.locations` |
 
-Waypoint coordinates in an export are where the routing service snapped each stop to the road, so they can differ from the original pin by a few metres.
+Waypoint coordinates in an export are where the routing service snapped each stop to the road, so they can differ from the original location by a few metres.
 
-**Into the sheet.** `routesToRows()` turns the result into the two tables, and `toCsv(rows, WAYPOINT_COLUMNS)` / `toCsv(rows, ROUTE_COLUMNS)` writes one CSV for each tab. In the sheet, open the tab and use **File → Import → Upload → Append to current sheet** for new rows, or **Replace data at selected cell** with A1 selected to replace the table. Replacing the data clears `version` / `updated_at`, which is safe: the next write through the script sets them again.
+**Into the sheet.** `routesToRows()` turns the result into the two tables, and `toCsv(rows.locations, LOCATION_COLUMNS)` / `toCsv(rows.routes, ROUTE_COLUMNS)` writes one CSV for each tab. The export panel's **Route sheet** option downloads both. In the sheet, open the tab and use **File → Import → Upload → Append to current sheet** for new rows, or **Replace data at selected cell** with A1 selected to replace the table. Replacing the data clears `version` / `updated_at`, which is safe: the next write through the script sets them again.
 
-**From the sheet.** **File → Download → Comma-separated values** on each tab gives two CSVs that `routesFromCsv(waypointsCsv, routesCsv)` reads back. The same rows also convert to an atlas config's `markers` / `routes` (see [Atlas-level markers and routes](API.md#atlas-level-markers-and-routes)) and to a link with `toAmcheUrl()`.
+**From the sheet.** **File → Download → Comma-separated values** on each tab gives two CSVs that `routesFromCsv(locationsCsv, routesCsv)` reads back. The same rows also convert to an atlas config's `markers` / `routes` (see [Atlas-level markers and routes](API.md#atlas-level-markers-and-routes)) and to a link with `toAmcheUrl()`.
 
 ## Code reference
 
 | Module | Exports |
 |---|---|
-| `js/route-sheet-format.js` | `routesToRows(routes, markers)`, `rowsToRoutes(waypointRows, routeRows)`, `toAmcheUrl({routes, markers}, {base, atlas, routeIds, layers})`, `markersUrlValue(markers)`, `routeUrlValue(route)`, `toCsv(rows, columns)`, `fromCsv(text)`, `routesFromCsv(text, routesText)`, `routesFromGeojson(featureCollection)`, `markerToRow`, `routeToRow`, `normalizeRow`, `splitWaypointIds`, `sanitizeRowId`, `freshId`, `WAYPOINT_COLUMNS`, `ROUTE_COLUMNS` |
+| `js/route-sheet-format.js` | `routesToRows(routes, markers)`, `rowsToRoutes(locationRows, routeRows)`, `toAmcheUrl({routes, markers}, {base, atlas, routeIds, layers})`, `markersUrlValue(markers)`, `routeUrlValue(route)`, `toCsv(rows, columns)`, `fromCsv(text)`, `routesFromCsv(text, routesText)`, `routesFromGeojson(featureCollection)`, `locationToRow`, `routeToRow`, `normalizeRow`, `splitLocationIds`, `sanitizeRowId`, `freshId`, `LOCATION_COLUMNS`, `ROUTE_COLUMNS` |
 | `js/route-sheet-geojson.js` | `routesFromGeojson(featureCollection)`, `featureRowsToGeojson(rows)` |
 | `js/route-sheet-sync.js` | `RouteSheetSync` (`refresh`, `load`, `save`, `delete`, `rebase`, `conflicts`), `ConflictState`, `routeSheetSyncFor(layerConfig)` |
 | `js/route-sheet-conflicts.js` | `ConflictState` (`active`, `list`, `has`, `add`, `blocking`, `insertAsNew`, `discard`), `rowFingerprint`, `networkFingerprint`, `sameContent`, `hashString` |
 
-In these modules a route is `{id, name, service, profile, color?, waypoints: [markerId, …]}` and a marker is `{id, lng, lat, name, description}`, the same fields as an atlas config's `routes` and `markers`.
+In these modules a route is `{id, name, service, profile, color?, waypoints: [locationId, …]}` and a location is `{id, lng, lat, name, description, pinned?}`, the same fields as an atlas config's `routes` and `markers`.

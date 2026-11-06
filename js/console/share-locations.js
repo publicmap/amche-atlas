@@ -1,9 +1,9 @@
 /**
- * The map console's Share panel for pins (Explore mode, js/map-control-bar.js),
- * opened from the Share link on Find's Pins list.
+ * The map console's Share panel for locations (Explore mode, js/map-control-bar.js),
+ * opened from the Share link on Find's Locations list.
  *
  * Share offers the two homes docs/API.md describes ("Atlas-level markers and
- * routes"): the share link, which already carries every pin in `?markers=` and
+ * routes"): the share link, which already carries every location in `?markers=` and
  * every route in `?layers=`, or the atlas config, as the `markers` / `routes`
  * JSON to paste into the atlas file. Both are read from the current URL, so
  * they hold exactly what a shared link would.
@@ -29,8 +29,8 @@ function parseRoute({ rid, id }) {
     return { rid, markerIds: args, engine: engine || null, profile: profile.join('-') || null, color };
 }
 
-/** The pins and routes the current link carries. */
-export function currentPins() {
+/** The locations and routes the current link carries. */
+export function currentLocations() {
     const params = new URLSearchParams(window.location.search);
     const markers = parseMarkersParam(params.get('markers') || window.amche?.atlasMarkersParam || '');
     const routes = URLUtils.parseLayersFromUrl(params.get('layers') || '')
@@ -40,7 +40,7 @@ export function currentPins() {
     return { markers, routes };
 }
 
-/** The `markers` / `routes` keys, one pin or route per line, ready to paste. */
+/** The `markers` / `routes` keys, one location or route per line, ready to paste. */
 function configSnippet({ markers, routes }) {
     const list = (items) => items.length
         ? `[\n${items.map(item => `  {${Object.entries(item).map(([key, value]) => `${JSON.stringify(key)}: ${JSON.stringify(value)}`).join(', ')}}`).join(',\n')}\n]`
@@ -96,7 +96,7 @@ export class SharePanel {
 
     render() {
         if (this.el.hidden) return;
-        const { markers, routes } = currentPins();
+        const { markers, routes } = currentLocations();
         const registry = window.layerRegistry;
         const atlasId = registry?.getCurrentAtlas?.() || 'index';
         const meta = registry?.getAtlasMetadata?.(atlasId) || {};
@@ -104,7 +104,7 @@ export class SharePanel {
         this.el.replaceChildren();
 
         const head = el('div', 'console-share-head');
-        head.append(el('div', 'console-share-title', 'Share these pins'));
+        head.append(el('div', 'console-share-title', 'Share these locations'));
         const close = el('button', 'console-btn console-btn-sm');
         close.type = 'button';
         close.title = 'Close';
@@ -113,7 +113,7 @@ export class SharePanel {
         close.addEventListener('click', () => this._onClose?.());
         head.appendChild(close);
         this.el.appendChild(head);
-        this.el.appendChild(el('div', 'console-share-sub', [plural(markers.length, 'pin'), plural(routes.length, 'route')].join(' · ')));
+        this.el.appendChild(el('div', 'console-share-sub', [plural(markers.length, 'location'), plural(routes.length, 'route')].join(' · ')));
 
         const choice = el('div', 'console-share-choice');
         [['link', 'link-45deg', 'Share link', 'Only people you send it to see them'],
@@ -133,7 +133,7 @@ export class SharePanel {
         if (this._keep === 'link') {
             out.appendChild(el('div', 'console-share-url', window.location.href));
             const bar = el('div', 'console-share-bar');
-            bar.append(el('span', '', 'The link already holds these pins and routes.'), copyButton('Copy link', () => window.location.href));
+            bar.append(el('span', '', 'The link already holds these locations and routes.'), copyButton('Copy link', () => window.location.href));
             out.appendChild(bar);
         } else {
             const body = configSnippet(atlasPinsJson(markers, routes));

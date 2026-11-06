@@ -704,11 +704,11 @@ export class MapInitializer {
                 validLayers.map(l => ({ id: l.id, type: l.type, initiallyChecked: !!l.initiallyChecked })));
 
             // Ensure the system layers (config/index.js) are always present,
-            // whatever atlas is loaded: 'selection' holds map markers,
+            // whatever atlas is loaded: 'locations' holds map markers,
             // 'directions' the routes a navigation draws (see
             // search/route-store.js), 'mask' the cutout MapMaskManager
             // generates for `?mask=`, and 'gpx' the device's logged tracks
-            // (gpx-log.js). Only 'selection' is on from the start; the others
+            // (gpx-log.js). Only 'locations' is on from the start; the others
             // are switched on by their owner once there is something to draw -
             // a route drawn on the map, a layer linked to the mask, a track
             // being logged - so none sits empty in the layer stack and in

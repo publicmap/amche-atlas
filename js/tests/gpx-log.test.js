@@ -78,6 +78,6 @@ describe('reserved layers', () => {
         expect(withSystemLayerDefaults({ id: 'gpx', title: 'GPS Tracks', type: 'csv' })).toEqual({ id: 'gpx', title: 'GPS Tracks', type: 'geojson', geojson: null });
         expect(withSystemLayerDefaults({ id: 'forests' })).toEqual({ id: 'forests' });
         expect(isLocalDataLayer('gpx')).toBe(true);
-        expect(isLocalDataLayer('selection')).toBe(false);
+        expect(isLocalDataLayer('locations')).toBe(false);
     });
 });

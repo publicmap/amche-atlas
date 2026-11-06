@@ -28,7 +28,7 @@ import { formatDistance } from '../geo-distance-utils.js';
 import { routingEngineProfileToken } from './directions-router.js';
 import { encodeId } from '../shorthand-id-utils.js';
 import { haversineDistanceMeters } from '../geo-distance-utils.js';
-import { ROUTE_BADGE_IMAGE, badgeMode } from './route-badge.js';
+import { ROUTE_BADGE_IMAGE, ROUTE_BADGE_ACTIVE_IMAGE, ROUTE_BADGE_ACTIVE_FILTER, badgeMode } from './route-badge.js';
 
 /** The atlas layer (config/index.atlas.json) the live route is drawn into. */
 export const DIRECTIONS_LAYER_ID = 'directions';
@@ -100,6 +100,11 @@ function pointAlong(coordinates, fraction) {
 // solid on a white casing, cycling dashed and thinner on a narrower casing,
 // walking dotted and thinnest on the narrowest one.
 export const ROUTE_STYLE = {
+    // An active route's badge again, outlined, over its plain one (route-badge.js's setActiveRouteBadge)
+    'badgeactive/filter': ROUTE_BADGE_ACTIVE_FILTER,
+    'badgeactive/icon-image': ROUTE_BADGE_ACTIVE_IMAGE,
+    'badgeactive/icon-allow-overlap': true,
+    'badgeactive/icon-ignore-placement': true,
     // The route's badge, on top of everything else the route draws.
     'badge/filter': isKind('route-badge'),
     'badge/icon-image': ROUTE_BADGE_IMAGE,

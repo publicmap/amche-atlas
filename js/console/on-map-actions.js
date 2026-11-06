@@ -71,7 +71,7 @@ export class OnMapActions {
     }
 
     _syncMode() {
-        const empty = Array.isArray(this._layers) && this._layers.every(l => l.id === 'selection');
+        const empty = Array.isArray(this._layers) && this._layers.every(l => l.id === 'locations');
         if (!empty) this._undoExpired = false;
         this._setMode(this._undoActive || (empty && !this._undoExpired) ? 'undo' : 'remove');
     }

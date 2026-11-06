@@ -2045,7 +2045,7 @@ body.console-find .marker-dock-leaders {
     -webkit-line-clamp: unset;
 }
 
-/* ---------- Explore: pins Share (js/console/share-pins.js) ---------- */
+/* ---------- Explore: locations Share (js/console/share-locations.js) ---------- */
 
 .map-console-explore {
     flex-shrink: 0;

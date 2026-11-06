@@ -45,10 +45,10 @@
       "tags": [
         "Points Of Interest"
       ],
-      "title": "Selected Points",
-      "description": "User selected points from the map.",
+      "title": "Locations",
+      "description": "Locations saved on the map: pins, and the stops of routes.",
       "headerImage": null,
-      "id": "selection",
+      "id": "locations",
       "attribution": "<a href='https://amche.in'>Amche.in Atlas</a>",
       "style": {
         "circle-radius": 2,
@@ -69,6 +69,70 @@
       "id": "directions",
       "attribution": "<a href='https://docs.mapbox.com/api/navigation/directions/' target='_blank'>Mapbox Directions</a>",
       "style": {
+        "badgeactive/filter": [
+          "all",
+          [
+            "==",
+            [
+              "get",
+              "kind"
+            ],
+            "route-badge"
+          ],
+          [
+            "in",
+            [
+              "get",
+              "routeId"
+            ],
+            [
+              "literal",
+              []
+            ]
+          ]
+        ],
+        "badgeactive/icon-image": [
+          "concat",
+          "route-badge-active:",
+          [
+            "match",
+            [
+              "get",
+              "profile"
+            ],
+            "cycling",
+            "cycling",
+            "walking",
+            "walking",
+            "driving"
+          ],
+          ":",
+          [
+            "to-string",
+            [
+              "coalesce",
+              [
+                "get",
+                "color"
+              ],
+              "#1da1f2"
+            ]
+          ],
+          ":",
+          [
+            "to-string",
+            [
+              "coalesce",
+              [
+                "get",
+                "rid"
+              ],
+              ""
+            ]
+          ]
+        ],
+        "badgeactive/icon-allow-overlap": true,
+        "badgeactive/icon-ignore-placement": true,
         "badge/filter": [
           "==",
           [
@@ -102,6 +166,18 @@
                 "color"
               ],
               "#1da1f2"
+            ]
+          ],
+          ":",
+          [
+            "to-string",
+            [
+              "coalesce",
+              [
+                "get",
+                "rid"
+              ],
+              ""
             ]
           ]
         ],

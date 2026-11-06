@@ -36,7 +36,7 @@ function plural(n, word) {
 function summary(pending) {
     const parts = [];
     if (pending.routes.length) parts.push(plural(pending.routes.length, 'route') + ' changed');
-    if (pending.waypoints.length) parts.push(plural(pending.waypoints.length, 'new stop'));
+    if (pending.locations.length) parts.push(plural(pending.locations.length, 'location') + ' to save');
     if (pending.deleted.length) parts.push(plural(pending.deleted.length, 'route') + ' deleted');
     return parts.join(', ');
 }

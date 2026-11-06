@@ -1,6 +1,6 @@
 /**
  * RouteSheetSync - reads and writes a route network kept in a Google Sheet
- * (a `waypoints` tab and a `routes` tab, see route-sheet-format.js and
+ * (a `locations` tab and a `routes` tab, see route-sheet-format.js and
  * docs/route-sheets.md) for a `"type": "routes"` layer.
  *
  * Writes go through the owner's Apps Script web app (`saveUrl`), as the notes
@@ -13,15 +13,15 @@
  * same check under a lock, so a write racing another one is refused too.
  */
 import { extractSpreadsheetId, buildCsvUrl, fetchCsvRows, fetchSheetTabs } from './google-sheets-api.js';
-import { rowsToRoutes, normalizeRow, markerToRow, routeToRow, sanitizeRowId } from './route-sheet-format.js';
+import { rowsToRoutes, normalizeRow, locationToRow, routeToRow, sanitizeRowId } from './route-sheet-format.js';
 import { ConflictState, TABLES, rowFingerprint, networkFingerprint } from './route-sheet-conflicts.js';
 
 export { ConflictState };
 
-const TAB_NAMES = { waypoints: /^(waypoints?|stops|markers|pins)$/i, routes: /^routes?$/i };
+const TAB_NAMES = { locations: /^locations$/i, routes: /^routes?$/i };
 
 function toRow(table, item) {
-    if (table === 'waypoints' && (item.coordinates || (item.lng !== undefined && item.lat !== undefined))) return markerToRow(item);
+    if (table === 'locations' && (item.coordinates || (item.lng !== undefined && item.lat !== undefined))) return locationToRow(item);
     if (table === 'routes' && (Array.isArray(item.waypoints) || Array.isArray(item.markerIds))) return routeToRow(item);
     return normalizeRow(item);
 }
@@ -29,7 +29,7 @@ function toRow(table, item) {
 function changeList(changes, mapItem) {
     if (Array.isArray(changes)) return changes;
     const out = [];
-    const tables = { waypoints: changes?.waypoints || changes?.markers, routes: changes?.routes };
+    const tables = { locations: changes?.locations || changes?.markers, routes: changes?.routes };
     TABLES.forEach(table => (tables[table] || []).forEach(item => out.push(mapItem(table, item))));
     return out;
 }
@@ -41,7 +41,7 @@ function stripVersion(row) {
 
 export class RouteSheetSync {
     /**
-     * @param {{url: string, saveUrl?: string, waypointsGid?: string, routesGid?: string}} config - the layer config
+     * @param {{url: string, saveUrl?: string, locationsGid?: string, routesGid?: string}} config - the layer config
      * @param {{fetch?: Function}} [options] - a fetch to use instead of the global one
      */
     constructor(config, { fetch: fetchImpl } = {}) {
@@ -51,7 +51,7 @@ export class RouteSheetSync {
         this.conflicts = new ConflictState(this);
     }
 
-    /** The sheet as it is now: `{waypoints, routes}` Maps of id -> row, plus the rows in sheet order. Leaves the base alone. */
+    /** The sheet as it is now: `{locations, routes}` Maps of id -> row, plus the rows in sheet order. Leaves the base alone. */
     async load() {
         const rows = this.config.saveUrl ? await this._loadFromScript() : await this._loadFromCsv();
         const result = { rows };
@@ -68,28 +68,25 @@ export class RouteSheetSync {
     async _loadFromScript() {
         const url = new URL(this.config.saveUrl);
         url.searchParams.set('action', 'list');
-        if (this.config.waypointsGid) url.searchParams.set('waypointsGid', this.config.waypointsGid);
+        if (this.config.locationsGid) url.searchParams.set('locationsGid', this.config.locationsGid);
         if (this.config.routesGid) url.searchParams.set('routesGid', this.config.routesGid);
         const result = await this._json(this._fetch(url.toString(), { redirect: 'follow' }));
-        return { waypoints: result.waypoints || [], routes: result.routes || [] };
+        return { locations: result.locations || [], routes: result.routes || [] };
     }
 
     async _loadFromCsv() {
         const spreadsheetId = extractSpreadsheetId(this.config.url);
         if (!spreadsheetId) throw new Error('A routes layer needs a Google Sheet `url`');
-        const gids = { waypoints: this.config.waypointsGid, routes: this.config.routesGid };
-        if (!gids.waypoints || !gids.routes) {
+        const gids = { locations: this.config.locationsGid, routes: this.config.routesGid };
+        if (!gids.locations || !gids.routes) {
             const tabs = await fetchSheetTabs(spreadsheetId);
             TABLES.forEach(table => {
-                // An exact `waypoints` tab wins over `markers` / `pins`, which a sheet atlas
-                // (js/sheet-atlas.js) uses for pins that are not stops
-                const named = (pattern) => tabs.find(tab => pattern.test(tab.name.trim()))?.gid;
-                if (!gids[table]) gids[table] = named(new RegExp(`^${table}$`, 'i')) || named(TAB_NAMES[table]);
+                if (!gids[table]) gids[table] = tabs.find(tab => TAB_NAMES[table].test(tab.name.trim()))?.gid;
                 if (!gids[table]) throw new Error(`No "${table}" tab found; set ${table}Gid on the layer`);
             });
         }
-        const [waypoints, routes] = await Promise.all(TABLES.map(table => fetchCsvRows(buildCsvUrl(spreadsheetId, gids[table]))));
-        return { waypoints, routes };
+        const [locations, routes] = await Promise.all(TABLES.map(table => fetchCsvRows(buildCsvUrl(spreadsheetId, gids[table]))));
+        return { locations, routes };
     }
 
     /**
@@ -100,9 +97,9 @@ export class RouteSheetSync {
      */
     async refresh({ rebase = true } = {}) {
         const remote = await this.load();
-        if (rebase || !this._base) this._base = { waypoints: new Map(remote.waypoints), routes: new Map(remote.routes) };
+        if (rebase || !this._base) this._base = { locations: new Map(remote.locations), routes: new Map(remote.routes) };
         return {
-            ...rowsToRoutes(remote.rows.waypoints, remote.rows.routes),
+            ...rowsToRoutes(remote.rows.locations, remote.rows.routes),
             fingerprint: networkFingerprint(remote),
             rows: remote.rows
         };
@@ -116,7 +113,7 @@ export class RouteSheetSync {
     }
 
     /**
-     * Insert or update rows: `{waypoints|markers: [...], routes: [...]}`, each
+     * Insert or update rows: `{locations|markers: [...], routes: [...]}`, each
      * a sheet row or a marker / route object. Resolves to `{conflict: false,
      * rows}`, `{conflict: true, conflicts: [{table, id, local, remote}]}` when
      * a touched row changed upstream, or `{refused: true, conflicts}` when one
@@ -131,7 +128,7 @@ export class RouteSheetSync {
         return this._write(targets);
     }
 
-    /** Delete rows by id: `{waypoints: [ids], routes: [ids]}`. Same results as save(). */
+    /** Delete rows by id: `{locations: [ids], routes: [ids]}`. Same results as save(). */
     async delete(ids) {
         const targets = changeList(ids, (table, id) => ({ table, id: sanitizeRowId(table, id), row: null }));
         return this._write(targets);
@@ -145,7 +142,7 @@ export class RouteSheetSync {
         if (!this.config.saveUrl) throw new Error('Missing saveUrl. Deploy the Apps Script in docs/route-sheets.md and add its /exec URL to the layer.');
 
         const remote = await this.load();
-        if (!this._base) this._base = { waypoints: new Map(remote.waypoints), routes: new Map(remote.routes) };
+        if (!this._base) this._base = { locations: new Map(remote.locations), routes: new Map(remote.routes) };
         const conflicts = [];
         const ops = [];
         targets.forEach(({ table, id, row }) => {
@@ -164,17 +161,17 @@ export class RouteSheetSync {
             }
         });
         if (conflicts.length) return this._conflict(conflicts);
-        if (!ops.length) return { conflict: false, rows: { waypoints: [], routes: [] }, deleted: { waypoints: [], routes: [] } };
+        if (!ops.length) return { conflict: false, rows: { locations: [], routes: [] }, deleted: { locations: [], routes: [] } };
 
-        const result = await this._post({ action: 'apply', waypointsGid: this.config.waypointsGid || '', routesGid: this.config.routesGid || '', ops });
+        const result = await this._post({ action: 'apply', locationsGid: this.config.locationsGid || '', routesGid: this.config.routesGid || '', ops });
         if (result.status === 'conflict') {
             return this._conflict((result.conflicts || []).map(c => ({
                 table: c.table, id: String(c.id), remote: c.remote || null, reason: c.reason || 'changed',
                 local: ops.find(op => op.table === c.table && op.id === String(c.id))?.row || null
             })));
         }
-        const rows = { waypoints: result.rows?.waypoints || [], routes: result.rows?.routes || [] };
-        const deleted = { waypoints: result.deleted?.waypoints || [], routes: result.deleted?.routes || [] };
+        const rows = { locations: result.rows?.locations || [], routes: result.rows?.routes || [] };
+        const deleted = { locations: result.deleted?.locations || [], routes: result.deleted?.routes || [] };
         TABLES.forEach(table => {
             rows[table].forEach(row => this.rebase(table, sanitizeRowId(table, normalizeRow(row).id), row));
             deleted[table].forEach(id => this.rebase(table, id, null));

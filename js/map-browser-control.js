@@ -438,7 +438,7 @@ export class MapBrowserControl {
 
         const visible = [];
         control._state.groups.forEach((group, index) => {
-            if (group.id === 'selection' || !manager.isGroupActive(index)) return;
+            if (group.id === 'locations' || !manager.isGroupActive(index)) return;
             const registryLayer = window.layerRegistry?.getLayer?.(group.id, null, true);
             visible.push(registryLayer ? { ...registryLayer, ...group } : group);
         });
@@ -995,7 +995,7 @@ export class MapBrowserControl {
         const sweep = (keepBase) => {
             this._getActiveLayers().forEach(layerId => {
                 const base = this._baseLayerId(layerId);
-                if ((keepBase && indexBase.has(base)) || handledOff.has(base) || base === draftBase || base === 'selection') return;
+                if ((keepBase && indexBase.has(base)) || handledOff.has(base) || base === draftBase || base === 'locations') return;
                 handledOff.add(base);
                 removed.push(layerId);
                 this._handleLayerToggle(layerId, false);
@@ -1006,7 +1006,7 @@ export class MapBrowserControl {
         if (basemapsWhenEmpty && !handledOff.size) sweep(false);
         const exhausted = Array.from(this._getActiveLayers()).every(layerId => {
             const base = this._baseLayerId(layerId);
-            return handledOff.has(base) || base === draftBase || base === 'selection';
+            return handledOff.has(base) || base === draftBase || base === 'locations';
         });
         return { removed, exhausted };
     }

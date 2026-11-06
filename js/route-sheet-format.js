@@ -1,6 +1,7 @@
 /**
- * The tabular form of a route network: a `waypoints` table (the markers) and a
- * `routes` table (each route an ordered list of waypoint ids), the layout a
+ * The tabular form of a route network: a `locations` table (every location,
+ * a stop of a route or not) and a `routes` table (each route an ordered list
+ * of location ids, so one location can be a stop on many routes), the layout a
  * sheet-backed route layer reads and writes (see docs/route-sheets.md and
  * route-sheet-sync.js). Rows convert to the same `?markers=` / `route-<rid>:`
  * shorthand a shared link carries, so a sheet, a CSV and a link all draw the
@@ -15,22 +16,23 @@ import { featureRowsToGeojson, routesFromGeojson } from './route-sheet-geojson.j
 
 export { routesFromGeojson };
 
-export const WAYPOINT_COLUMNS = ['id', 'name', 'lng', 'lat', 'description', 'version', 'updated_at'];
-export const ROUTE_COLUMNS = ['id', 'name', 'profile', 'service', 'color', 'waypoints', 'version', 'updated_at'];
+export const LOCATION_COLUMNS = ['id', 'name', 'lng', 'lat', 'description', 'pinned', 'version', 'updated_at'];
+export const ROUTE_COLUMNS = ['id', 'name', 'profile', 'service', 'color', 'locations', 'version', 'updated_at'];
 export const DEFAULT_SERVICE = 'mapbox';
 
 const RID_RE = /^[A-Za-z0-9_]+$/;
 const PROFILE_ALIASES = { 'driving-traffic': 'driving' };
 const ALIASES = {
-    id: ['id', 'rid', 'route_id', 'waypoint_id', 'marker_id'],
+    id: ['id'],
     name: ['name', 'title', 'label'],
     lng: ['lng', 'lon', 'long', 'longitude', 'x'],
     lat: ['lat', 'latitude', 'y'],
     description: ['description', 'desc', 'notes'],
+    pinned: ['pinned'],
     profile: ['profile', 'mode'],
     service: ['service', 'engine'],
     color: ['color', 'colour'],
-    waypoints: ['waypoints', 'stops', 'markers'],
+    locations: ['locations'],
     version: ['version'],
     updated_at: ['updated_at', 'updatedat', 'updated']
 };
@@ -50,14 +52,16 @@ export function normalizeRow(row) {
     return out;
 }
 
-/** Splits a waypoint list cell: comma- or space-separated ids, start first. */
-export function splitWaypointIds(value) {
+/** Splits a route's locations cell: comma- or space-separated location ids, start first. */
+export function splitLocationIds(value) {
     if (Array.isArray(value)) return value.map(text).filter(Boolean);
     return text(value).split(/[\s,;]+/).filter(Boolean);
 }
 
-/** A marker (`{id, lng, lat}` or atlas `{id, coordinates}`) as a waypoints row. */
-export function markerToRow(marker) {
+const isTrue = (value) => value === true || /^(true|yes|y|1|on|x|✓)$/i.test(text(value));
+
+/** A location (`{id, lng, lat}` or atlas `{id, coordinates}`) as a locations row. */
+export function locationToRow(marker) {
     const [lng, lat] = Array.isArray(marker.coordinates) ? marker.coordinates : [marker.lng, marker.lat];
     return {
         id: String(marker.id),
@@ -65,6 +69,7 @@ export function markerToRow(marker) {
         lng: round6(lng),
         lat: round6(lat),
         description: marker.description || '',
+        ...(marker.pinned ? { pinned: true } : {}),
         ...versionFields(marker)
     };
 }
@@ -78,7 +83,7 @@ export function routeToRow(route) {
         profile: route.profile || '',
         service: route.service || route.engine || DEFAULT_SERVICE,
         color: isRouteColor(route.color) ? route.color.toLowerCase() : '',
-        waypoints: ids.map(String).join(','),
+        locations: ids.map(String).join(','),
         ...versionFields(route)
     };
 }
@@ -93,12 +98,12 @@ function versionFields(item) {
 
 export function routesToRows(routes, markers) {
     return {
-        waypoints: (markers || []).map(markerToRow),
+        locations: (markers || []).map(locationToRow),
         routes: (routes || []).map(routeToRow)
     };
 }
 
-/** The id a row is keyed by: a waypoint id as markers= takes it, a route id without any `route-` prefix ('' when invalid). */
+/** The id a row is keyed by: a location id as markers= takes it, a route id without any `route-` prefix ('' when invalid). */
 export function sanitizeRowId(table, id) {
     if (table === 'routes') {
         const rid = text(id).replace(/^route-/, '');
@@ -117,24 +122,24 @@ function rowLine(row, index) {
  * out and reported in `errors` as `{table, row, id, message}`, `row` being its
  * line in the sheet.
  */
-export function rowsToRoutes(waypointRows, routeRows) {
+export function rowsToRoutes(locationRows, routeRows) {
     const errors = [];
     const markers = [];
     const byId = new Map();
     const fail = (table, row, id, message) => errors.push({ table, row, id, message });
 
-    (waypointRows || []).forEach((raw, i) => {
+    (locationRows || []).forEach((raw, i) => {
         const row = normalizeRow(raw);
         const line = rowLine(raw, i);
         const id = sanitizeId(row.id);
         const lng = Number(text(row.lng));
         const lat = Number(text(row.lat));
-        if (!isValidId(id)) return fail('waypoints', line, text(row.id), 'Missing or invalid id');
-        if (byId.has(id)) return fail('waypoints', line, id, `Duplicate waypoint id "${id}"`);
+        if (!isValidId(id)) return fail('locations', line, text(row.id), 'Missing or invalid id');
+        if (byId.has(id)) return fail('locations', line, id, `Duplicate location id "${id}"`);
         if (!text(row.lng) || !text(row.lat) || !Number.isFinite(lng) || !Number.isFinite(lat) || Math.abs(lng) > 180 || Math.abs(lat) > 90) {
-            return fail('waypoints', line, id, 'lng/lat must be numbers within range');
+            return fail('locations', line, id, 'lng/lat must be numbers within range');
         }
-        const marker = { id, lng: round6(lng), lat: round6(lat), name: text(row.name), description: text(row.description) };
+        const marker = { id, lng: round6(lng), lat: round6(lat), name: text(row.name), description: text(row.description), ...(isTrue(row.pinned) ? { pinned: true } : {}) };
         byId.set(id, marker);
         markers.push(marker);
     });
@@ -157,10 +162,10 @@ export function rowsToRoutes(waypointRows, routeRows) {
             return fail('routes', line, rid, `${service} has no "${profile}" profile (${engine.profiles.join(', ')})`);
         }
 
-        const waypoints = splitWaypointIds(row.waypoints).map(sanitizeId);
-        if (waypoints.length < 2) return fail('routes', line, rid, 'A route needs two or more waypoints');
+        const waypoints = splitLocationIds(row.locations).map(sanitizeId);
+        if (waypoints.length < 2) return fail('routes', line, rid, 'A route needs two or more locations');
         const missing = waypoints.filter(id => !byId.has(id));
-        if (missing.length) return fail('routes', line, rid, `No waypoint row for ${missing.join(', ')}`);
+        if (missing.length) return fail('routes', line, rid, `No locations row for ${missing.join(', ')}`);
 
         let color = text(row.color).toLowerCase();
         if (color && !color.startsWith('#')) color = `#${color}`;
@@ -252,7 +257,7 @@ export function fromCsv(csvText) {
 
 /**
  * Any CSV amche reads or writes for routes -> `{routes, markers, errors}`:
- * a waypoints table plus a routes table (pass both), or one table exported
+ * a locations table plus a routes table (pass both), or one table exported
  * from a route layer (one row per feature, with `kind`, `routeId`, `X`/`Y`).
  */
 export function routesFromCsv(csvText, routesCsvText = null) {

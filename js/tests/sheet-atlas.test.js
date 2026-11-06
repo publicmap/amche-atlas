@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sheetToAtlas, layerFromRow, markerFromRow, atlasSettings, parseBoolean, isSheetAtlasUrl } from '../sheet-atlas.js';
+import { sheetToAtlas, layerFromRow, locationFromRow, atlasSettings, parseBoolean, isSheetAtlasUrl } from '../sheet-atlas.js';
 
 const URL = 'https://docs.google.com/spreadsheets/d/abc123/edit';
 
@@ -37,26 +37,25 @@ describe('sheet atlas', () => {
         expect(layerFromRow({ id: '' })).toBeNull();
     });
 
-    it('reads markers and skips rows without coordinates', () => {
-        expect(markerFromRow({ id: 'cafe', name: 'Cafe', lng: '73.83', lat: '15.50', pinned: 'TRUE' }))
+    it('reads locations and skips rows without coordinates', () => {
+        expect(locationFromRow({ id: 'cafe', name: 'Cafe', lng: '73.83', lat: '15.50', pinned: 'TRUE' }))
             .toEqual({ id: 'cafe', coordinates: [73.83, 15.5], name: 'Cafe', pinned: true });
-        expect(markerFromRow({ id: 'nowhere', lng: '', lat: '' })).toBeNull();
+        expect(locationFromRow({ id: 'nowhere', lng: '', lat: '' })).toBeNull();
     });
 
-    it('adds a routes layer for the waypoints and routes tabs, and centres on the points', () => {
+    it('adds a routes layer for the locations and routes tabs, keeps every location as a pin, and centres on them all', () => {
         const atlas = sheetToAtlas({
             atlas: [{ key: 'name', value: 'Test' }, { key: 'saveUrl', value: 'https://script.google.com/macros/s/X/exec' }],
             layers: [{ id: 'mapbox-streets', initiallyChecked: 'TRUE' }],
-            markers: [{ id: 'cafe', lng: '73.80', lat: '15.50' }],
-            waypoints: [{ id: 'a', lng: '73.82', lat: '15.52' }, { id: 'b', lng: '73.84', lat: '15.54' }],
-            routes: [{ id: 'R1', profile: 'cycling', waypoints: 'a,b' }]
-        }, { url: URL, gids: { waypoints: '11', routes: '22' } });
+            locations: [{ id: 'cafe', lng: '73.80', lat: '15.50' }, { id: 'a', lng: '73.82', lat: '15.52' }, { id: 'b', lng: '73.84', lat: '15.54' }],
+            routes: [{ id: 'R1', profile: 'cycling', locations: 'a, b' }]
+        }, { url: URL, gids: { locations: '11', routes: '22' } });
         expect(atlas.layers[0]).toEqual({
             id: 'sheet-routes', title: 'Routes', type: 'routes', url: URL,
-            saveUrl: 'https://script.google.com/macros/s/X/exec', waypointsGid: '11', routesGid: '22', initiallyChecked: true
+            saveUrl: 'https://script.google.com/macros/s/X/exec', locationsGid: '11', routesGid: '22', initiallyChecked: true
         });
         expect(atlas.layers[1]).toEqual({ id: 'mapbox-streets', initiallyChecked: true });
-        expect(atlas.markers).toEqual([{ id: 'cafe', coordinates: [73.8, 15.5] }]);
+        expect(atlas.markers.map(m => m.id)).toEqual(['cafe', 'a', 'b']);
         expect(atlas.bbox).toEqual([73.8, 15.5, 73.84, 15.54]);
         expect(atlas.map.center[0]).toBeCloseTo(73.82);
     });

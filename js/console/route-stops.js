@@ -3,9 +3,11 @@
  * line drawn the way the map draws it - driving solid, cycling dashed,
  * walking dotted - with a numbered stop per waypoint and each leg's time and
  * length between them. A stop flies the map to it; dragging one reorders the
- * route; its × takes it off the route and leaves its pin on the map.
+ * route; its × takes it off the route and leaves it a location on the map. The
+ * highlighted stop (route-actions.js's highlightStop) - opened from its
+ * location's route badge, or clicked here - is picked out, with a ring on the map.
  *
- * Each card draws its own stops, so a pin shared by many routes appears once
+ * Each card draws its own stops, so a location shared by many routes appears once
  * in each of them rather than in one list every route has to point into.
  */
 import { el, icon } from './find-rows.js';
@@ -17,10 +19,13 @@ export function routeStops(route) {
     const list = el('ol', `route-stops route-stops-${badgeMode(route.profile)}`);
     const labels = stopLabels(route, routeActions.savedLabel);
     const last = route.waypoints.length - 1;
+    const focus = routeActions.highlightedStop();
     let dragFrom = null;
+    const highlight = (index) => [...list.children].forEach((node, i) => node.classList.toggle('highlighted', i === index));
 
     labels.forEach((label, index) => {
-        const item = el('li', 'route-stop' + (index === 0 ? ' first' : '') + (index === last ? ' last' : ''));
+        const item = el('li', 'route-stop' + (index === 0 ? ' first' : '') + (index === last ? ' last' : '')
+            + (focus?.routeId === route.id && focus.index === index ? ' highlighted' : ''));
         item.draggable = route.markerIds?.length === route.waypoints.length;
         item.tabIndex = 0;
         item.title = `Go to ${label}`;
@@ -30,7 +35,7 @@ export function routeStops(route) {
         if (index < last) text.appendChild(el('span', 'route-stop-leg', legSummary(route, index)));
         const remove = el('button', 'route-stop-remove');
         remove.type = 'button';
-        remove.title = `Take ${label} off this route (its pin stays)`;
+        remove.title = `Take ${label} off this route (it stays a location)`;
         remove.setAttribute('aria-label', remove.title);
         remove.appendChild(icon('x-lg'));
         remove.hidden = route.waypoints.length <= 2;
@@ -40,9 +45,13 @@ export function routeStops(route) {
         });
         item.append(dot, text, remove);
 
-        item.addEventListener('click', () => routeActions.focusStop(route, index));
+        const focusStop = () => {
+            routeActions.focusStop(route, index);
+            highlight(index);
+        };
+        item.addEventListener('click', focusStop);
         item.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') routeActions.focusStop(route, index);
+            if (e.key === 'Enter') focusStop();
         });
         item.addEventListener('dragstart', (e) => {
             dragFrom = index;

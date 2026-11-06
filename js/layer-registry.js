@@ -815,7 +815,7 @@ export class LayerRegistry {
         // Candidate keys, most specific first:
         //   1. unprefixed id in the current atlas
         //   2. the id as-is (already prefixed, e.g. "osm-places")
-        //   3. the index atlas, for shared/system layers ('selection', 'notes')
+        //   3. the index atlas, for shared/system layers ('locations', 'notes')
         //      defined once in index.atlas.json but referenced from every atlas
         const candidates = [`${contextAtlas}-${layerId}`, layerId];
         if (contextAtlas !== 'index') candidates.push(`index-${layerId}`);

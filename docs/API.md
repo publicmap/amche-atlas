@@ -171,7 +171,7 @@ Location click (select whatever is at this point):
 
 Location click with layers (auto-adds a marker at the hash position and selects
 whatever features are found there once those layers finish loading):
-?atlas=goa&layers=local-body,plots,2019-czmp-tidal-hazard-line,2019-czmp-khazan,2021-regional-plan,selection,mapbox-admin-lines,mapbox-satellite&selected#16.53/15.604468/73.810136
+?atlas=goa&layers=local-body,plots,2019-czmp-tidal-hazard-line,2019-czmp-khazan,2021-regional-plan,locations,mapbox-admin-lines,mapbox-satellite&selected#16.53/15.604468/73.810136
 ```
 
 **Notes:**
@@ -413,7 +413,7 @@ Restore export (print/image) settings serialized as a JSON object. Set automatic
 
 ### `markers`
 
-Compact encoding of the selection markers on the map — each marker its own `<id>(...)` call, comma-separated, since every marker now has a short id (see below). Set automatically when you select features, drop a marker, or share the URL.
+Compact encoding of the locations on the map (the [`locations`](#reserved-layer-ids) layer) — each marker its own `<id>(...)` call, comma-separated, since every marker now has a short id (see below). Set automatically when you select features, drop a marker, or share the URL.
 
 **Format:** `?markers=<id>(<lng>,<lat>[,<name>[,<description>]][,@<dx>x<dy>][,@pin]),<next marker>...`
 
@@ -554,12 +554,12 @@ These ids belong to layers the app writes to itself. They are present in every a
 
 | Id | Layer | Written by |
 |---|---|---|
-| `selection` | Selected Points: the markers placed on the map, carried in `?markers=` | `js/map-marker-manager.js` |
+| `locations` | Locations: the places saved on the map - pins, and the stops of routes - carried in `?markers=` | `js/map-marker-manager.js` |
 | `directions` | Navigation Routes: routes drawn by navigation, carried as `route:` shorthand in `?layers=` | `js/search/route-store.js` |
 | `mask` | Feature Mask: the cutout for [`?mask=`](#mask) | `js/map-mask-manager.js` |
 | `gpx` | GPS Tracks: tracks logged from the device's location with **Log Track** in the place menu's Locate Me tab, one line per session, logged every 5 s to 5 min | `js/gpx-log.js` |
 
-Only `selection` is on from the start; the others are switched on by their owner once there is something to draw. The `gpx` layer's tracks are kept in the browser's `localStorage` and never written into a shared URL: `?layers=gpx` only switches the layer on, showing whatever tracks the opening device has logged. A layer with one of these ids in another atlas is that atlas's own (`<atlas>-<id>`) and is not affected.
+Only `locations` is on from the start; the others are switched on by their owner once there is something to draw. The `gpx` layer's tracks are kept in the browser's `localStorage` and never written into a shared URL: `?layers=gpx` only switches the layer on, showing whatever tracks the opening device has logged. A layer with one of these ids in another atlas is that atlas's own (`<atlas>-<id>`) and is not affected.
 
 #### Feature Property Quick Filter
 
@@ -817,20 +817,22 @@ The example above is equivalent to this URL:
 - Without either param the atlas's own pins and routes load. They are not written back into the URL unless the visitor moves, renames or removes one, so a plain atlas link stays short.
 - Switching to the atlas from the console's Find loads them too. Routes are layers resolved when the page loads, so the page reopens once on the new atlas with its pins in `?markers=` and its routes ahead of the other layers in `?layers=`. It doesn't reopen when the link already carries pins or routes, which take precedence as above.
 
-**Saving pins.** Saving a pin (naming it, or pinning its panel open) adds it to the console's Pins list (the pin button beside the atlas button, with its count), and **Share** on that list opens two places to keep the pins (`js/console/share-pins.js`):
-- **Share link.** The pins are already in `?markers=` and the routes in `?layers=`. Copy the link to share it. Nothing outside the browser changes.
-- **Atlas config.** The `markers` and `routes` JSON for every pin and route the link carries, one per line, with a **Copy** button. Paste it at the top level of the atlas file, such as `config/goa.atlas.json`, in place of any `markers`/`routes` already there, and open a pull request. Once merged, the pins show for everyone who opens that atlas.
+**Locations.** Every marker on the map is a location in the [`locations`](#reserved-layer-ids) layer, saved places and the stops of routes alike. Each is drawn as a pin: click it to open its panel, drag it to move it. Moving a location that routes stop at re-routes all of them, after a pause of 100 ms for each route while the drag runs, and at once on release if a route isn't yet drawn through the final position (`moveLocation` in `js/search/route-store.js`). The pins are `js/location-pins.js`.
+
+**Saving locations.** Saving a location (naming it, or pinning its panel open) adds it to the console's Locations list (the pin button beside the atlas button, with its count). A location that routes stop at has a badge for each route, and clicking a badge opens that route's card in Routes with the stop highlighted in its diagram and ringed on the map (`js/console/location-routes.js`). **Share** on the list opens two places to keep the locations (`js/console/share-locations.js`):
+- **Share link.** The locations are already in `?markers=` and the routes in `?layers=`. Copy the link to share it. Nothing outside the browser changes.
+- **Atlas config.** The `markers` and `routes` JSON for every location and route the link carries, one per line, with a **Copy** button. Paste it at the top level of the atlas file, such as `config/goa.atlas.json`, in place of any `markers`/`routes` already there, and open a pull request. Once merged, the locations show for everyone who opens that atlas.
 
 The conversion both ways is `js/atlas-pins.js`: `atlasMarkersParam()` / `atlasRouteShorthands()` on load (called from `js/map-init.js`; `js/url-manager.js` reads the result as `window.amche.atlasMarkersParam` when there is no `?markers=`), and `atlasPinsJson()` for the save page.
 
 #### Route networks in a Google Sheet
 
-The same pins and routes can live in a Google Sheet: a `waypoints` tab (`id`, `name`, `lng`, `lat`, `description`) and a `routes` tab (`id`, `name`, `profile`, `service`, `color`, `waypoints`), each row with optional `version` / `updated_at` columns that an owner-deployed Apps Script maintains. Each waypoint row is one `?markers=` entry and each route row one `route-<rid>:` entry, so the sheet's formulas can build an amche link for every route and for the whole network. A sheet is read as a layer of `"type": "routes"`:
+The same locations and routes can live in a Google Sheet: a `locations` tab (`id`, `name`, `lng`, `lat`, `description`, `pinned`) and a `routes` tab (`id`, `name`, `profile`, `service`, `color`, `locations`, the location ids in travel order), each row with optional `version` / `updated_at` columns that an owner-deployed Apps Script maintains. Each location row is one `?markers=` entry and each route row one `route-<rid>:` entry, so the sheet's formulas can build an amche link for every route and for the whole network. A sheet is read as a layer of `"type": "routes"`:
 
 ```json
 { "id": "goa-cycle-network", "title": "Goa cycle network", "type": "routes",
   "url": "https://docs.google.com/spreadsheets/d/<SHEET_ID>/edit",
-  "waypointsGid": "0", "routesGid": "123456789",
+  "locationsGid": "0", "routesGid": "123456789",
   "saveUrl": "https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec" }
 ```
 
@@ -1457,14 +1459,14 @@ The client side is implemented in `js/google-sheets-writer.js`'s `saveRow()`; th
 
 ### `routes` — Route network in a Google Sheet
 
-A network of routes and their stops kept in a Google Sheet, drawn in the route style (`ROUTE_STYLE` in `js/search/route-geojson.js`) and edited like any other route. The sheet has a `waypoints` tab and a `routes` tab; their columns, link formulas and the Apps Script are in [docs/route-sheets.md](route-sheets.md).
+A network of routes and their stops kept in a Google Sheet, drawn in the route style (`ROUTE_STYLE` in `js/search/route-geojson.js`) and edited like any other route. The sheet has a `locations` tab and a `routes` tab; their columns, link formulas and the Apps Script are in [docs/route-sheets.md](route-sheets.md).
 
 | Field | Required | Notes |
 |---|---|---|
 | `url` | yes | The sheet's edit URL. Without `saveUrl` it is read through Google's CSV export, so the sheet must be shared "Anyone with the link can view". |
 | `saveUrl` | no | The `/exec` URL of the sheet owner's Apps Script web app. With it the layer is read through the script and can be saved; without it the layer is read only. |
 | `readOnly` | no | `true` keeps the layer read only even with a `saveUrl`: route edits stay in the link. In a sheet atlas this is the `read-only` column of the map's row in the `layers` tab. The layer editor's **Save settings** also has a Read only switch, kept per sheet in the browser. |
-| `waypointsGid`, `routesGid` | no | The tabs' `gid`s. Without them the tabs are found by name (`waypoints` / `stops` / `markers` / `pins`, and `routes`). |
+| `locationsGid`, `routesGid` | no | The tabs' `gid`s. Without them the tabs are found by name (`locations` and `routes`). |
 | `style`, `inspect` | no | Merged over the route style and inspect settings. |
 
 ```json

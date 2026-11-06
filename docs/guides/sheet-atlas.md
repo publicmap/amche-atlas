@@ -1,6 +1,6 @@
 # An atlas in a Google Sheet
 
-A Google Sheet can be a whole atlas: its name and starting view, its maps, its pins, and a network of routes between stops. Anyone with edit access to the sheet can add a map or a stop, and amche reads the sheet each time the atlas is opened. Routes drawn and edited on the map can be saved back to the sheet.
+A Google Sheet can be a whole atlas: its name and starting view, its maps, its locations, and a network of routes between them. Anyone with edit access to the sheet can add a map or a location, and amche reads the sheet each time the atlas is opened. Routes drawn and edited on the map can be saved back to the sheet.
 
 Open a sheet as an atlas by giving its link as the `atlas`:
 
@@ -20,7 +20,7 @@ This guide sets up a starter sheet with a script that creates every tab with exa
 3. Back in the sheet, reload the page. An **Amche.in** menu appears next to **Help**.
 4. Choose **Amche.in → Setup Map Atlas Sheet**. Google asks you to authorise the script the first time: it edits only this sheet, and sets itself to re-check the sheet after each edit.
 5. Choose **Share** and set general access to **Anyone with the link → Viewer**.
-6. Choose **Amche.in → Visualize Map**. It checks the sheet, shows the **Visualize Map** tab and opens the atlas in a new tab: a cycling route, its stops and two pins in Panjim, Goa. If your browser blocks the new tab, use the link in the dialog.
+6. Choose **Amche.in → Visualize Map**. It checks the sheet, shows the **Visualize Map** tab and opens the atlas in a new tab: two routes through locations in Panjim, Goa, and two locations on no route. If your browser blocks the new tab, use the link in the dialog.
 
 Each tab is a table (the same as **Convert to table** in the sheet's right-click menu): add a row by typing under the last one, and sort or filter from a column's header. Hover over a column's header to see what goes in it. Select a cell to see its help, and a cell with a value amche can't use gets a red corner. Columns with fixed choices, such as a map's `type` or a route's `profile`, are dropdowns. Yes/no columns are checkboxes.
 
@@ -28,14 +28,14 @@ Replace the example rows with your own. Reload the amche tab to see changes: amc
 
 ## 2. The tabs
 
-The starter script creates six tabs. The first, **Visualize Map**, is for people: the map link, what each tab is for, links to these docs, and a table of problems in the sheet. amche ignores it. The other five hold the atlas. Each is optional, and amche finds them by name.
+The starter script creates five tabs. The first, **Visualize Map**, is for people: the map link, what each tab is for, links to these docs, and a table of problems in the sheet. amche ignores it. The other four hold the atlas. Each is optional, and amche finds them by name.
 
 ### `Visualize Map`: the link, help and problems
 
 - **Open the map** and **Map link** give the atlas link (`=AMCHE_ATLAS_LINK(AMCHE_BASE_URL)`).
 - **Base URL** sets where every link in the sheet opens: `https://amche.in/dev/` to start with, `https://amche.in/`, `localhost` for amche on your own computer, or your own copy of amche. See [the starter script](#the-starter-script).
 - Changes to the sheet show on the map in a few minutes, because Google takes a while to publish a sheet's latest data. If a change still doesn't show after that, reload the map with the browser cache cleared (Ctrl+Shift+R, or Cmd+Shift+R on a Mac).
-- **Problems** lists every cell amche would trip over, with a link to the cell: an id used twice or with spaces, coordinates out of range, invalid JSON, an unknown map type or travel mode, a route with a stop that isn't in `waypoints`. Each one is also marked red in its tab, with a note. The table updates by itself whenever the sheet is edited or rows are added or removed, so it always matches what the map link will show. **Amche.in → Visualize Map** shows this tab and opens the map in a new tab.
+- **Problems** lists every cell amche would trip over, with a link to the cell: an id used twice or with spaces, coordinates out of range, invalid JSON, an unknown map type or travel mode, a route with a stop that isn't in `locations`. Each one is also marked red in its tab, with a note. The table updates by itself whenever the sheet is edited or rows are added or removed, so it always matches what the map link will show. **Amche.in → Visualize Map** shows this tab and opens the map in a new tab.
 
 ### `atlas`: settings
 
@@ -46,7 +46,7 @@ Two columns, `key` and `value`, one setting per row.
 | `name` | The atlas name, shown on the console and splash card. |
 | `description` | One line about the atlas. |
 | `color` | The atlas colour, such as `#2563eb`. |
-| `center` | The starting view centre as `lng, lat`. Without it the view fits the pins and stops. |
+| `center` | The starting view centre as `lng, lat`. Without it the view fits the locations. |
 | `zoom`, `pitch`, `bearing` | The starting view. |
 | `style` | A basemap style URL, such as `mapbox://styles/mapbox/standard`. |
 | `saveUrl` | The `/exec` URL of the route web app (see [Saving routes from amche](#4-saving-routes-from-amche)). Without it the routes are read only. |
@@ -67,28 +67,30 @@ One row per map, first row on top, the same order as in an atlas file.
 
 **Amche.in → Insert a map row** asks for a type and adds a row with the fields that type needs.
 
-### `markers`: pins
+### `locations`: every place on the map
 
-Pins that are not stops on a route: offices, viewpoints, notes for a survey. Columns `id`, `name`, `lng`, `lat`, `description`, `pinned`. An `id` keeps to letters, digits and `_`. `pinned` ticked opens the pin's panel when the atlas loads.
+Every location the atlas saves: offices, viewpoints, notes for a survey, and the stops of routes. Columns `id`, `name`, `lng`, `lat`, `description`, `pinned`. An `id` keeps to letters, digits, `_`, `.` and `-`. `pinned` ticked opens the location's panel when the atlas loads. The `routes` column is a formula that lists the routes stopping at each location. You don't fill it in.
 
-### `waypoints` and `routes`: a route network
+Each location shows on the map as a pin: click it to open the location, drag it to move it. In Find's **Locations** tab, a location that routes stop at has a badge for each of them. Click a badge to open that route with the stop highlighted.
 
-`waypoints` lists the stops (`id`, `name`, `lng`, `lat`, `description`). `routes` lists the routes (`id`, `name`, `profile`, `service`, `color`, `waypoints`): `profile` is `driving`, `walking` or `cycling`, and `waypoints` is the stop ids in order, comma-separated. A stop can be on any number of routes.
+### `routes`: a route network
 
-The two tabs become one routes map at the top of the atlas, with a card for every route in Find's Routes tab and in the map's legend. The columns and the `version` / `updated_at` columns are described in [Route networks in a Google Sheet](?page=route-sheets).
+`routes` lists the routes (`id`, `name`, `profile`, `service`, `color`, `locations`): `profile` is `driving`, `walking` or `cycling`, and `locations` is the location ids in travel order, comma-separated. To put a location on a route, add its id to the route's `locations`. A location can be on any number of routes.
+
+The routes become one routes map at the top of the atlas, with a card for every route in Find's Routes tab and in the map's legend. The columns and the `version` / `updated_at` columns are described in [Route networks in a Google Sheet](?page=route-sheets).
 
 ## 3. Links from the sheet
 
 The script adds two formulas you can use in any cell:
 
 - `=AMCHE_ATLAS_LINK(AMCHE_BASE_URL)` is the link that opens this sheet as an atlas.
-- `=AMCHE_ROUTE_LINK("R1", AMCHE_BASE_URL)` is a link to one route on its own, with its stops as pins: `?markers=…&layers=route-R1:…`. It works without the sheet being shared, so it can go in a message or a QR code.
+- `=AMCHE_ROUTE_LINK("R1", AMCHE_BASE_URL)` is a link to one route on its own, with its stops as locations: `?markers=…&layers=route-R1:…`. It works without the sheet being shared, so it can go in a message or a QR code.
 
 Both use the **Base URL** on the **Visualize Map** tab; passing `AMCHE_BASE_URL` makes them update as soon as it changes. The starter `routes` tab has a `link` column filled with `AMCHE_ROUTE_LINK`.
 
 ## 4. Saving routes from amche
 
-Routes can be edited on the map: reverse one, take out a stop, drop a pin on the line to add one, change the travel mode or colour. Amche writes edits back to the sheet when you press **Save** in the routes map's legend. It checks the sheet for changes made since it was loaded, and never overwrites them.
+Routes can be edited on the map: reverse one, take out a stop, drop a location on the line to add one, change the travel mode or colour. Amche writes edits back to the sheet when you press **Save** in the routes map's legend. It checks the sheet for changes made since it was loaded, and never overwrites them.
 
 To turn this on:
 
@@ -100,7 +102,7 @@ Anyone who opens the atlas can then save route edits. Writes go through the scri
 
 ## 5. From amche back to the sheet
 
-Routes drawn in amche can start a sheet too. Open a route's card, choose **⋯ → Download**, pick **GeoCSV** and **Route sheet**. Amche downloads a waypoints CSV and a routes CSV in this layout. Paste them into the `waypoints` and `routes` tabs with **File → Import → Append to current sheet**.
+Routes drawn in amche can start a sheet too. Open a route's card, choose **⋯ → Download**, pick **GeoCSV** and **Route sheet**. Amche downloads a locations CSV and a routes CSV in this layout. Paste them into the `locations` and `routes` tabs with **File → Import → Append to current sheet**.
 
 ## The starter script
 
@@ -161,7 +163,7 @@ const ATLAS_KEYS = {
   name: 'The atlas name, shown on the console and splash card',
   description: 'One line about the atlas',
   color: 'The atlas colour, such as #2563eb',
-  center: 'The starting view centre as lng, lat. Leave it out to fit the pins and stops',
+  center: 'The starting view centre as lng, lat. Leave it out to fit the locations',
   zoom: 'The starting zoom, 0 to 22',
   pitch: 'The starting tilt in degrees, 0 to 85',
   bearing: 'The starting rotation in degrees',
@@ -175,7 +177,9 @@ const ATLAS_KEYS = {
 // (not refused) and its help shows when it is selected.
 const ID_RULE = c => `=AND(REGEXMATCH(TO_TEXT(${c}), "^[A-Za-z0-9_.-]+$"), COUNTIF($${c.replace(/\d+$/, '')}$2:$${c.replace(/\d+$/, '')}, ${c}) = 1)`;
 const COLOR_RULE = c => `=OR(${c} = "", REGEXMATCH(TO_TEXT(${c}), "^#?[0-9A-Fa-f]{6}$"))`;
-const STOPS_RULE = c => `=OR(${c} = "", SUMPRODUCT(--ISNA(MATCH(TRIM(SPLIT(${c}, ", ")), INDIRECT("waypoints!A2:A"), 0))) = 0)`;
+const STOPS_RULE = c => `=OR(${c} = "", SUMPRODUCT(--ISNA(MATCH(TRIM(SPLIT(${c}, ", ")), INDIRECT("locations!A2:A"), 0))) = 0)`;
+// The routes that stop at the location on row `r`, from the routes tab's locations column (F)
+const ROUTES_OF = r => `=IFERROR(TEXTJOIN(", ", TRUE, FILTER(routes!$A$2:$A, ISNUMBER(FIND("," & A${r} & ",", "," & REGEXREPLACE(routes!$F$2:$F & "", "[\\s,;]+", ",") & ",")))), "")`;
 
 // Each tab's columns: `type` makes a table column of checkboxes or numbers,
 // `choices` a dropdown, `rule` / `between` a check; `help` is the header's
@@ -202,22 +206,16 @@ const COLUMNS = {
     config: { help: 'Any other layer field as JSON. Applied last.' },
     'read-only': { type: 'BOOLEAN', help: 'Ticked: amche never writes back to this map\'s data. Untick on a routes map with a saveUrl to save route edits to its sheet.' }
   },
-  markers: {
-    id: { rule: ID_RULE, help: 'A short id for the pin: letters, digits, _ . and -, each id once.' },
-    name: { help: 'The pin title.' },
+  locations: {
+    id: { rule: ID_RULE, help: 'A short id for the location, which routes list in their locations column: letters, digits, _ . and -, each id once.' },
+    name: { help: 'The location name.' },
     lng: { type: 'DOUBLE', between: [-180, 180], help: 'Longitude, -180 to 180. Right-click a place in Google Maps to copy its lat, lng.' },
     lat: { type: 'DOUBLE', between: [-90, 90], help: 'Latitude, -90 to 90.' },
     description: { help: 'A line of text under the name.' },
-    pinned: { type: 'BOOLEAN', help: 'Tick to open the pin panel when the atlas opens.' }
-  },
-  waypoints: {
-    id: { rule: ID_RULE, help: 'The stop id that routes list in their waypoints column. Letters, digits, _ . and -, each id once.' },
-    name: { help: 'The stop name.' },
-    lng: { type: 'DOUBLE', between: [-180, 180], help: 'Longitude, -180 to 180.' },
-    lat: { type: 'DOUBLE', between: [-90, 90], help: 'Latitude, -90 to 90.' },
-    description: { help: 'A line of text under the name.' },
+    pinned: { type: 'BOOLEAN', help: 'Tick to open the location panel when the atlas opens.' },
     version: { type: 'DOUBLE', help: 'Written when amche saves. Leave it alone.' },
-    updated_at: { help: 'Written when amche saves. Leave it alone.' }
+    updated_at: { help: 'Written when amche saves. Leave it alone.' },
+    routes: { help: 'The routes that stop here, worked out from the routes tab. A formula: leave it alone.' }
   },
   routes: {
     id: { rule: ID_RULE, help: 'The route id, such as R3. Letters, digits and _, each id once.' },
@@ -225,7 +223,7 @@ const COLUMNS = {
     profile: { choices: ['cycling', 'walking', 'driving'], help: 'How the route is travelled.' },
     service: { choices: ['mapbox', 'osrm'], help: 'The routing service. mapbox unless you have a reason.' },
     color: { rule: COLOR_RULE, help: 'The line colour as #rrggbb. Blank uses the route default.' },
-    waypoints: { rule: STOPS_RULE, help: 'Stop ids from the waypoints tab in travel order, separated by commas: start first, destination last.' },
+    locations: { rule: STOPS_RULE, help: 'Location ids from the locations tab in travel order, separated by commas: start first, destination last.' },
     version: { type: 'DOUBLE', help: 'Written when amche saves. Leave it alone.' },
     updated_at: { help: 'Written when amche saves. Leave it alone.' },
     link: { help: 'A link to this route on its own. Filled by =AMCHE_ROUTE_LINK.' }
@@ -246,15 +244,14 @@ const TABS = {
     ['osm-places', '', '', '', true, '', '', '', '', '', '', '', '', true],
     ['mapbox-satellite', '', '', '', true, '', '', '', '', '', '', '', '', true],
     ['parks', 'Parks', 'geojson', 'https://example.com/parks.geojson', false, 'green spaces', 'Replace with your own data', '', 0.8, '', '{"fill-color": "#16a34a"}', '{"label": "name"}', '', true]],
-  markers: [['id', 'name', 'lng', 'lat', 'description', 'pinned'],
-    ['bike_repair', 'Bike repair shop', 73.8262, 15.4985, 'Open 9 to 7', false],
-    ['viewpoint', 'Altinho viewpoint', 73.8321, 15.4935, 'Best at sunset', true]],
-  waypoints: [['id', 'name', 'lng', 'lat', 'description', 'version', 'updated_at'],
-    ['church', 'Immaculate Conception Church', 73.8301, 15.4986, '', '', ''],
-    ['fontainhas', 'Fontainhas', 73.8341, 15.4971, 'Latin quarter', '', ''],
-    ['market', 'Panjim Market', 73.8278, 15.4989, '', '', ''],
-    ['promenade', 'Miramar promenade', 73.8135, 15.4847, '', '', '']],
-  routes: [['id', 'name', 'profile', 'service', 'color', 'waypoints', 'version', 'updated_at', 'link'],
+  locations: [['id', 'name', 'lng', 'lat', 'description', 'pinned', 'version', 'updated_at', 'routes'],
+    ['church', 'Immaculate Conception Church', 73.8301, 15.4986, '', false, '', ''],
+    ['fontainhas', 'Fontainhas', 73.8341, 15.4971, 'Latin quarter', false, '', ''],
+    ['market', 'Panjim Market', 73.8278, 15.4989, '', false, '', ''],
+    ['promenade', 'Miramar promenade', 73.8135, 15.4847, '', false, '', ''],
+    ['bike_repair', 'Bike repair shop', 73.8262, 15.4985, 'Open 9 to 7', false, '', ''],
+    ['viewpoint', 'Altinho viewpoint', 73.8321, 15.4935, 'Best at sunset', true, '', '']].map((row, i) => i ? row.concat(ROUTES_OF(i + 1)) : row),
+  routes: [['id', 'name', 'profile', 'service', 'color', 'locations', 'version', 'updated_at', 'link'],
     ['R1', 'Heritage loop', 'cycling', 'mapbox', '#e32017', 'church,fontainhas,market', '', '', `=AMCHE_ROUTE_LINK(A2, ${BASE_URL_NAME})`],
     ['R2', 'To the sea', 'walking', 'mapbox', '', 'market,promenade', '', '', `=AMCHE_ROUTE_LINK(A3, ${BASE_URL_NAME})`]]
 };
@@ -400,9 +397,8 @@ const HOME_ROWS = [
   ['How this sheet works', ''],
   ['atlas', 'Settings for the whole map: its name, colour, starting view. One setting per row; the about column says what each does.'],
   ['layers', 'The maps, one per row, first row on top. An id alone uses a map amche already has; a type makes a new one. Amche.in → Insert a map row fills in what a type needs.'],
-  ['markers', 'Pins that are not route stops: offices, viewpoints, survey notes.'],
-  ['waypoints', 'The stops routes pass through. Routes list them by id.'],
-  ['routes', 'Routes through the stops, in travel order, with how they are travelled.'],
+  ['locations', 'Every place on the map: offices, viewpoints, survey notes, and the stops of routes. The routes column shows which routes stop at each one.'],
+  ['routes', 'Routes through the locations, listed by id in travel order, with how they are travelled.'],
   ['Help', 'Hover over a column header for what goes in it. Select a cell for its help. Problems below update by themselves whenever the sheet is edited.'],
   ['', ''],
   ['Docs', ''],
@@ -509,15 +505,12 @@ function findProblems() {
     });
   }
 
-  const markers = read('markers');
-  if (markers) { ids('markers', markers, /^[A-Za-z0-9_.-]+$/, 'Use letters, digits, _ . and - only'); lngLat('markers', markers); }
-
-  const waypoints = read('waypoints');
+  const locations = read('locations');
   const stopIds = {};
-  if (waypoints) {
-    ids('waypoints', waypoints, /^[A-Za-z0-9_.-]+$/, 'Use letters, digits, _ . and - only');
-    lngLat('waypoints', waypoints);
-    waypoints.rows.forEach(row => { stopIds[text(row[waypoints.col('id')])] = true; });
+  if (locations) {
+    ids('locations', locations, /^[A-Za-z0-9_.-]+$/, 'Use letters, digits, _ . and - only');
+    lngLat('locations', locations);
+    locations.rows.forEach(row => { stopIds[text(row[locations.col('id')])] = true; });
   }
 
   const routes = read('routes');
@@ -528,13 +521,13 @@ function findProblems() {
       const profile = text(row[routes.col('profile')]);
       const service = text(row[routes.col('service')]);
       const color = text(row[routes.col('color')]);
-      const stops = text(row[routes.col('waypoints')]).split(/[\s,;]+/).filter(String);
+      const stops = text(row[routes.col('locations')]).split(/[\s,;]+/).filter(String);
       if (profile && !COLUMNS.routes.profile.choices.includes(profile)) add('routes', routes, i, 'profile', `One of ${COLUMNS.routes.profile.choices.join(', ')}`);
       if (service && !COLUMNS.routes.service.choices.includes(service)) add('routes', routes, i, 'service', `One of ${COLUMNS.routes.service.choices.join(', ')}`);
       if (color && !/^#?[0-9A-Fa-f]{6}$/.test(color)) add('routes', routes, i, 'color', 'A colour as #rrggbb');
-      if (stops.length < 2) add('routes', routes, i, 'waypoints', 'A route needs at least two stops');
+      if (stops.length < 2) add('routes', routes, i, 'locations', 'A route needs at least two locations');
       const missing = stops.filter(id => !stopIds[id]);
-      if (missing.length) add('routes', routes, i, 'waypoints', `Not in the waypoints tab: ${missing.join(', ')}`);
+      if (missing.length) add('routes', routes, i, 'locations', `Not in the locations tab: ${missing.join(', ')}`);
     });
   }
   return problems;
@@ -614,7 +607,7 @@ function AMCHE_ATLAS_LINK(base) {
   return `${amcheBase(base)}?atlas=https://docs.google.com/spreadsheets/d/${SpreadsheetApp.getActive().getId()}/edit`;
 }
 
-/** A standalone link to one route and its stops, e.g. =AMCHE_ROUTE_LINK("R1", AMCHE_BASE_URL). @customfunction */
+/** A standalone link to one route and the locations it stops at, e.g. =AMCHE_ROUTE_LINK("R1", AMCHE_BASE_URL). @customfunction */
 function AMCHE_ROUTE_LINK(routeId, base) {
   const ss = SpreadsheetApp.getActive();
   const read = name => {
@@ -624,8 +617,8 @@ function AMCHE_ROUTE_LINK(routeId, base) {
   };
   const route = read('routes').find(r => String(r.id) === String(routeId));
   if (!route) return '';
-  const stops = read('waypoints');
-  const ids = String(route.waypoints).split(/[\s,]+/).filter(Boolean);
+  const stops = read('locations');
+  const ids = String(route.locations).split(/[\s,]+/).filter(Boolean);
   // As amche writes names: the characters a link splits on escaped once more
   const guard = { '%': '%25', ',': '%2C', '(': '%28', ')': '%29' };
   const escape = text => encodeURIComponent(String(text || '').replace(/[%,()]/g, ch => guard[ch]));

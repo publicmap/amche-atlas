@@ -9,7 +9,7 @@ function baseConfigs() {
         'config/index.atlas.json': {
             name: 'Index',
             atlases: ['goa', EXTERNAL_URL],
-            layers: [{ id: 'selection', type: 'geojson', title: 'Selected' }]
+            layers: [{ id: 'locations', type: 'geojson', title: 'Selected' }]
         },
         'config/goa.atlas.json': {
             name: 'Goa',
@@ -130,7 +130,7 @@ describe('LayerRegistry deferred external atlas loading', () => {
         expect(registry._pendingAtlases.has('ext')).toBe(false);
 
         // The local index still loads - it defines the app's own working layers.
-        expect(registry.getLayer('selection')).toBeTruthy();
+        expect(registry.getLayer('locations')).toBeTruthy();
 
         // ...but it isn't offered as somewhere to browse, so the switcher shows
         // the imported collection rather than the host instance's own.

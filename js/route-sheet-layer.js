@@ -142,20 +142,33 @@ class RouteSheets {
             ?? window.mapboxAPI?.updateGeoJSONLayerData?.(groupId, geojson);
     }
 
-    /** What Save would write: changed and new routes, new stops, and the routes taken off. */
+    /** What Save would write: changed and new routes, moved locations, new locations routes stop at, and the routes taken off. */
     pending(groupId) {
         const entry = this._layers.get(groupId);
         const store = window.routeStore;
-        if (!entry || !store) return { routes: [], waypoints: [], deleted: [] };
+        if (!entry || !store) return { routes: [], locations: [], deleted: [] };
         const markers = entry.network.markers.map(m => ({ ...m }));
-        const waypoints = [];
-        const idFor = (coord, name) => {
+        const locations = [];
+        const idFor = (coord, name, markerId) => {
             const point = at(coord);
+            // A stop bound to one of the sheet's locations keeps its row; moved, the row follows it
+            // (the location's own position: a route's stops are snapped to the road)
+            const manager = window.featureControl?._markerManager;
+            const urlId = markerId && manager?.getMarkerUrlId?.(markerId);
+            const own = urlId && markers.find(m => String(m.id) === String(urlId));
+            if (own) {
+                const where = manager._markers?.get(markerId)?.lngLat;
+                if (where && haversineDistanceMeters(where, own) > 1 && !locations.includes(own)) {
+                    Object.assign(own, { lng: where.lng, lat: where.lat });
+                    locations.push(own);
+                }
+                return own.id;
+            }
             let marker = markers.find(m => haversineDistanceMeters(point, m) < SAME_STOP_METERS);
             if (!marker) {
-                marker = { id: freshId(labelToId(name || '') || 'stop', markers.map(m => String(m.id))), lng: point.lng, lat: point.lat, name: name || '', description: '' };
+                marker = { id: freshId(labelToId(name || '') || 'location', markers.map(m => String(m.id))), lng: point.lng, lat: point.lat, name: name || '', description: '' };
                 markers.push(marker);
-                waypoints.push(marker);
+                locations.push(marker);
             }
             return marker.id;
         };
@@ -166,7 +179,7 @@ class RouteSheets {
             profile: route.profile,
             service: route.engine,
             color: route.colorCustom ? route.color : '',
-            waypoints: route.waypoints.map((coord, i) => idFor(coord, route.names[i]))
+            waypoints: route.waypoints.map((coord, i) => idFor(coord, route.names[i], route.markerIds?.[i]))
         }));
         const baseRow = (base) => routeToRow({ ...base, profile: base.profile || base.drawnProfile, service: base.service || base.drawnService });
         const routes = rows.filter(row => {
@@ -174,22 +187,24 @@ class RouteSheets {
             return !base || !sameContent('routes', baseRow(base), row);
         });
         const deleted = entry.network.routes.map(b => String(b.id)).filter(id => !rows.some(row => row.id === id));
-        return { routes, waypoints: waypoints.filter(w => routes.some(r => r.waypoints.split(',').includes(String(w.id)))), deleted };
+        const moved = locations.filter(l => entry.network.markers.some(m => String(m.id) === String(l.id)));
+        const added = locations.filter(l => !moved.includes(l) && routes.some(r => r.locations.split(',').includes(String(l.id))));
+        return { routes, locations: [...moved, ...added], deleted };
     }
 
     async save(groupId) {
         const entry = this._layers.get(groupId);
         if (!entry || entry.busy || this.state(groupId).readOnly) return;
-        const { routes, waypoints, deleted } = this.pending(groupId);
-        if (!routes.length && !waypoints.length && !deleted.length) return;
+        const { routes, locations, deleted } = this.pending(groupId);
+        if (!routes.length && !locations.length && !deleted.length) return;
         this._set(entry, groupId, { busy: 'Checking the sheet for changes…', error: null });
         try {
             if (deleted.length) {
                 const result = await entry.sync.delete({ routes: deleted });
                 if (result.conflict) return this._conflicted(entry, groupId);
             }
-            if (routes.length || waypoints.length) {
-                const result = await entry.sync.save({ waypoints, routes });
+            if (routes.length || locations.length) {
+                const result = await entry.sync.save({ locations, routes });
                 if (result.conflict) return this._conflicted(entry, groupId);
             }
             this._set(entry, groupId, { busy: null });

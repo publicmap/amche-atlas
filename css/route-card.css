@@ -263,6 +263,18 @@
     outline: none;
 }
 
+.route-stop.highlighted {
+    background: color-mix(in srgb, var(--route-color) 22%, transparent);
+}
+
+.route-stop.highlighted .route-stop-dot {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--route-color) 55%, transparent);
+}
+
+.route-stop.highlighted .route-stop-name {
+    font-weight: 700;
+}
+
 .route-stop.dragging {
     opacity: 0.4;
 }
@@ -626,4 +638,48 @@
     color: var(--console-ink-3, #9ca3af);
     font-size: 11px;
     white-space: pre-line;
+}
+
+/* The highlighted stop on the map (js/console/route-actions.js's highlightStop) */
+.route-stop-ring {
+    width: 30px;
+    height: 30px;
+    border: 3px solid var(--route-color, #1da1f2);
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px #fff, 0 0 10px rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+    animation: route-stop-ring 1.6s ease-out infinite;
+}
+
+@keyframes route-stop-ring {
+    0% { box-shadow: 0 0 0 2px #fff, 0 0 0 2px color-mix(in srgb, var(--route-color, #1da1f2) 60%, transparent); }
+    100% { box-shadow: 0 0 0 2px #fff, 0 0 0 14px transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .route-stop-ring {
+        animation: none;
+    }
+}
+
+/* A location's routes, in Find's Locations list (js/console/location-routes.js) */
+.location-route-badges {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-right: 2px;
+}
+
+.location-route-badge {
+    display: inline-flex;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+}
+
+.location-route-badge:hover .route-symbol,
+.location-route-badge:focus-visible .route-symbol {
+    transform: scale(1.12);
+    outline: none;
 }

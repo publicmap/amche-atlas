@@ -45,7 +45,7 @@ export class FeatureSync {
         const label = item.properties?.name || '';
         const pin = el('button', 'console-row-action');
         pin.type = 'button';
-        pin.title = `Pin ${label} and save its label`;
+        pin.title = `Save ${label} as a location`;
         pin.setAttribute('aria-label', pin.title);
         pin.appendChild(icon('pin-map'));
         pin.addEventListener('click', (e) => {
