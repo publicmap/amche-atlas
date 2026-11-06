@@ -840,7 +840,10 @@ export class LayerRegistry {
         // to resolve it over the network, same as before.
         if (stub) return stub;
 
-        if (!silent) {
+        // Once per layer: a missing layer stays missing, and the lookups repeat
+        const missing = `${layerId}|${contextAtlas}`;
+        if (!silent && !this._warnedMissing?.has(missing)) {
+            (this._warnedMissing ||= new Set()).add(missing);
             console.warn(`[LayerRegistry] Layer not found: ${layerId} (context: ${contextAtlas})`);
         }
         return null;

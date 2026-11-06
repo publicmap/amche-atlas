@@ -1783,12 +1783,13 @@ describe('marker popup layout', () => {
             return el;
         }
 
-        it('shows "Save Location" instead of the bare auto-numbered id, after the pin icon', () => {
+        it('shows "Save Location" instead of the bare auto-numbered id, right after the pin', () => {
             const manager = makeManager();
             const el = mountRow(manager, { urlId: '3' });
 
             expect(el.querySelector('.marker-id-text').textContent).toBe('Save Location');
-            expect(el.querySelector('.marker-id-icon').getAttribute('name')).toBe('pin-map');
+            expect(el.querySelector('.marker-id-color .location-pin-body')).not.toBeNull();
+            expect(el.querySelector('.marker-id-color').nextElementSibling.classList.contains('marker-id-badge')).toBe(true);
         });
 
         it('opens the editor on a single click, skipping the usual arm step', () => {

@@ -26,7 +26,7 @@ import { inspectStyleLayers, buildStyleInspectionHTML } from './style-layer-insp
 import { fitToFeature, restoreFeatureFit } from './feature-camera-fit.js';
 import { resolveLocalizedProperty } from './locale-text-field.js';
 import { localeManager } from './locale-manager.js';
-import { LocationPins } from './location-pins.js';
+import { LocationPins, pinSvg } from './location-pins.js';
 import { setActiveRouteBadge } from './search/route-badge.js';
 
 // Raster layer types whose tiles carry a baked-in colormap rather than
@@ -254,6 +254,8 @@ const MARKER_ID_INPUT_MAX_WIDTH = 190;
 const ADDRESS_BADGE_INDEX = -2;
 
 // Not a real layer: isolating it dims every overlay, leaving the basemap and the previewed address.
+// A location's label sits this far right of its point (_renderDockedLeaders)
+const LOCATION_LABEL_GAP = 14;
 const ADDRESS_PREVIEW_ISOLATION = '__address-preview__';
 
 
@@ -445,6 +447,7 @@ export class MapMarkerManager {
         const apply = () => {
             this._routeHover = id;
             setActiveRouteBadge(this._map, 'card', id);
+            this._locationPins?.sync();
             const route = id ? routeStore.routes.find(r => r.id === id) : null;
             if (route) window.layerControl?.isolation?.hoverIsolate(route.groupId, false);
             else window.layerControl?.isolation?.clearHover();
@@ -463,6 +466,7 @@ export class MapMarkerManager {
         if (!route) return;
         this._routeFilter = id;
         setActiveRouteBadge(this._map, 'open', id);
+        this._locationPins?.sync();
         window.layerControl?.isolation?.isolate(route.groupId, false);
         const geometry = route.geojson?.features?.find(f => f.properties?.kind === 'route')?.geometry;
         const rect = document.querySelector('.map-console')?.getBoundingClientRect();
@@ -470,11 +474,18 @@ export class MapMarkerManager {
         if (geometry) fitToFeature(this._map, geometry, avoid, { padding: 48 });
     }
 
+    /** The route whose stops the pins show (js/location-pins.js): the one pointed at, else the open one. */
+    activeRoute() {
+        const id = this._routeHover || this._routeFilter;
+        return id ? routeStore.routes.find(r => r.id === id) || null : null;
+    }
+
     /** Closing the card of the selected route (any route when `id` is omitted). */
     clearRouteSelection(id = null) {
         if (!this._routeFilter || (id && this._routeFilter !== id)) return;
         this._routeFilter = null;
         setActiveRouteBadge(this._map, 'open', null);
+        this._locationPins?.sync();
         window.layerControl?.isolation?.clear();
         restoreFeatureFit(this._map);
     }
@@ -495,15 +506,31 @@ export class MapMarkerManager {
     /**
      * A location's pin clicked (js/location-pins.js): its panel opens where it
      * lives - in the dock column under the console in Explore (Find, covering
-     * that column, closes), else beside its point.
+     * that column, closes), else beside its point, and the map centres on it.
+     * An unsaved marker - one a
+     * map click left, not named or pinned, and no route's stop - is removed.
      */
     openLocation(markerId) {
-        if (!this._markers.has(markerId)) return;
+        const m = this._markers.get(markerId);
+        if (!m) return;
+        // A marker left by a click on the map and never saved goes again on a
+        // second click, in case the first was a mistake
+        if (!m.saved && !m.role) {
+            this.removeMarker(markerId);
+            return;
+        }
         if (document.querySelector('.map-console')?.dataset.mode === 'find') {
             window.mapConsole?.setMode('explore', { keepQuery: true });
         }
         this._selectMarker(markerId);
         this._layoutDockedPanels();
+        this._centerOnMarker(markerId);
+    }
+
+    /** Eases the map to a marker's point, keeping the zoom. */
+    _centerOnMarker(markerId) {
+        const lngLat = this._markers.get(markerId)?.lngLat;
+        if (lngLat) this._map.easeTo({ center: [lngLat.lng, lngLat.lat], duration: 500 });
     }
 
     /** A location chosen in Find: selected, so its pin is outlined, without leaving Find. */
@@ -765,11 +792,16 @@ export class MapMarkerManager {
         routeStore.insertMarkerNearest(route.id, marker.id, marker.lngLat);
     }
 
-    /** Dropping one button on another: a new route from the one underneath to the one dropped. */
+    /**
+     * Dropping one button on another: a new route from the one underneath to
+     * the one dropped, opened in Find's Routes - its stops leave the dock
+     * column for its card.
+     */
     _createRouteBetween(base, dropped) {
         const point = (marker) => ({ lng: marker.lngLat.lng, lat: marker.lngLat.lat });
         const label = (marker) => (/^\d+$/.test(marker.urlId || '') ? '' : idToLabel(marker.urlId));
         routeStore.routeTo(point(base), label(base), point(dropped), label(dropped), { routeId: 'new' })
+            .then(route => { if (route) window.mapConsole?.openRoute(route); })
             .catch(error => console.warn('[MarkerManager] Could not route between markers:', error));
     }
 
@@ -976,6 +1008,38 @@ export class MapMarkerManager {
         if (markerData.pinned) window.dispatchEvent(new CustomEvent('marker-saved', { detail: { urlId: markerData.urlId } }));
     }
 
+    /**
+     * A colour for a marker's pin, on the map and in its panel's header, kept
+     * in `markers=` (marker-registry.js's `@c`). Picking one saves the marker,
+     * as pinning it does.
+     */
+    setMarkerColor(markerId, color, { commit = true } = {}) {
+        const markerData = this._markers.get(markerId);
+        if (!markerData || !/^#[0-9a-f]{6}$/i.test(color || '')) return;
+        markerData.color = color.toLowerCase();
+        this._locationPins?.sync();
+        if (!commit) return;
+        markerData.saved = true;
+        const entry = markerRegistry.get(markerData.urlId);
+        if (entry) markerRegistry.set(markerData.urlId, { ...entry, color: markerData.color });
+        const el = markerData.marker.getElement();
+        if (el) {
+            this._syncMarkerContent(el, markerId);
+            this._syncIdActions(el);
+        }
+        window.urlManager?.updateURL({ updateLayers: true });
+        window.dispatchEvent(new CustomEvent('marker-saved', { detail: { urlId: markerData.urlId } }));
+    }
+
+    /** The pin in a panel's header opens a colour picker: the pin follows it live, and keeps the colour on close. */
+    _attachColorPicker(el, markerId) {
+        const input = el.querySelector('.marker-id-color-input');
+        if (!input) return;
+        ['click', 'mousedown', 'pointerdown'].forEach(type => input.addEventListener(type, (e) => e.stopPropagation()));
+        input.addEventListener('input', () => this.setMarkerColor(markerId, input.value, { commit: false }));
+        input.addEventListener('change', () => this.setMarkerColor(markerId, input.value));
+    }
+
     /** Puts a restored panel back where the link left it. */
     _applyStoredPanelOffset(markerId) {
         const markerData = this._markers.get(markerId);
@@ -1114,7 +1178,17 @@ export class MapMarkerManager {
      * marker is saved, dropped again if it closes unsaved.
      */
     _addClickedMarker(lngLat, features) {
-        const route = this._routeFilter ? routeStore.routes.find(r => r.id === this._routeFilter) : null;
+        // A dragged marker rebuilt at its drop point (_handleMarkerDragEnd hands
+        // over its identity) comes through here too - it is a move, not a new stop
+        const route = this._routeFilter && !this._adoptedIdentity
+            ? routeStore.routes.find(r => r.id === this._routeFilter) : null;
+        // Editing the route in Find's open card, the click is a new stop for
+        // good: saved, and not selected, so it stays in the card, out of the dock
+        if (route && window.mapConsole?.editingRoute?.()) {
+            const markerId = this.addMarker(lngLat, features, { dock: true, saved: true, select: false });
+            routeStore.addMarkerToRoute(route.id, markerId);
+            return markerId;
+        }
         const ref = { id: null };
         const options = { dock: true };
         if (route) options.onRemove = () => routeStore.dropTemporaryStop(route.id, ref.id);
@@ -2056,7 +2130,7 @@ export class MapMarkerManager {
      * _toggleMarkerPinned and the `pinned` clause in _syncMarkerContent's
      * `show`, which is what a pin actually holds open.
      */
-    _buildMarkerMenuHeaderHTML(urlId, saved = true, pinned = false) {
+    _buildMarkerMenuHeaderHTML(urlId, saved = true, pinned = false, color = null) {
         const labelStyle = `
             box-sizing: content-box;
             max-width: ${MARKER_ID_MAX_WIDTH}px;
@@ -2077,17 +2151,10 @@ export class MapMarkerManager {
 
         return `
             <div class="marker-menu-header" style="display: flex; align-items: center; gap: 4px; padding: 8px 10px;">
-                <sl-icon class="marker-id-icon" name="pin-map" aria-hidden="true" style="font-size: 15px; color: var(--console-ink-2); flex-shrink: 0;"></sl-icon>
-                <button type="button" class="marker-id-action marker-id-move" title="Drag to reposition"
-                    style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
-                           background: transparent; border: none; border-radius: 50%; cursor: move; flex-shrink: 0;">
-                    <sl-icon name="arrows-move" style="font-size: 14px; color: var(--console-ink-2); pointer-events: none;"></sl-icon>
-                </button>
-                <button type="button" class="marker-id-action marker-id-pin" title="${pinned ? 'Unpin (auto-collapses when unfocused)' : 'Pin open (stays open when unfocused)'}"
-                    style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
-                           background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
-                    <sl-icon name="${pinned ? 'pin-angle-fill' : 'pin-angle'}" style="font-size: 14px; color: ${pinned ? 'var(--console-amber)' : 'var(--console-ink-2)'}; pointer-events: none;"></sl-icon>
-                </button>
+                <label class="marker-id-color" title="Change the pin colour" style="${color ? `--pin-color: ${color};` : ''}">
+                    ${pinSvg(16, 21)}
+                    <input type="color" class="marker-id-color-input" value="${color || '#f97316'}" aria-label="Pin colour">
+                </label>
                 <button type="button" class="marker-id-badge" title="${this._escapeAttr(badgeLabel)}"
                     style="${labelStyle} display: flex; flex-direction: column; align-items: flex-start; white-space: normal; overflow-wrap: break-word; text-align: left; cursor: pointer;
                            text-decoration-line: none; text-decoration-style: dotted; text-decoration-color: #6b7280; text-underline-offset: 3px;
@@ -2107,6 +2174,16 @@ export class MapMarkerManager {
                         <sl-icon name="x" style="font-size: 12px; color: #9ca3af; pointer-events: none;"></sl-icon>
                     </button>
                 </span>
+                <button type="button" class="marker-id-action marker-id-move" title="Drag to reposition"
+                    style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
+                           background: transparent; border: none; border-radius: 50%; cursor: move; flex-shrink: 0;">
+                    <sl-icon name="arrows-move" style="font-size: 14px; color: var(--console-ink-2); pointer-events: none;"></sl-icon>
+                </button>
+                <button type="button" class="marker-id-action marker-id-pin" title="${pinned ? 'Unpin (auto-collapses when unfocused)' : 'Pin open (stays open when unfocused)'}"
+                    style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
+                           background: transparent; border: none; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
+                    <sl-icon name="${pinned ? 'pin-angle-fill' : 'pin-angle'}" style="font-size: 14px; color: ${pinned ? 'var(--console-amber)' : 'var(--console-ink-2)'}; pointer-events: none;"></sl-icon>
+                </button>
                 <span class="marker-menu-header-spacer" style="flex: 1; display: none;"></span>
                 <button type="button" class="marker-id-action marker-id-zoom" title="Center and zoom to this point"
                     style="display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
@@ -2310,8 +2387,11 @@ export class MapMarkerManager {
             const label = this._savedLabelOf(m);
             if (!label) return;
             const text = document.createElementNS(NS, 'text');
-            text.setAttribute('x', point.x + 12);
-            text.setAttribute('y', point.y - 12);
+            // Right of the point, level with it - clear of a stop's disc, and
+            // with its route's time label just below (route-geojson.js's waypoints/)
+            text.setAttribute('x', point.x + LOCATION_LABEL_GAP);
+            text.setAttribute('y', point.y);
+            text.setAttribute('dominant-baseline', 'middle');
             text.setAttribute('fill', selected ? MARKER_SELECTED_BORDER : '#111827');
             text.setAttribute('stroke', selected ? '#111827' : '#ffffff');
             text.setAttribute('stroke-width', 3);
@@ -2652,9 +2732,29 @@ export class MapMarkerManager {
                 if (!current) return;
                 current.address = address;
                 this._renderMarkerAddress(current);
+                this.nameStopFromAddress(markerId);
                 this._updateSelectionLayer();
             })
             .catch(error => console.warn('[MarkerManager] Address lookup failed:', error.message));
+    }
+
+    /**
+     * A route's stop still under a serial id ("1", "2" - nextSerialId) takes
+     * the name its address lookup found, as saving a location would (see the
+     * placeholder in _attachMarkerIdRowHandlers): a bare number reads as one
+     * of the route's own stop numbers. Only a saved stop - a temporary one
+     * (routeStore.extendWithTemporaryStop) is not kept until it is saved -
+     * and only once the lookup has a name to give.
+     */
+    nameStopFromAddress(markerId) {
+        const m = this._markers.get(markerId);
+        if (!m?.saved || !/^\d+$/.test(m.urlId || '')) return;
+        if (!routeStore.routes.some(route => route.markerIds.includes(markerId))) return;
+        const name = m.address?.name || m.address?.displayName?.split(',')[0]?.trim();
+        if (!name) return;
+        this.setDefaultMarkerLabel(markerId, name);
+        this._locationPins?.sync();
+        routeStore.relinkLocation(markerId);
     }
 
     _renderMarkerAddress(markerData) {
@@ -4920,10 +5020,12 @@ export class MapMarkerManager {
             .filter(id => id !== markerData.urlId));
         const newUrlId = uniqueId(labelToId(label), live);
 
+        // Anything else the entry carries (colour, pinned, panel offset) moves with it
+        const previous = markerRegistry.get(markerData.urlId) || {};
         markerRegistry.remove(markerData.urlId);
         markerData.urlId = newUrlId;
         markerData.saved = true;
-        markerRegistry.set(newUrlId, { id: newUrlId, lng: markerData.lngLat.lng, lat: markerData.lngLat.lat, name: '', description: '' });
+        markerRegistry.set(newUrlId, { name: '', description: '', ...previous, id: newUrlId, lng: markerData.lngLat.lng, lat: markerData.lngLat.lat });
 
         const el = markerData.marker.getElement();
         const badgeText = el?.querySelector('.marker-id-text');
@@ -5552,6 +5654,8 @@ export class MapMarkerManager {
         // A pinned marker stays pinned across a rebuild too - see
         // _toggleMarkerPinned.
         const pinned = !!(reclaimed?.pinned || adopted?.pinned);
+        // So does a colour picked for its pin - see setMarkerColor.
+        const color = reclaimed?.color || adopted?.color || null;
 
         // The corner the tail meets is square, the other three rounded, so the
         // pointer reads as an extension of the panel rather than a shape stuck
@@ -5566,7 +5670,7 @@ export class MapMarkerManager {
         el.innerHTML = `
             ${this._buildMarkerLeaderHTML()}
             <div class="marker-content" style="position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0; background: ${MARKER_PANEL_BG}; border: 1px solid ${MARKER_PANEL_BORDER}; border-radius: ${MARKER_CORNER_RADIUS}px; box-shadow: ${MARKER_PANEL_SHADOW}; pointer-events: auto;">
-                ${this._buildMarkerMenuHeaderHTML(urlId, saved, pinned)}
+                ${this._buildMarkerMenuHeaderHTML(urlId, saved, pinned, color)}
                 <div class="marker-menu-body" style="display: none; flex-direction: column; align-items: stretch;
                            max-height: ${MARKER_BODY_MAX_HEIGHT}; overflow-y: auto; overflow-x: hidden;">
                     ${this._buildCommentSectionHTML(noteEntry)}
@@ -5642,9 +5746,13 @@ export class MapMarkerManager {
         // Capture phase: badges, chips and the id label all stop their own
         // clicks from bubbling, but clicking any of them still means "this is
         // the marker I'm working with".
+        // Opening a saved marker (a collapsed chip, or a docked button) brings
+        // it to the middle of the map too
         const select = (e) => {
             if (e?.target?.closest?.('.marker-id-action')) return;
+            const opening = this._selectedMarkerId !== markerId;
             this._selectMarker(markerId);
+            if (opening && this._markers.get(markerId)?.saved) this._centerOnMarker(markerId);
         };
         el.addEventListener('click', select, true);
         if (this._isTouch) el.addEventListener('touchend', select, true);
@@ -5678,7 +5786,9 @@ export class MapMarkerManager {
             // Whether this marker's panel stays open regardless of focus/hover -
             // see _toggleMarkerPinned and the `pinned` clause in
             // _syncMarkerContent's `show`.
-            pinned
+            pinned,
+            // A colour picked for its pin, over its role's - see setMarkerColor.
+            color
         };
         markerRegistry.set(urlId, {
             id: urlId,
@@ -5687,8 +5797,10 @@ export class MapMarkerManager {
             name: reclaimed?.name || '',
             description: reclaimed?.description || '',
             ...(reclaimed?.offset ? { offset: reclaimed.offset } : {}),
-            ...(pinned ? { pinned: true } : {})
+            ...(pinned ? { pinned: true } : {}),
+            ...(color ? { color } : {})
         });
+        this._attachColorPicker(el, markerId);
 
         // Only the tail drags the actual location (mapbox's own marker drag, see
         // _buildMarkerLeaderHTML). The panel has its own independent drag that
@@ -6525,7 +6637,11 @@ export class MapMarkerManager {
         };
 
         // Update the selection layer
-        this._mapboxAPI.updateGeoJSONLayerData(this._selectionLayerId, geojson);
+        // Until the layer is on the map there is no source to write to: the
+        // group's geojson below is what it is built from once it is added
+        if (this._map?.getSource?.(`geojson-${this._selectionLayerId}`)) {
+            this._mapboxAPI.updateGeoJSONLayerData(this._selectionLayerId, geojson);
+        }
 
         // Also update the layer control's state if available
         if (window.layerControl) {

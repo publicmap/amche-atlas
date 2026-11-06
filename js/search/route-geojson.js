@@ -145,13 +145,13 @@ export const ROUTE_STYLE = {
     'waypoints/circle-color': ['match', ['get', 'role'], 'waypoint', '#ffffff', colorOr(LOCATION_BLUE)],
     'waypoints/circle-stroke-width': ['match', ['get', 'role'], 'waypoint', 1.5, 2],
     'waypoints/circle-stroke-color': ['match', ['get', 'role'], 'waypoint', colorOr(LOCATION_BLUE), '#ffffff'],
-    // Only the terminals are labelled; the stops in between are bare dots.
-    'waypoints/text-field': ['case',
-        ['==', ['get', 'role'], 'waypoint'], '',
-        ['to-string', ['coalesce', ['get', 'label'], '']]
-    ],
+    // Every stop says how far along and when it is reached, below and right
+    // of its point: under the location's own label, which sits level with the
+    // point (map-marker-manager.js's _renderDockedLeaders), clear of its disc
+    'waypoints/text-field': ['to-string', ['coalesce', ['get', 'timeLabel'], ['get', 'label'], '']],
     'waypoints/text-size': 12,
-    'waypoints/text-offset': [0, 1.4],
+    'waypoints/text-anchor': 'top-left',
+    'waypoints/text-offset': [1.15, 0.75],
     'waypoints/text-halo-color': '#ffffff',
     'waypoints/text-halo-width': 1.5,
     // Direction of travel, repeated along the line. A ">" rather than an arrow
@@ -224,6 +224,12 @@ export function buildRouteFeatureCollection(route, waypoints, { profile, source,
     // whatever the route actually traveled, not a straight line between stops.
     const cumulativeDistance = [0];
     legs.forEach(leg => cumulativeDistance.push(cumulativeDistance[cumulativeDistance.length - 1] + (leg.distance || 0)));
+    // And the time each stop is reached, leaving now - the same snapshot the
+    // route's ETA is (routeLabels)
+    const departure = Date.now();
+    const cumulativeDuration = [0];
+    legs.forEach(leg => cumulativeDuration.push(cumulativeDuration[cumulativeDuration.length - 1] + (leg.duration || 0)));
+    const clockAt = (index) => formatClock24(new Date(departure + (cumulativeDuration[index] ?? 0) * 1000));
 
     const features = [{
         type: 'Feature',
@@ -309,6 +315,9 @@ export function buildRouteFeatureCollection(route, waypoints, { profile, source,
                 street,
                 snapped: !!snapped,
                 label: name || (isStart ? 'Start' : (isEnd ? 'Destination' : `Stop ${index}`)),
+                // Where along the route and when: "Start 13:21", "12.0km 13:41",
+                // "End 14:00" - the stop's own name is on its location's pin
+                timeLabel: `${isStart ? 'Start' : (isEnd ? 'End' : formatDistance(cumulativeDistance[index] ?? 0).replace(/\s+/g, ''))} ${clockAt(index)}`,
                 // The destination carries the arrival, so the end of the line
                 // can be labelled with it directly.
                 ...(isEnd ? { eta: labels.eta, travelText: labels.travelText, distanceText: labels.distanceText } : {})
@@ -349,6 +358,10 @@ function routeLabels(route, profile, names) {
 }
 
 /** "5:19pm" - the compact form the line label needs. */
+function formatClock24(date) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
 function formatClockTime(date) {
     return date
         .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })

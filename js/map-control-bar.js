@@ -74,7 +74,12 @@ export class MapControlBar {
         this._onAtlasChanged = () => this.update(this._layers);
         this._onLocation = (e) => this._setPlace(placeLine(e.detail?.address));
         this._onStatus = () => this.refreshStatus();
-        this._onMapClick = () => { if (this._mode === 'find') this.setMode('explore', { keepQuery: true }); };
+        // A click on the map closes Find, except while it shows an open route:
+        // that click adds a stop to the route (map-marker-manager.js's _addClickedMarker)
+        this._onMapClick = () => {
+            if (this._mode !== 'find' || this.editingRoute()) return;
+            this.setMode('explore', { keepQuery: true });
+        };
         this._onKeydown = (e) => {
             if (e.key !== 'Escape' || e.defaultPrevented) return;
             if (document.querySelector('sl-dropdown[open]')) return;
@@ -278,6 +283,11 @@ export class MapControlBar {
         if (window.cadastralSearchUI?.exitSurveyMode?.()) return;
         if (this.find.detailsOpen) this.find.closeDetails();
         else this.setMode('explore');
+    }
+
+    /** Whether Find is showing a route's open card, which map clicks add stops to. */
+    editingRoute() {
+        return this._mode === 'find' && this.find?.view === 'routes' && !!window.featureControl?._markerManager?._routeFilter;
     }
 
     /** A route's card, open, in Find's Routes (a click on its badge on the map). */

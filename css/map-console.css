@@ -1555,9 +1555,9 @@ mapbox-search-box [class$='--Container'] {
 /* ---------- Other map chrome while Find is open ---------- */
 
 /* Docked marker panels share the console's column (map-marker-manager.js);
-   Find covers it, so they step aside until it closes. */
-body.console-find .marker-docked,
-body.console-find .marker-dock-leaders {
+   Find covers it, so they step aside until it closes. Their overlay stays:
+   in Find it draws only each location's label, not the lines to the column. */
+body.console-find .marker-docked {
     visibility: hidden !important;
 }
 

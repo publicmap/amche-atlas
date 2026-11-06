@@ -4,6 +4,8 @@
  * so everything is reached through the window that owns the route store.
  */
 import { routeTitle, routeSummary, routeColorOf } from '../search/route-meta.js';
+import { pinColorOf } from '../location-pins.js';
+import { showStopRings, clearStopRings } from '../route-stop-rings.js';
 
 export function routeHost() {
     try {
@@ -42,21 +44,18 @@ function markerUrlId(markerId) {
     return (markerId && markers()?.getMarkerUrlId?.(markerId)) || null;
 }
 
-// The stop picked out on an open route card, and its ring on the map
+// The stop picked out on an open route card, with distance rings round it on the map
 let stopFocus = null;
-let stopRing = null;
+// When a card last changed its route, so Find redraws to show it under the pointer
+const EDIT_SETTLE_MS = 5000;
+let editedAt = 0;
+const edited = () => { editedAt = Date.now(); };
 
 function ringAt(route, index) {
     const host = routeHost();
-    const point = route.waypoints[index];
-    if (!host?.map || !host.mapboxgl || !point) return;
-    if (!stopRing) {
-        const node = document.createElement('div');
-        node.className = 'route-stop-ring';
-        stopRing = new host.mapboxgl.Marker({ element: node }).setLngLat(point).addTo(host.map);
-    }
-    stopRing.setLngLat(point);
-    stopRing.getElement().style.setProperty('--route-color', routeColorOf(route));
+    const id = route.markerIds?.[index];
+    const lngLat = id && host?.featureControl?._markerManager?._markers?.get(id)?.lngLat;
+    showStopRings(host?.map, lngLat ? [lngLat.lng, lngLat.lat] : route.waypoints[index]);
 }
 
 export const routeActions = {
@@ -71,14 +70,17 @@ export const routeActions = {
         ringAt(route, index);
     },
     highlightedStop() { return stopFocus; },
+    recentlyEdited() { return Date.now() - editedAt < EDIT_SETTLE_MS; },
     clearStopHighlight() {
         stopFocus = null;
-        stopRing?.remove();
-        stopRing = null;
+        clearStopRings(routeHost()?.map);
     },
     hover(id) { markers()?.hoverRoute(id); },
     toggleHidden(route) { store()?.setRouteHidden(route.id, !route.hidden); },
-    reverse(route) { store()?.reverseRoute(route.id); },
+    reverse(route) {
+        edited();
+        store()?.reverseRoute(route.id);
+    },
     navigate(route) { routeHost()?.routeNavigation?.start(route); },
     share(route) { routeHost()?.shareViewPanel?.open({ route }); },
     download(route) {
@@ -115,12 +117,37 @@ export const routeActions = {
     },
     moveStop(route, from, to) {
         if (from === to || route.markerIds.length !== route.waypoints.length) return;
+        edited();
         store()?.moveStop(route.id, route.markerIds, from, to);
     },
     removeStop(route, index) {
+        edited();
         const id = route.markerIds?.[index];
         if (id) store()?.removeMarkerFromRoute(route.id, id);
         else store()?.removeWaypoint(route.id, index, { keepMarkers: true });
     },
-    savedLabel(markerId) { return markers()?.savedLabel(markerId) || null; }
+    savedLabel(markerId) { return markers()?.savedLabel(markerId) || null; },
+    /** The saved locations the route doesn't stop at: [{id, label, color}]. */
+    otherLocations(route) {
+        const manager = markers();
+        return [...(manager?._markers?.entries() || [])]
+            .filter(([id, m]) => m.saved && !route.markerIds?.includes(id))
+            .map(([id, m]) => ({ id, label: manager.savedLabel(id) || manager.getMarkerUrlId(id) || id, color: pinColorOf(m) }));
+    },
+    /** A location becomes the route's last stop. */
+    addStop(route, markerId) {
+        edited();
+        store()?.addMarkerToRoute(route.id, markerId);
+    },
+    /** A location joins the route as the stop at position `at`. */
+    insertStop(route, markerId, at) {
+        const lngLat = markers()?._markers?.get(markerId)?.lngLat;
+        const complete = route.markerIds?.length === route.waypoints.length && route.markerIds.every(Boolean);
+        if (!lngLat || route.markerIds?.includes(markerId)) return;
+        edited();
+        if (complete) store()?.insertMarkerAt(route.id, route.markerIds, markerId, lngLat, at);
+        else store()?.addMarkerToRoute(route.id, markerId);
+    },
+    /** Outlines the pin of a stop while it is pointed at in the diagram. */
+    highlightPin(markerId, on) { if (markerId) markers()?._locationPins?.highlight(markerId, on); }
 };

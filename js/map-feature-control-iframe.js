@@ -1561,11 +1561,14 @@ export class MapFeatureControl {
         // related target is one of our own overlays so hover stays stable.
         this._map.on('mouseleave', (e) => {
             setActiveRouteBadge(this._map, 'map', null);
+            this._overRouteBadge = false;
             if (this._isPointerEnteringOwnOverlay(e)) return;
             this._stateManager.handleMapMouseLeave();
         });
 
         this._map.on('mouseout', (e) => {
+            setActiveRouteBadge(this._map, 'map', null);
+            this._overRouteBadge = false;
             if (this._isPointerEnteringOwnOverlay(e)) return;
             this._stateManager.handleMapMouseLeave();
         });

@@ -267,6 +267,11 @@
     background: color-mix(in srgb, var(--route-color) 22%, transparent);
 }
 
+.route-stop:hover .route-stop-dot,
+.route-stop.active .route-stop-dot {
+    border-color: #111827;
+}
+
 .route-stop.highlighted .route-stop-dot {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--route-color) 55%, transparent);
 }
@@ -640,28 +645,6 @@
     white-space: pre-line;
 }
 
-/* The highlighted stop on the map (js/console/route-actions.js's highlightStop) */
-.route-stop-ring {
-    width: 30px;
-    height: 30px;
-    border: 3px solid var(--route-color, #1da1f2);
-    border-radius: 50%;
-    box-shadow: 0 0 0 2px #fff, 0 0 10px rgba(0, 0, 0, 0.35);
-    pointer-events: none;
-    animation: route-stop-ring 1.6s ease-out infinite;
-}
-
-@keyframes route-stop-ring {
-    0% { box-shadow: 0 0 0 2px #fff, 0 0 0 2px color-mix(in srgb, var(--route-color, #1da1f2) 60%, transparent); }
-    100% { box-shadow: 0 0 0 2px #fff, 0 0 0 14px transparent; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .route-stop-ring {
-        animation: none;
-    }
-}
-
 /* A location's routes, in Find's Locations list (js/console/location-routes.js) */
 .location-route-badges {
     display: inline-flex;
@@ -682,4 +665,72 @@
 .location-route-badge:focus-visible .route-symbol {
     transform: scale(1.12);
     outline: none;
+}
+
+/* An open route's other locations, to add as stops (js/console/route-add-stops.js) */
+.route-add-stops {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px solid var(--console-line, rgba(255, 255, 255, 0.12));
+}
+
+.route-add-stops-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--console-ink-3, #9ca3af);
+}
+
+.route-add-stops-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.route-add-stop {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    padding: 3px 8px 3px 5px;
+    border: 1px solid var(--console-line, rgba(255, 255, 255, 0.12));
+    border-radius: 999px;
+    background: var(--console-raised, rgba(255, 255, 255, 0.06));
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    cursor: grab;
+}
+
+.route-add-stop:hover,
+.route-add-stop:focus-visible {
+    border-color: var(--pin-color);
+    outline: none;
+}
+
+.route-add-stop-dot {
+    flex-shrink: 0;
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid #fff;
+    border-radius: 50%;
+    background: var(--pin-color, #f97316);
+}
+
+.route-add-stop-label {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.route-add-stops-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    color: var(--console-ink-3, #9ca3af);
 }

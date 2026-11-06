@@ -334,32 +334,25 @@
           "#ffffff"
         ],
         "waypoints/text-field": [
-          "case",
+          "to-string",
           [
-            "==",
+            "coalesce",
             [
               "get",
-              "role"
+              "timeLabel"
             ],
-            "waypoint"
-          ],
-          "",
-          [
-            "to-string",
             [
-              "coalesce",
-              [
-                "get",
-                "label"
-              ],
-              ""
-            ]
+              "get",
+              "label"
+            ],
+            ""
           ]
         ],
         "waypoints/text-size": 12,
+        "waypoints/text-anchor": "top-left",
         "waypoints/text-offset": [
-          0,
-          1.4
+          1.15,
+          0.75
         ],
         "waypoints/text-halo-color": "#ffffff",
         "waypoints/text-halo-width": 1.5,

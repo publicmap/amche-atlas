@@ -679,7 +679,9 @@ export class MapBrowserControl {
 
                 // Check if this layer exists in the registry with a prefixed ID
                 if (window.layerRegistry) {
-                    const registryLayer = window.layerRegistry.getLayer(layer.id);
+                    // Silent: layers made in the link (a `route-<rid>:` route) aren't
+                    // in the registry, and this runs on every render
+                    const registryLayer = window.layerRegistry.getLayer(layer.id, null, true);
                     if (registryLayer && registryLayer._prefixedId) {
                         active.add(registryLayer._prefixedId);
                     }

@@ -6433,6 +6433,36 @@ sl-tab:hover::part(base) {
     cursor: pointer;
 }
 
+/* The pin in a location panel's header, over a colour picker (MapMarkerManager.setMarkerColor) */
+.marker-id-color {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    cursor: pointer;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
+}
+
+.marker-id-color svg {
+    display: block;
+}
+
+.marker-id-color:hover .location-pin-body,
+.marker-id-color:focus-within .location-pin-body {
+    stroke: #111827;
+    stroke-width: 2;
+}
+
+.marker-id-color-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
 /* A location's pin on the map (js/location-pins.js): click opens its panel, drag moves it */
 .location-pin {
     width: 24px;
@@ -6465,6 +6495,39 @@ sl-tab:hover::part(base) {
 .location-pin.selected {
     transform-origin: bottom center;
     z-index: 1;
+}
+
+/* A stop of the route that is open or pointed at: drawn as its diagram draws it (.route-stop-dot in css/route-card.css) */
+.location-pin-stop {
+    display: none;
+}
+
+.location-pin.is-stop {
+    width: 22px;
+    height: 22px;
+}
+
+.location-pin.is-stop svg {
+    display: none;
+}
+
+.location-pin.is-stop .location-pin-stop {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: var(--route-color, #1da1f2);
+    box-sizing: border-box;
+    color: #fff;
+    font: 700 10px/1 system-ui, -apple-system, sans-serif;
+}
+
+.location-pin.is-stop:hover .location-pin-stop,
+.location-pin.is-stop.active .location-pin-stop,
+.location-pin.is-stop.selected .location-pin-stop {
+    border-color: #111827;
 }
 
 .selection-popup .mapboxgl-popup-content {

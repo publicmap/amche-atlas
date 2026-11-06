@@ -142,4 +142,22 @@ describe('marker-registry', () => {
                 .toBe('1(73.8,15.5,@12x-61)');
         });
     });
+
+    describe('pin colour', () => {
+        it('reads `@c<rrggbb>` as a colour, wherever it sits, leaving the name and description in place', () => {
+            expect(parseMarkersParam('h(73.8,15.5,@cE32017,Home,Where%20I%20live)')[0])
+                .toMatchObject({ name: 'Home', description: 'Where I live', color: '#e32017' });
+            expect(parseMarkersParam('1(73.8,15.5)')[0].color).toBeUndefined();
+        });
+
+        it('writes it after the other flags, without the #, and only a valid colour', () => {
+            expect(buildMarkersParam([{ id: '1', lng: 73.8, lat: 15.5, pinned: true, color: '#00A651' }])).toBe('1(73.8,15.5,@pin,@c00a651)');
+            expect(buildMarkersParam([{ id: '1', lng: 73.8, lat: 15.5, color: 'red' }])).toBe('1(73.8,15.5)');
+        });
+
+        it('round-trips', () => {
+            const param = 'h(73.8,15.5,Home,@5x-42,@pin,@ce32017)';
+            expect(buildMarkersParam(parseMarkersParam(param))).toBe(param);
+        });
+    });
 });

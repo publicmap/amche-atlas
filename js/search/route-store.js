@@ -668,6 +668,8 @@ export class RouteStore {
         // _syncMarkers is what assigns into route.markerIds. A sheet's routes
         // keep their stops in the sheet, not as pins in the link.
         if (!sheetOwned(route.groupId)) this._syncMarkers(route);
+        const markers = window.featureControl?._markerManager;
+        if (markers) this._bindLocations(markers);
         this._write(route.groupId);
     }
 
@@ -743,10 +745,14 @@ export class RouteStore {
             // rather than closing over the index they were created at, which
             // goes stale the moment an earlier waypoint is removed.
             const ref = { id: null };
+            // Not selected: a selected marker is listed in the dock column, and a
+            // route's stops belong to its card, not the column (map-marker-manager.js's
+            // _layoutDockedPanels) - as they are once the link is reloaded
             ref.id = markers.addMarker(lngLat, [], {
                 role: 'route-waypoint',
                 pinColor: WAYPOINT_PIN_COLOR,
                 saved: true,
+                select: false,
                 ...this._waypointHandlers(route, ref)
             });
             route.markerIds[index] = ref.id;
@@ -764,6 +770,7 @@ export class RouteStore {
     _bindLocations(markers) {
         const ids = new Set(this._routes.flatMap(route => route.markerIds).filter(Boolean));
         ids.forEach(id => {
+            markers.nameStopFromAddress?.(id);
             if (markers._markers?.get(id)?.onDrag) return;
             markers.adoptAsWaypoint?.(id, {
                 pinColor: WAYPOINT_PIN_COLOR,
@@ -772,6 +779,12 @@ export class RouteStore {
                 onRemove: () => this.removeMarkerFromRoutes(id)
             });
         });
+    }
+
+    /** Rewrites the links of the routes stopping at a location whose id changed (they name their stops by it). */
+    relinkLocation(markerId) {
+        new Set(this._routes.filter(route => route.markerIds.includes(markerId)).map(route => route.groupId))
+            .forEach(groupId => this._write(groupId));
     }
 
     _waypointHandlers(route, ref) {

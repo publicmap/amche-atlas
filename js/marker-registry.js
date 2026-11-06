@@ -25,6 +25,10 @@
  * and can be told apart from a name wherever it lands - name and description
  * keep their own positions whether or not an offset follows them.
  *
+ * `@c<rrggbb>` is a colour picked for the marker's pin (see
+ * MapMarkerManager.setMarkerColor), without the `#` a link would have to
+ * escape - present only once one is picked.
+ *
  * `@pin` marks a marker whose panel is pinned open - present only when pinned
  * (see MapMarkerManager._toggleMarkerPinned). Same `@` sigil as the offset
  * above for the same reason: encodeURIComponent always escapes a literal `@`
@@ -33,6 +37,7 @@
 
 const OFFSET_ARG_RE = /^@(-?\d+)x(-?\d+)$/;
 const PINNED_ARG = '@pin';
+const COLOR_ARG_RE = /^@c([0-9a-f]{6})$/i;
 
 // Dropped from what we write, still accepted from what we read. An id may
 // itself contain a `-`, so an id that literally starts with `marker-` reads
@@ -73,7 +78,7 @@ export function allEntries() {
     return Array.from(registry.values());
 }
 
-/** Parses a `markers=` value into `[{id, lng, lat, name, description[, offset][, pinned]}]`. Malformed calls (invalid id, non-numeric coordinates) are dropped. */
+/** Parses a `markers=` value into `[{id, lng, lat, name, description[, offset][, pinned][, color]}]`. Malformed calls (invalid id, non-numeric coordinates) are dropped. */
 export function parseMarkersParam(markersParam) {
     if (!markersParam) return [];
 
@@ -89,7 +94,13 @@ export function parseMarkersParam(markersParam) {
             // positions regardless of where the offset/pinned flag was written.
             let offset = null;
             let pinned = false;
+            let color = null;
             const rest = args.slice(2).filter(arg => {
+                const colorMatch = COLOR_ARG_RE.exec(arg);
+                if (colorMatch) {
+                    color = `#${colorMatch[1].toLowerCase()}`;
+                    return false;
+                }
                 const match = OFFSET_ARG_RE.exec(arg);
                 if (match) {
                     offset = { x: parseInt(match[1], 10), y: parseInt(match[2], 10) };
@@ -109,7 +120,8 @@ export function parseMarkersParam(markersParam) {
                 name: rest[0] ? decodeURIComponent(rest[0]) : '',
                 description: rest[1] ? decodeURIComponent(rest[1]) : '',
                 ...(offset ? { offset } : {}),
-                ...(pinned ? { pinned: true } : {})
+                ...(pinned ? { pinned: true } : {}),
+                ...(color ? { color } : {})
             };
         })
         .filter(Boolean);
@@ -119,7 +131,7 @@ export function parseMarkersParam(markersParam) {
 export function buildMarkersParam(entries) {
     const round = (n) => parseFloat(Number(n).toFixed(6));
 
-    return (entries || []).map(({ id, lng, lat, name, description, offset, pinned }) => {
+    return (entries || []).map(({ id, lng, lat, name, description, offset, pinned, color }) => {
         const parts = [round(lng), round(lat)];
         if (description) parts.push(encodeURIComponent(name || ''), encodeURIComponent(description));
         else if (name) parts.push(encodeURIComponent(name));
@@ -131,6 +143,7 @@ export function buildMarkersParam(entries) {
         if (dx || dy) parts.push(`@${dx}x${dy}`);
 
         if (pinned) parts.push(PINNED_ARG);
+        if (/^#[0-9a-f]{6}$/i.test(color || '')) parts.push(`@c${color.slice(1).toLowerCase()}`);
 
         return `${encodeId(id)}(${parts.join(',')})`;
     }).join(',');

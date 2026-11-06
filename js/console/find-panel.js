@@ -67,12 +67,13 @@ export class FindPanel {
         this.featureSync = new FeatureSync({ onPin: (selection, label) => this._pin(selection, label) });
         this._results = new ResultsRenderer(this._context());
         // A refresh under the pointer would move the row being aimed at, so it
-        // waits for the pointer to leave the list.
+        // waits for the pointer to leave the list - unless a route card was
+        // just edited, whose change is what the pointer is waiting to see.
         this._scheduleRefresh = () => {
             if (!this._visible) return;
             clearTimeout(this._refreshTimer);
             this._refreshTimer = setTimeout(() => {
-                if (this._body?.matches(':hover')) this._pendingRefresh = true;
+                if (this._body?.matches(':hover') && !routeActions.recentlyEdited()) this._pendingRefresh = true;
                 else this.render();
             }, 250);
         };
