@@ -11,8 +11,12 @@ import {
     extractIconUrl,
     strokeScaler
 } from './layer-style-utils.js';
+import { changeBadge } from './layer-change-badge.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
+// A spreadsheet: green page, folded corner, white grid
+const SHEET_ICON = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 32"><path d="M2 0h14l8 8v22a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z" fill="#0f9d58"/><path d="M16 0v6a2 2 0 0 0 2 2h6z" fill="#87ceac"/><path d="M5 13h14v12H5z" fill="#fff"/><path d="M5 17h14M5 21h14M11 13v12" stroke="#0f9d58" stroke-width="1.2"/></svg>')}`;
+const isGoogleSheet = (url) => typeof url === 'string' && url.includes('docs.google.com/spreadsheets/');
 
 export class LayerThumbnail {
     /**
@@ -64,6 +68,8 @@ export class LayerThumbnail {
             content.style.backgroundSize = 'cover';
             content.style.backgroundPosition = 'center';
             content.style.backgroundColor = '#f3f4f6';
+        } else if (isGoogleSheet(layer.url)) {
+            content.style.background = `#e6f4ea url("${SHEET_ICON}") center / auto 58% no-repeat`;
         } else if (layer.type === 'tms') {
             const tileUrl = LayerThumbnail._getSampleTileUrl(layer);
             if (tileUrl) {
@@ -87,7 +93,7 @@ export class LayerThumbnail {
                 overlay.style.transformOrigin = 'bottom left';
                 content.appendChild(overlay);
             }
-        } else if (!thumbnailImage) {
+        } else if (!thumbnailImage && !isGoogleSheet(layer.url)) {
             // No style and no background - show default
             const svg = this._generateDefaultThumbnail(layer, size);
             content.appendChild(svg);
@@ -200,6 +206,9 @@ export class LayerThumbnail {
             liveBadge.textContent = 'LIVE';
             container.appendChild(liveBadge);
         }
+
+        const badge = changeBadge(layer, size);
+        if (badge) container.appendChild(badge);
 
         container.style.cursor = interactive ? 'pointer' : 'inherit';
 

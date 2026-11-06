@@ -707,6 +707,10 @@
                                 <input type="radio" name="csv-geom" value="wkt">
                                 <span>WKT Geometries</span>
                             </label>
+                            <label class="radio-label" id="csv-geom-sheet" style="display: none;">
+                                <input type="radio" name="csv-geom" value="sheet">
+                                <span>Route sheet: a waypoints and a routes CSV, to paste into a Google Sheet</span>
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -1013,6 +1017,11 @@
         function renderContext() {
             const ctx = exportContext;
             $('#context-banner').toggle(!!ctx);
+            const routes = ctx?.kind === 'route';
+            $('#csv-geom-sheet').toggle(routes);
+            const $sheet = $('input[name="csv-geom"][value="sheet"]');
+            if (routes) $sheet.prop('checked', true);
+            else if ($sheet.is(':checked')) $('input[name="csv-geom"][value="xy"]').prop('checked', true);
             $('#export-heading').text(ctx ? `Export ${ctx.kind || 'layer'}` : 'Export Map');
             $('#selected-only-settings').toggle(!ctx);
             $('#context-scope').toggle(!!ctx).text(ctx ? contextScopeText(ctx) : '');

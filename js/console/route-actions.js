@@ -29,11 +29,11 @@ export function routeFeatures(route) {
         ...feature,
         properties: {
             ...feature.properties,
-            routeId: route.id,
+            routeId: route.rid,
             rid: route.rid,
             routeName: routeTitle(route, liveRoutes()),
             color: routeColorOf(route),
-            ...(feature.properties?.kind === 'waypoint' ? { markerId: markerUrlId(route.markerIds?.[feature.properties.index]) } : {})
+            ...(feature.properties?.kind === 'waypoint' ? { markerId: markerUrlId(route.markerIds?.[feature.properties.index]) || feature.properties.markerId || null } : {})
         }
     }));
 }

@@ -6783,7 +6783,7 @@ export class MapMarkerManager {
         if (!group.type || group.type === 'style') return false;
         const nonQueryableTypes = ['tms', 'wmts', 'img', 'raster-style-layer', 'cog', 'wms'];
         if (nonQueryableTypes.includes(group.type)) return false;
-        const isVectorLike = group.type === 'geojson' || group.type === 'vector' || group.type === 'csv' || group.type === 'sheet' || group.type === 'js';
+        const isVectorLike = group.type === 'geojson' || group.type === 'vector' || group.type === 'csv' || group.type === 'sheet' || group.type === 'js' || group.type === 'routes';
         if (isVectorLike && (group.inspect === false || group.inspect === null)) return false;
         return true;
     }

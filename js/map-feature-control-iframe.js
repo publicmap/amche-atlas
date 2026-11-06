@@ -13,6 +13,7 @@ import { MapMarkerManager } from './map-marker-manager.js';
 import { ZoomToParam } from './zoom-to-param.js';
 import ConfigManager from './config-manager.js';
 import { installHatchPatterns } from './hatch-patterns.js';
+import { isRouteLayer } from './route-legend.js';
 
 /**
  * Layer config fields that can be written onto a layer that is already on the
@@ -239,6 +240,7 @@ export class MapFeatureControl {
                     color,
                     features: feature ? [feature] : null,
                     subtitle: feature ? exportControl._getFeatureTitle(feature, layerConfig) : 'Whole layer',
+                    kind: isRouteLayer({ ...layerConfig, id: layerId }) ? 'route' : 'layer',
                     useFor: 'gis'
                 });
             }

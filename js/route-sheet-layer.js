@@ -25,6 +25,7 @@ import { labelToId } from './shorthand-id-utils.js';
 
 const SAME_STOP_METERS = 60;
 const PARALLEL_ROUTES = 4;
+const READ_ONLY_KEY = 'amche:sheet-read-only:';
 const EMPTY = { type: 'FeatureCollection', features: [] };
 
 const at = (p) => (Array.isArray(p) ? { lng: p[0], lat: p[1] } : p);
@@ -59,11 +60,33 @@ class RouteSheets {
             busy: entry.busy,
             error: entry.error,
             message: entry.message,
-            readOnly: !entry.config.saveUrl,
+            readOnly: !entry.config.saveUrl || entry.config.readOnly === true || this.userReadOnly(groupId),
+            canWrite: !!entry.config.saveUrl && entry.config.readOnly !== true,
+            configuredReadOnly: entry.config.readOnly === true,
             loadedAt: entry.loadedAt,
             conflicts: entry.sync.conflicts.list(),
             pending: this.pending(groupId)
         };
+    }
+
+    /** Whether the user turned writes off for this sheet (the editor's Save settings); kept per sheet in this browser. */
+    userReadOnly(groupId) {
+        const url = this._layers.get(groupId)?.config.url;
+        try {
+            return !!url && localStorage.getItem(READ_ONLY_KEY + url) === '1';
+        } catch {
+            return false;
+        }
+    }
+
+    setUserReadOnly(groupId, readOnly) {
+        const entry = this._layers.get(groupId);
+        if (!entry) return;
+        try {
+            if (readOnly) localStorage.setItem(READ_ONLY_KEY + entry.config.url, '1');
+            else localStorage.removeItem(READ_ONLY_KEY + entry.config.url);
+        } catch { /* storage blocked: the switch lasts until the page closes */ }
+        this._set(entry, groupId, {});
     }
 
     /** Reads the sheet and returns the layer's FeatureCollection (js/mapbox-api.js's routes type). */
@@ -156,7 +179,7 @@ class RouteSheets {
 
     async save(groupId) {
         const entry = this._layers.get(groupId);
-        if (!entry || entry.busy) return;
+        if (!entry || entry.busy || this.state(groupId).readOnly) return;
         const { routes, waypoints, deleted } = this.pending(groupId);
         if (!routes.length && !waypoints.length && !deleted.length) return;
         this._set(entry, groupId, { busy: 'Checking the sheet for changes…', error: null });

@@ -532,3 +532,98 @@
 .nav-step-distance {
     color: #9ca3af;
 }
+
+/* A sheet-backed route layer's sync bar (js/route-sheet-bar.js) */
+.route-sheet-bar {
+    margin: 4px 8px 6px;
+    padding: 8px 10px;
+    border: 1px solid var(--console-line, rgba(255, 255, 255, 0.15));
+    border-radius: 8px;
+    background: var(--console-raised, rgba(255, 255, 255, 0.05));
+    font-size: 12px;
+}
+
+.route-sheet-bar.in-conflict {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.route-sheet-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.route-sheet-head sl-icon {
+    color: #34a853;
+    font-size: 14px;
+}
+
+.route-sheet-title {
+    font-weight: 600;
+}
+
+.route-sheet-when {
+    margin-left: auto;
+    color: var(--console-ink-3, #9ca3af);
+    font-size: 11px;
+}
+
+.route-sheet-status {
+    margin: 4px 0 6px;
+    color: var(--console-ink-2, #d1d5db);
+    white-space: pre-line;
+}
+
+.route-sheet-status.error {
+    color: #fbbf24;
+}
+
+.route-sheet-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.route-sheet-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border: 1px solid var(--console-line, rgba(255, 255, 255, 0.2));
+    border-radius: 6px;
+    background: transparent;
+    color: var(--console-ink, #f3f4f6);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.route-sheet-btn.primary {
+    border-color: #34a853;
+    background: #34a853;
+    color: #fff;
+}
+
+.route-sheet-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.route-sheet-conflict {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.route-sheet-conflict-text {
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.route-sheet-note {
+    margin-top: 6px;
+    color: var(--console-ink-3, #9ca3af);
+    font-size: 11px;
+    white-space: pre-line;
+}

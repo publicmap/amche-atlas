@@ -13,4 +13,5 @@ Amche Atlas is a free digital library of public maps for Goa, India — cadastra
 2. [Adding your own data](?page=adding-data)
 3. [Curating a map atlas for your community](?page=curating-atlas)
 4. [Hosting your own atlas instance](?page=hosting-instance)
-5. [Using the URL API](?page=url-api)
+5. [An atlas in a Google Sheet](?page=sheet-atlas)
+6. [Using the URL API](?page=url-api)

@@ -44,7 +44,19 @@ function deepCopy(value) {
     return JSON.parse(JSON.stringify(value));
 }
 
+// A Google Sheet given as `?atlas=` is read tab by tab and turned into an
+// atlas config (js/sheet-atlas.js); loaded on demand, as most atlases are JSON.
+async function loadSheet(url) {
+    try {
+        const { loadSheetAtlas } = await import('./sheet-atlas.js');
+        return { ok: true, status: 200, contentType: 'application/json', json: resolveConstants(await loadSheetAtlas(url)), error: null };
+    } catch (error) {
+        return { ok: false, status: 0, contentType: '', json: null, error: `Google Sheet atlas: ${error.message}` };
+    }
+}
+
 async function load(url) {
+    if (/docs\.google\.com\/spreadsheets\/d\//.test(url)) return loadSheet(url);
     let response;
     try {
         response = await fetch(url);

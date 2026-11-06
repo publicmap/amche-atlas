@@ -68,7 +68,7 @@
 }
 
 .map-console[data-mode="find"] {
-    width: 440px;
+    width: 420px;
 }
 
 .map-console[data-mode="explore"] .when-find,
@@ -660,8 +660,7 @@ mapbox-search-box [class$='--Container'] {
     flex-direction: column;
 }
 
-/* Find's sections side by side (js/console/find-sections.js): the open one
-   fills the row, the others are strips with their name running down them */
+/* Find's sections as tabs stacked down one column (js/console/find-sections.js) */
 .console-acc {
     flex: 0 1 auto;
     min-height: 0;
@@ -674,32 +673,39 @@ mapbox-search-box [class$='--Container'] {
     min-width: 0;
 }
 
+.console-acc-rail {
+    flex: 0 0 38px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--console-line);
+    background: var(--console-raised);
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+
 .console-acc-strip {
-    flex: 0 0 34px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    padding: 10px 0;
+    gap: 5px;
+    padding: 9px 0;
     border: 0;
-    border-right: 1px solid var(--console-line);
-    border-left: 1px solid var(--console-line);
-    background: var(--console-raised);
-    color: var(--console-ink-2) !important;
+    border-bottom: 1px solid var(--console-line);
+    background: transparent;
+    color: var(--console-ink-3) !important;
     cursor: pointer;
-}
-
-.console-acc-strip + .console-acc-strip {
-    border-left: 0;
-}
-
-.console-acc-strip[hidden] {
-    display: none;
 }
 
 .console-acc-strip:hover {
     background: var(--console-hover);
     color: var(--console-ink) !important;
+}
+
+.console-acc-strip.active {
+    background: var(--console-surface);
+    box-shadow: inset 3px 0 0 var(--console-amber);
+    color: var(--console-ink) !important;
+    margin-right: -1px;
 }
 
 .console-acc-strip sl-icon {
@@ -708,7 +714,8 @@ mapbox-search-box [class$='--Container'] {
 
 .console-acc-name {
     writing-mode: vertical-rl;
-    font-size: 12px !important;
+    transform: rotate(180deg);
+    font-size: 11.5px !important;
     font-weight: 600;
     letter-spacing: 0.02em;
     white-space: nowrap;

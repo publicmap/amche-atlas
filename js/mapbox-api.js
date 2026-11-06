@@ -19,6 +19,8 @@ import { localizeTextField } from './locale-text-field.js';
 import { localeManager } from './locale-manager.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
 import { pmtilesArchiveUrl } from './pmtiles-source.js';
+import { routeSheets } from './route-sheet-layer.js';
+import { ROUTE_STYLE, ROUTE_INSPECT } from './search/route-geojson.js';
 
 // How many removed Overpass layers keep their fetched features around for a
 // possible re-add. The creator mints a fresh layer id per import, so without a
@@ -655,6 +657,8 @@ export class MapboxAPI {
                     return this._createGeoJSONLayer(groupId, config, visible);
                 case 'js':
                     return this._createJsLayer(groupId, config, visible);
+                case 'routes':
+                    return this._createRoutesLayer(groupId, config, visible);
                 case 'overpass':
                     return this._createOverpassLayer(groupId, config, visible);
                 case 'arcgis':
@@ -712,6 +716,7 @@ export class MapboxAPI {
                 case 'geojson':
                     return this._updateGeoJSONLayerVisibility(groupId, config, visible);
                 case 'js':
+                case 'routes':
                     return this._updateGeoJSONLayerVisibility(groupId, config, visible);
                 case 'overpass':
                     return this._updateOverpassLayerVisibility(groupId, config, visible);
@@ -775,6 +780,7 @@ export class MapboxAPI {
                 case 'geojson':
                     return this._removeGeoJSONLayer(groupId, config);
                 case 'js':
+                case 'routes':
                     return this._removeGeoJSONLayer(groupId, config);
                 case 'overpass':
                     return this._removeOverpassLayer(groupId, config);
@@ -875,6 +881,7 @@ export class MapboxAPI {
                 case 'geojson':
                     return this._updateGeoJSONLayerOpacity(groupId, config, opacity);
                 case 'js':
+                case 'routes':
                     return this._updateGeoJSONLayerOpacity(groupId, config, opacity);
                 case 'overpass':
                 case 'arcgis':
@@ -2281,6 +2288,24 @@ export class MapboxAPI {
         }
 
         return this._updateGeoJSONLayerVisibility(groupId, config, visible);
+    }
+
+    /**
+     * A route network kept in a Google Sheet (js/route-sheet-layer.js): drawn
+     * as a geojson layer in the route style once the sheet has been read and
+     * its routes fetched.
+     */
+    async _createRoutesLayer(groupId, config, visible) {
+        if (this._map.getSource(`geojson-${groupId}`) || !visible) return this._updateGeoJSONLayerVisibility(groupId, config, visible);
+        const geojson = await routeSheets.load(groupId, config);
+        return this._createGeoJSONLayer(groupId, {
+            ...config,
+            type: 'geojson',
+            data: geojson,
+            url: undefined,
+            style: { ...ROUTE_STYLE, ...(config.style || {}) },
+            inspect: config.inspect ?? { ...ROUTE_INSPECT }
+        }, visible);
     }
 
     async _fetchJsLayerData(config) {
@@ -4024,6 +4049,7 @@ export class MapboxAPI {
             case 'overpass':
             case 'arcgis':
             case 'js':
+            case 'routes':
             case 'geojson': {
                 const sourceId = `geojson-${groupId}`;
 

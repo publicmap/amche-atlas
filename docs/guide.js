@@ -5,7 +5,9 @@ const PAGES = [
     { slug: 'adding-data', file: 'guides/adding-data.md', label: 'Adding your own data', group: 'Tutorials' },
     { slug: 'curating-atlas', file: 'guides/curating-atlas.md', label: 'Curating a map atlas for your community', group: 'Tutorials' },
     { slug: 'hosting-instance', file: 'guides/hosting-instance.md', label: 'Hosting your own atlas instance', group: 'Tutorials' },
+    { slug: 'sheet-atlas', file: 'guides/sheet-atlas.md', label: 'An atlas in a Google Sheet', group: 'Tutorials' },
     { slug: 'url-api', file: 'API.md', label: 'Using the URL API', group: 'Tutorials' },
+    { slug: 'route-sheets', file: 'route-sheets.md', label: 'Route networks in a Google Sheet', group: 'Reference' },
 ];
 
 // The open page's own headings, nested under its entry in the sidebar,
@@ -106,6 +108,17 @@ function openOffsiteLinksInNewTab(root) {
     });
 }
 
+// A link to another guide page's markdown file (`API.md#markers`, as it
+// reads on GitHub) opens that page here instead of the raw file.
+function linkGuidePages(root) {
+    root.querySelectorAll('a[href]').forEach(link => {
+        const url = new URL(link.getAttribute('href'), location.href);
+        if (url.origin !== location.origin || !url.pathname.endsWith('.md')) return;
+        const page = PAGES.find(p => new URL(p.file, location.href).pathname === url.pathname);
+        if (page) link.setAttribute('href', `?page=${page.slug}${url.hash}`);
+    });
+}
+
 function scrollToHash() {
     if (!location.hash) return window.scrollTo(0, 0);
     document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
@@ -137,7 +150,9 @@ async function loadPage() {
         content.innerHTML = html.replace(
             /(src|href)="(?!https?:|\/|#|\?|data:|mailto:)/g, `$1="${folder}`);
         visibleSections = linkHeadings(content);
+        linkGuidePages(content);
         openOffsiteLinksInNewTab(content);
+        if (window.addCopyButtons) addCopyButtons(content);
         renderToc(page.slug, visibleSections);
         content.insertAdjacentHTML('beforeend', `
             <footer class="page-footer">

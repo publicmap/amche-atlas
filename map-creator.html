@@ -971,6 +971,30 @@
         .animate-spin {
             animation: spin 1s linear infinite;
         }
+
+        /* Save settings (js/creator-save-settings.js) */
+        .save-settings-dialog::part(panel) { background: #111827; color: #e5e7eb; }
+        .save-settings-dialog::part(body) { padding-top: 0; }
+        .save-settings-dialog .ss-lead { color: #9ca3af; font-size: 13px; margin: 0 0 12px; }
+        .save-settings-dialog .ss-summary { margin-bottom: 12px; }
+        .save-settings-dialog .ss-count { font-weight: 600; color: #fbbf24; font-size: 13px; margin-bottom: 4px; }
+        .save-settings-dialog .ss-count.ss-bad { color: #f87171; margin-top: 8px; }
+        .save-settings-dialog .ss-changes { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+        .save-settings-dialog .ss-changes li { margin: 3px 0; overflow-wrap: anywhere; }
+        .save-settings-dialog .ss-field, .save-settings-dialog .ss-reason { color: #9ca3af; }
+        .save-settings-dialog .ss-was { color: #9ca3af; text-decoration: line-through; }
+        .save-settings-dialog .ss-section { border-top: 1px solid #374151; padding: 12px 0; display: flex; flex-direction: column; gap: 8px; }
+        .save-settings-dialog .ss-title { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 600; }
+        .save-settings-dialog .ss-note { font-size: 12px; line-height: 1.5; color: #d1d5db; padding: 8px 10px; border-radius: 6px; background: #1f2937; border: 1px solid #374151; }
+        .save-settings-dialog .ss-note.ss-warning { border-color: #92400e; background: #2a1f0e; }
+        .save-settings-dialog .ss-note a, .save-settings-dialog .ss-link { color: #60a5fa; }
+        .save-settings-dialog .ss-link { font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+        .save-settings-dialog code { font-size: 11px; background: #374151; padding: 0 4px; border-radius: 3px; }
+        .save-settings-dialog .ss-bar { --height: 8px; --indicator-color: #22c55e; }
+        .save-settings-dialog .ss-bar[data-state="long"] { --indicator-color: #f59e0b; }
+        .save-settings-dialog .ss-bar[data-state="over"] { --indicator-color: #ef4444; }
+        .save-settings-dialog .ss-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: #9ca3af; }
+        .save-settings-dialog .ss-action { align-self: flex-start; }
     </style>
     <script defer type="module" src="js/analytics.js"></script>
 </head>
@@ -1004,6 +1028,11 @@
                 </button>
                 <button id="add-to-map-btn" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold text-sm" disabled>
                     Add Map Layer
+                </button>
+                <button id="save-settings-btn" type="button" class="hidden px-3 py-1.5 rounded text-sm"
+                    style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;"
+                    title="Where this map's changes are kept: Google Sheet, link, export">
+                    <sl-icon name="gear"></sl-icon> Save settings
                 </button>
                 <sl-tooltip content="Remove Layer" placement="bottom" hoist>
                     <button type="button" class="info-header-action danger hidden" id="lh-remove" aria-label="Remove Layer">

@@ -104,7 +104,7 @@ export class LayerPage {
         $('#edit-btn').toggleClass('hidden', !viewing);
         $('#add-to-map-btn').toggleClass('hidden', viewing);
         $('#remove-other-maps-btn').toggleClass('hidden', viewing || this.active);
-        $('#edit-history').toggleClass('hidden', viewing || !this.active);
+        $('#edit-history, #save-settings-btn').toggleClass('hidden', viewing || !this.active);
         this.updateHistoryButtons();
     }
 

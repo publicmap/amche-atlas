@@ -11,6 +11,7 @@ import { CreatorStyleEditor } from './creator-style-editor.js';
 import { CreatorEditMode } from './creator-edit-mode.js';
 import { DataCard } from './data-card.js';
 import { LayerPage } from './layer-page.js';
+import { CreatorSaveSettings } from './creator-save-settings.js';
 import { CreatorHome, FORMAT_KEYS } from './creator-home.js';
 
 // Re-exported for the Style controls' own callers (and their tests), which have
@@ -58,12 +59,14 @@ export class MapCreator {
         this.dataCard = new DataCard(this);
         // An existing layer: header, live actions and Overview / Edit tabs (see layer-page.js).
         this.layerPage = new LayerPage(this);
+        this.saveSettings = new CreatorSaveSettings(this);
         // Options for the next source resolve (edit mode pins an ArcGIS layer's output type).
         this._resolveOptions = null;
     }
 
     init() {
         this.layerPage.init();
+        this.saveSettings.init();
         this.dataCard.init();
         this.home = new CreatorHome(this);
         this.home.init();

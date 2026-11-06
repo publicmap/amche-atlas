@@ -14,11 +14,13 @@ Load a specific atlas configuration.
 - `filename` - Load local config file (e.g., `?atlas=villages`)
 - `https://...` - Load remote config URL
 - `{"name":"..."}` - Inline JSON config
+- `https://docs.google.com/spreadsheets/d/<id>/edit` - An atlas kept in a Google Sheet: its `atlas`, `layers`, `markers`, `waypoints` and `routes` tabs become the atlas's settings, maps, pins and route network (`js/sheet-atlas.js`). The sheet must be shared "Anyone with the link can view". See the [atlas in a Google Sheet](guides/sheet-atlas.md) guide, which has a starter script
 
 **Examples:**
 ```
 ?atlas=villages
 ?atlas=https://example.com/map-config.json
+?atlas=https://docs.google.com/spreadsheets/d/<SHEET_ID>/edit
 ?atlas={"name":"Custom Map","layers":[{"id":"mapbox-streets"}]}
 ```
 
@@ -106,7 +108,7 @@ Instead of pasting a full external URL into the map creator to build a complete 
 ?layers=route-1:osrm-driving(1,2)&markers=1(73.81,15.49),2(73.83,15.51)
 ```
 
-**Routes:** unlike every other dynamic layer shortcut, `route` carries its own user-facing id in the type token itself — `route-<rid>:...`, defaulting to its creation order ("1", "2", ...) — so it stays a stable reference the way a [`markers`](#markers) id does. The call then names the routing service and profile that produced the route, so a shared link reproduces that route rather than re-routing with whatever the current default happens to be. Each `route-<rid>:` entry is one route and becomes one layer, so several routes on a map is several entries: `?layers=route-1:mapbox-driving(1,2),route-2:mapbox-cycling(3,4)`. Every service's routes render in the same route layer style, with the line telling the kind of travel apart: driving solid, cycling dashed, walking dotted and thinner. Mapbox `driving` is routed with live traffic, and the route ignoring traffic is fetched alongside it and drawn as a muted second line underneath (a `route-alternative` feature) - the shortest way if traffic were no object. Older links naming `mapbox-driving-traffic` read as `mapbox-driving`. Each route also carries a badge - a disc in its colour with its travel mode's icon (a `route-badge` Point on the line, drawn from `js/search/route-badge.js`), the same mark as on its button in the marker dock. Routes through the same stops, such as one trip in several modes, share a colour unless one is given in the link, and are told apart by line style and badge.
+**Routes:** unlike every other dynamic layer shortcut, `route` carries its own user-facing id in the type token itself — `route-<rid>:...`, defaulting to its creation order ("1", "2", ...) — so it stays a stable reference the way a [`markers`](#markers) id does. The call then names the routing service and profile that produced the route, so a shared link reproduces that route rather than re-routing with whatever the current default happens to be. Each `route-<rid>:` entry is one route and becomes one layer, so several routes on a map is several entries: `?layers=route-1:mapbox-driving(1,2),route-2:mapbox-cycling(3,4)`. Every service's routes render in the same route layer style, with the line telling the kind of travel apart: driving solid, cycling dashed, walking dotted and thinner. Mapbox `driving` is routed with live traffic, and the route ignoring traffic is fetched alongside it and drawn as a muted second line underneath (a `route-alternative` feature) - the shortest way if traffic were no object. Older links naming `mapbox-driving-traffic` read as `mapbox-driving`. Each route also carries a badge - a disc in its colour with its travel mode's icon (a `route-badge` Point on the line, drawn from `js/search/route-badge.js`), the same mark as on its route card in Find. Routes through the same stops, such as one trip in several modes, share a colour unless one is given in the link, and are told apart by line style and badge.
 
 **Services** live in `ROUTING_ENGINES` (`js/search/directions-router.js`) — currently `mapbox` (profiles `driving`, `walking`, `cycling`) and `osrm` (`driving` only; the public demo server serves a car profile only). Adding a service there is all it takes for `<service>-<profile>(…)` to work in the URL. A profile the named service doesn't offer falls back to that service's default rather than failing the route, and naming a service explicitly is taken at its word — only the default service (`mapbox`) falls back to another when its API fails.
 
@@ -530,7 +532,7 @@ Available on all layer types unless noted otherwise.
 | Field | Type | Notes |
 |---|---|---|
 | `id` | string | Unique identifier referenced from URLs and other configs. **Required** for all types except inline `style` layers. |
-| `type` | string | One of `style`, `vector`, `tms`, `wmts`, `wms`, `cog`, `geojson`, `js`, `csv`, `sheet`, `overpass`, `arcgis`, `img`, `raster-style-layer`, `layer-group`. **Required**, except on the [reserved layers](#reserved-layer-ids). |
+| `type` | string | One of `style`, `vector`, `tms`, `wmts`, `wms`, `cog`, `geojson`, `js`, `csv`, `sheet`, `routes`, `overpass`, `arcgis`, `img`, `raster-style-layer`, `layer-group`. **Required**, except on the [reserved layers](#reserved-layer-ids). |
 | `title` | string | Display name in the layer control. |
 | `description` | string | HTML allowed; shown in the layer info panel. |
 | `tags` | string[] | Used to group layers in the UI. Prefix with `N.` (e.g. `"1.Development Plans"`) to control sort order. |
@@ -832,7 +834,7 @@ The same pins and routes can live in a Google Sheet: a `waypoints` tab (`id`, `n
   "saveUrl": "https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec" }
 ```
 
-Edits are written back through the Apps Script with per-row conflict checks: a row changed in the sheet since the user started editing is never overwritten, and has to be inserted as a new row or discarded. The sheet layout, link formulas, the complete script, deployment and CSV/GeoJSON round trips are in [docs/route-sheets.md](route-sheets.md). The modules are `js/route-sheet-format.js` (rows, links, CSV and GeoJSON conversion) and `js/route-sheet-sync.js` (reading, saving and conflicts). The `routes` layer type isn't dispatched by `js/mapbox-api.js` yet.
+Edits are written back through the Apps Script with per-row conflict checks: a row changed in the sheet since the user started editing is never overwritten, and has to be inserted as a new row or discarded. The sheet layout, link formulas, the complete script, deployment and CSV/GeoJSON round trips are in [docs/route-sheets.md](route-sheets.md). The modules are `js/route-sheet-format.js` (rows, links, CSV and GeoJSON conversion) and `js/route-sheet-sync.js` (reading, saving and conflicts). See [`routes`](#routes--route-network-in-a-google-sheet) for the layer type.
 
 #### Inspect Configuration
 
@@ -1452,6 +1454,39 @@ Ideally your sheet has a header row with `latitude`, `longitude`, `notes`, `time
 The client side is implemented in `js/google-sheets-writer.js`'s `saveRow()`; the popup UI lives in `js/map-marker-manager.js`. Without `saveUrl`, a sheet layer stays read-only and the comment box's **Save** action reports that the layer is read-only.
 
 > Already have a `doPost` deployed from before this update-in-place matching was added? It only ever appends, so editing an existing note there creates a duplicate row rather than updating it. Paste the script above into **Extensions → Apps Script**, then **Deploy → Manage deployments → Edit → New version** to pick up the fix — the `/exec` URL stays the same.
+
+### `routes` — Route network in a Google Sheet
+
+A network of routes and their stops kept in a Google Sheet, drawn in the route style (`ROUTE_STYLE` in `js/search/route-geojson.js`) and edited like any other route. The sheet has a `waypoints` tab and a `routes` tab; their columns, link formulas and the Apps Script are in [docs/route-sheets.md](route-sheets.md).
+
+| Field | Required | Notes |
+|---|---|---|
+| `url` | yes | The sheet's edit URL. Without `saveUrl` it is read through Google's CSV export, so the sheet must be shared "Anyone with the link can view". |
+| `saveUrl` | no | The `/exec` URL of the sheet owner's Apps Script web app. With it the layer is read through the script and can be saved; without it the layer is read only. |
+| `readOnly` | no | `true` keeps the layer read only even with a `saveUrl`: route edits stay in the link. In a sheet atlas this is the `read-only` column of the map's row in the `layers` tab. The layer editor's **Save settings** also has a Read only switch, kept per sheet in the browser. |
+| `waypointsGid`, `routesGid` | no | The tabs' `gid`s. Without them the tabs are found by name (`waypoints` / `stops` / `markers` / `pins`, and `routes`). |
+| `style`, `inspect` | no | Merged over the route style and inspect settings. |
+
+```json
+{
+  "id": "goa-cycle-network",
+  "title": "Goa cycle network",
+  "type": "routes",
+  "url": "https://docs.google.com/spreadsheets/d/<SHEET_ID>/edit",
+  "saveUrl": "https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec",
+  "initiallyChecked": true
+}
+```
+
+**How it loads.** `js/route-sheet-layer.js` reads both tabs, routes each `routes` row through its stops with the named service (Mapbox by default, so a Mapbox token is needed, as for any route), and hands the routes to the route store. They show as route cards in Find's Routes section and in the layer's legend. A row with fewer than two known stops is skipped and named in the legend.
+
+**Editing and saving.** The route cards edit a sheet's routes as they edit any other: reverse, remove a stop, change the routing profile or colour, duplicate, delete, drag the line or drop a pin on it to add a stop. None of this is written to the URL, and nothing reaches the sheet until **Save** in the sync bar at the top of the legend. The bar shows what Save would write: routes changed or added, new stops, routes deleted. Save compares the routes as they are now with the sheet as it was loaded and writes only the rows that differ. A stop within 60 m of an existing waypoint reuses that waypoint's id; any other stop becomes a new waypoint row. **Refresh** reads the sheet again and discards unsaved edits.
+
+**Conflicts.** Save always re-reads the sheet first. If someone changed, deleted or added one of the rows it would write since it was loaded, nothing is written and the bar goes into conflict mode. It lists each conflicted row with **Insert as new** (your version is written as a new row with a fresh id, and the sheet's row stays) and **Discard mine** (the sheet's version stands). While any conflict is open, Save is off and conflicted rows can't be written or deleted. The layer reloads from the sheet once the last conflict is settled.
+
+**Exporting to a sheet.** Download on a route card, or Export on a route layer in the layer editor, offers a **Route sheet** CSV option. It writes a waypoints CSV and a routes CSV in this layout, with each route's amche link in a `link` column, ready to paste into the sheet.
+
+**Implementation:** `_createRoutesLayer` in `js/mapbox-api.js` draws the layer as `geojson` once `routeSheets.load()` returns; the other dispatch switches treat it as `geojson`. It takes the default (middle) slot in `getInsertPosition`.
 
 ### `sheet` — Google Sheet, every tab combined
 

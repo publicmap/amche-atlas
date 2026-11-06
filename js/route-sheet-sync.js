@@ -81,7 +81,10 @@ export class RouteSheetSync {
         if (!gids.waypoints || !gids.routes) {
             const tabs = await fetchSheetTabs(spreadsheetId);
             TABLES.forEach(table => {
-                if (!gids[table]) gids[table] = tabs.find(tab => TAB_NAMES[table].test(tab.name.trim()))?.gid;
+                // An exact `waypoints` tab wins over `markers` / `pins`, which a sheet atlas
+                // (js/sheet-atlas.js) uses for pins that are not stops
+                const named = (pattern) => tabs.find(tab => pattern.test(tab.name.trim()))?.gid;
+                if (!gids[table]) gids[table] = named(new RegExp(`^${table}$`, 'i')) || named(TAB_NAMES[table]);
                 if (!gids[table]) throw new Error(`No "${table}" tab found; set ${table}Gid on the layer`);
             });
         }

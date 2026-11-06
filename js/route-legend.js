@@ -7,10 +7,11 @@
  */
 import { routeCard } from './console/route-card.js';
 import { liveRoutes, routeHost } from './console/route-actions.js';
+import { routeSheetBar } from './route-sheet-bar.js';
 
 export function isRouteLayer(layer) {
     if (!layer) return false;
-    if (layer.id === 'directions' || /^route-/.test(layer.id || '')) return true;
+    if (layer.type === 'routes' || layer.id === 'directions' || /^route-/.test(layer.id || '')) return true;
     return !!layer.geojson?.features?.some(f => f.properties?.kind === 'route');
 }
 
@@ -19,10 +20,21 @@ function routesOf(layer) {
     return liveRoutes().filter(route => ids.some(id => id === route.groupId || id.endsWith(`-${route.groupId}`)));
 }
 
+function sheetGroupId(layer) {
+    const sheets = routeHost()?.routeSheets;
+    return [layer.id, layer._prefixedId].filter(Boolean).find(id => sheets?.owns(id)) || null;
+}
+
 export function generateRouteLegend(layer) {
-    if (!isRouteLayer(layer) || !routesOf(layer).length) return null;
+    if (!isRouteLayer(layer)) return null;
+    const sheetId = sheetGroupId(layer);
+    if (!sheetId && !routesOf(layer).length) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'legend-routes-wrap';
+    const bar = sheetId ? routeSheetBar(sheetId) : null;
     const container = document.createElement('div');
     container.className = 'route-cards legend-routes';
+    wrap.append(...[bar, container].filter(Boolean));
     const open = new Set();
     const render = () => {
         const routes = liveRoutes();
@@ -38,7 +50,7 @@ export function generateRouteLegend(layer) {
     };
     const host = routeHost();
     const onChange = () => {
-        if (!container.isConnected) {
+        if (!wrap.isConnected) {
             host?.removeEventListener('routes-changed', onChange);
             return;
         }
@@ -46,5 +58,5 @@ export function generateRouteLegend(layer) {
     };
     host?.addEventListener('routes-changed', onChange);
     render();
-    return container;
+    return wrap;
 }
