@@ -1289,7 +1289,9 @@ export class MapInitializer {
             const indexAtlasMap = layerRegistry.getAtlasMetadata('index')?.map || {};
             const fallbackCenter = config.map?.center || indexAtlasMap.center || [0, 0];
             const fallbackZoom = config.map?.zoom ?? indexAtlasMap.zoom ?? 2;
-            window.__amcheAtlasDefaultView = { center: fallbackCenter, zoom: fallbackZoom };
+            const fallbackPitch = config.map?.pitch ?? indexAtlasMap.pitch ?? 0;
+            const fallbackBearing = config.map?.bearing ?? indexAtlasMap.bearing ?? 0;
+            window.__amcheAtlasDefaultView = { center: fallbackCenter, zoom: fallbackZoom, pitch: fallbackPitch, bearing: fallbackBearing };
 
             // Whenever a real GPS fix is established — at startup (possibly
             // after the fallback camera below already ran, since GeoIP/atlas
@@ -1321,7 +1323,7 @@ export class MapInitializer {
                 if (window.orientationControl?.isTracking) window.orientationControl.turnOff();
                 MapContextMessagesControl.close('gps-lock-status');
                 const view = window.__amcheAtlasDefaultView;
-                map.flyTo({ center: view.center, zoom: view.zoom, pitch: 28, bearing: 0, duration: 1500, essential: true });
+                map.flyTo({ center: view.center, zoom: view.zoom, pitch: view.pitch, bearing: view.bearing, duration: 1500, essential: true });
             };
             // A GPS fix that arrives AFTER the placement chain below has
             // already run (or is mid-flight) always wins — it corrects
@@ -1471,8 +1473,8 @@ export class MapInitializer {
                 map.flyTo({
                     center: [lateHash.lng, lateHash.lat],
                     zoom: lateHash.zoom,
-                    pitch: 28,
-                    bearing: 0,
+                    pitch: fallbackPitch,
+                    bearing: fallbackBearing,
                     duration: 1500,
                     essential: true
                 });
@@ -1516,8 +1518,8 @@ export class MapInitializer {
                         map.flyTo({
                             center: fallbackCenter,
                             zoom: fallbackZoom,
-                            pitch: 28,
-                            bearing: 0,
+                            pitch: fallbackPitch,
+                            bearing: fallbackBearing,
                             duration: 1500,
                             essential: true
                         });
@@ -1529,8 +1531,8 @@ export class MapInitializer {
                         const flyToOptions = {
                             center: fallbackCenter,
                             zoom: fallbackZoom,
-                            pitch: 28,
-                            bearing: 0,
+                            pitch: fallbackPitch,
+                            bearing: fallbackBearing,
                             duration: 3000,
                             essential: true,
                             curve: 1.42,
