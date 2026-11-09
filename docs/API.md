@@ -542,7 +542,8 @@ Available on all layer types unless noted otherwise.
 | `headerImage` | string | Thumbnail shown in the layer control. |
 | `legendImage` | string | Image shown in the legend panel when the layer is active. |
 | `legendMap` | array | Categorical raster legend — `[{ value, color, label }, ...]`. See [Categorical Raster Legends](#categorical-raster-legends-legendmap). Raster types (`tms`, `wmts`, `wms`, `cog`) only. |
-| `attribution` | string | HTML allowed. Shown in the bottom-right attribution control while the layer is visible. Falls back to the atlas's own `attribution` when not set - see [Atlas-level `attribution`](#atlas-level-attribution). |
+| `attribution` | string | HTML allowed. Where the data comes from: the original source first, then anything it came through, separated by commas - see [Attribution and license](#attribution-and-license). Shown in the bottom-right attribution control while the layer is visible. Falls back to the atlas's own `attribution` when not set - see [Atlas-level `attribution`](#atlas-level-attribution). |
+| `license` | string | The license the data may be reused under, e.g. `CC-BY-4.0`, `CC-BY-SA-4.0`, `CC0`, `ODbL`, `Public Domain`. Kept out of `attribution`. Shown prominently in the layer editor; flagged there when missing. See [Attribution and license](#attribution-and-license). |
 | `initiallyChecked` | boolean | If `true`, the layer is on at first load (unless `?layers=` overrides). |
 | `opacity` | number | 0–1 multiplier applied on top of any `style` opacity. |
 | `style` | object | Mapbox GL paint/layout properties. See `config/_defaults.json` for the cascade. Keys may be prefixed with `<name>/` to create additional style passes from the same source — see [Multi-pass style variants](#multi-pass-style-variants). |
@@ -646,6 +647,25 @@ Setting `inspect: false`/`null` on a layer still disables interactivity (the ins
 ```
 
 Goa renders with the atlas defaults, Maharashtra with the `highlighted` preset on top of the defaults, and Karnataka with the defaults plus a per-layer `line-width` override.
+
+#### Attribution and license
+
+A layer's `attribution` lists where its data comes from as parts separated by commas, in order:
+
+1. the **original source** - the authority or author the data comes from;
+2. then any **intermediaries** it came through - a georeferencer (MapWarper), a collector (Datameet), a tile service (Shortbread, OpenMapTiles) or a derived work - in order.
+
+Write each part as a link where there is one, and leave out connecting words ("via", "Collected by", "Georeferenced using", "Source:"). Keep a `©` where the source holds copyright; any other license wording belongs in `license`, not in the attribution.
+
+```json
+{
+  "id": "goa-bus-network",
+  "attribution": "<a href='https://ktclgoa.com/gtfs/'>Kadamba Transport Corporation Limited GTFS updated Jan 2025</a>, <a href='https://commons.wikimedia.org/wiki/File:Goa_Bus_Network_Map_2025.png'>CC-BY Wikipedia/user:Planemad</a>",
+  "license": "CC-BY"
+}
+```
+
+The map console's Data Sources view (an atlas's maps by source, in atlas mode) nests maps by these parts in order: maps from one source sit under it, and under each intermediary in turn. `js/attribution.js` reads the older ways attributions were written into these parts.
 
 #### Atlas-level `attribution`
 

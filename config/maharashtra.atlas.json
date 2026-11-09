@@ -188,7 +188,7 @@
       "url": "https://indianopenmaps.com/not-so-open/cadastrals/maharashtra/mrsac/{z}/{x}/{y}.pbf",
       "sourceLayer": "MRSAC_Cadastrals",
       "maxzoom": 13,
-      "attribution": "<a href='https://mrsac.gov.in/MRSAC/'>Maharashtra Remote Sensing Application Centre</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://mrsac.gov.in/MRSAC/'>Maharashtra Remote Sensing Application Centre</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "text-padding": 10,
         "text-font": [
@@ -316,7 +316,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='http://nmc.gov.in/assets/admin/upload/download/86144_NASHIKDPCOMBINEMAP-Model.pdf' target='_blank'>http://nmc.gov.in/assets/admin/upload/download/86144_NASHIKDPCOMBINEMAP-Model.pdf</a> via <a href='https://mapwarper.net/maps/101533' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='http://nmc.gov.in/assets/admin/upload/download/86144_NASHIKDPCOMBINEMAP-Model.pdf'>nmc.gov.in</a>, <a href='https://mapwarper.net/maps/101533'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/101533/thumb/NASHIKDPCOMBINEMAP-Model.png",
       "bbox": "73.6714092,19.8869948,73.9471315,20.0960003",
       "initiallyChecked": false
@@ -345,7 +345,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://dtp.maharashtra.gov.in/wp-content/uploads/2024/11/RP_Nashik.jpg' target='_blank'>https://dtp.maharashtra.gov.in/wp-content/uploads/2024/11/RP_Nashik.jpg</a> via <a href='https://mapwarper.net/layers/2426' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://dtp.maharashtra.gov.in/wp-content/uploads/2024/11/RP_Nashik.jpg'>dtp.maharashtra.gov.in</a>, <a href='https://mapwarper.net/layers/2426'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/101557/thumb/RP_Nashik.png",
       "bbox": "73.1319366,19.6069601,75.4532274,20.8870761",
       "initiallyChecked": false

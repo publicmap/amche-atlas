@@ -225,11 +225,12 @@ export class FindPanel {
         this.openRoute(route);
     }
 
-    /** A map's details page, over the list it was opened from. */
-    showLayer(layer) {
-        const backLabel = this._query ? `Back to results for “${this._query}”` : `Back to ${atlasName(window.layerRegistry?.getCurrentAtlas() || 'index')}`;
+    /** A map's details page, over the list it was opened from - in atlas mode, the atlas's. */
+    showLayer(layer, { activate = true } = {}) {
+        const atlas = atlasName(window.layerRegistry?.getCurrentAtlas() || 'index');
+        const backLabel = this._query && !this._atlasOpen ? `Back to results for “${this._query}”` : `Back to ${atlas}`;
         clearPreview();
-        this.details.open(layer, { backLabel });
+        this.details.open(layer, { backLabel, activate });
         this.el.classList.add('showing-details');
     }
 

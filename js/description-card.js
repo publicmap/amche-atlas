@@ -1,7 +1,8 @@
 /**
  * The layer editor's description: the first two lines of the description and
- * one of the attribution, as a button. Clicking it opens the full description
- * and attribution as editable text.
+ * one of the attribution, as a button. Clicking it opens the full description,
+ * attribution and license as editable text. The license (layer.license) also
+ * shows as a chip in the layer header, flagged when it is missing.
  */
 
 const DESCRIPTION_PLACEHOLDER = 'Add missing description';
@@ -46,7 +47,11 @@ export class DescriptionCard {
         $('#desc-summary').on('click', 'a', (e) => e.stopImmediatePropagation());
         $('#desc-summary').on('click', () => this.setOpen(true));
         $('#desc-done').on('click', () => this.setOpen(false));
-        $('#layer-description, #layer-attribution').on('input', () => this.refresh());
+        $('#layer-description, #layer-attribution, #layer-license').on('input', () => this.refresh());
+        $('#lh-license-badge').on('click', () => {
+            this.setOpen(true);
+            $('#layer-license').trigger('focus');
+        });
         this.refresh();
     }
 
@@ -72,5 +77,11 @@ export class DescriptionCard {
         const $attribution = $('#desc-summary-attribution').toggleClass('desc-empty', !plainAttribution);
         if (plainAttribution) $attribution.html(sanitizeInlineHtml(attribution));
         else $attribution.text(ATTRIBUTION_PLACEHOLDER);
+
+        const license = String($('#layer-license').val() || '').trim();
+        $('#lh-license-badge')
+            .toggleClass('is-missing', !license)
+            .text(license ? `License: ${license}` : 'Add missing license')
+            .attr('title', license ? `Reuse under ${license} - click to edit` : 'No license given for reuse - click to add one');
     }
 }

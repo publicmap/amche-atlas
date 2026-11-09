@@ -60,7 +60,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/cadastrals/kerala/coastal/ncscm/{z}/{x}/{y}.pbf",
       "sourceLayer": "NCSCM_KL_Cadastrals",
       "maxzoom": 13,
-      "attribution": "<a href='https://czmp.ncscm.res.in/'>National Centre for Sustainable Coastal Management</a> - Collected by <a href='https://github.com/ramSeraph/indian_cadastrals/releases/tag/kerala'>Datameet Community</a>",
+      "attribution": "<a href='https://czmp.ncscm.res.in/'>National Centre for Sustainable Coastal Management</a>, <a href='https://github.com/ramSeraph/indian_cadastrals/releases/tag/kerala'>Datameet Community</a>",
       "style": {
         "text-padding": [
           "interpolate",

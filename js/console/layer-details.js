@@ -13,7 +13,7 @@
  * addresses the map uses the live layer's group id (local-body) instead - see
  * MapBrowserControl._resolveLiveLayer.
  */
-import { el, icon, sectionLabel, row, iconThumb, chevron, hint, layerThumb } from './find-rows.js';
+import { el, icon, sectionLabel, row, iconThumb, chevron, hint, layerThumb, richText, linkButton } from './find-rows.js';
 import { isLayerActive, setLayerActive, layerEye, atlasName, plainText } from './find-browse.js';
 import { LayerThumbnail } from '../layer-thumbnail.js';
 import { LayerLegend } from '../layer-legend.js';
@@ -22,6 +22,7 @@ import { LayerOrderManager } from '../layer-order-manager.js';
 import { LayerActions } from './layer-actions.js';
 
 const FEATURE_LIMIT = 6;
+const DESC_FOLD = 220;
 const post = (message) => window.postMessage(message, '*');
 
 export class LayerDetails {
@@ -36,6 +37,10 @@ export class LayerDetails {
 
     get isOpen() {
         return !!this._layer;
+    }
+
+    get layer() {
+        return this._layer;
     }
 
     open(layer, { backLabel = 'Back', activate = true } = {}) {
@@ -113,15 +118,18 @@ export class LayerDetails {
         head.title = on ? `${title} is on the map - click to hide it` : `Show ${title} on the map`;
         this.el.appendChild(head);
 
-        const description = plainText(live.description);
-        if (description) {
-            const desc = el('p', 'console-details-desc' + (this._descOpen ? ' open' : ''), description);
-            desc.title = this._descOpen ? 'Show less' : 'Show all';
-            desc.addEventListener('click', () => {
-                this._descOpen = !this._descOpen;
-                this.render();
-            });
+        // The whole description, its links live; a long one folds to a few lines
+        const desc = richText(live.description, 'console-details-desc' + (this._descOpen ? ' open' : ''));
+        if (desc) {
             this.el.appendChild(desc);
+            if (plainText(live.description).length > DESC_FOLD) {
+                const more = linkButton(this._descOpen ? 'Show less' : 'Show more', () => {
+                    this._descOpen = !this._descOpen;
+                    this.render();
+                });
+                more.classList.add('console-details-more');
+                this.el.appendChild(more);
+            }
         }
 
         if (on) this.el.appendChild(this._opacityRow(live));
@@ -218,14 +226,19 @@ export class LayerDetails {
         section.appendChild(sectionLabel('About'));
         const list = el('dl', 'console-about');
         const add = (term, value) => {
-            if (value) list.append(el('dt', '', term), el('dd', '', value));
+            if (!value) return;
+            const dd = el('dd');
+            dd.append(value);
+            list.append(el('dt', '', term), dd);
         };
         list.append(el('dt', '', 'Layer ID'), el('dd', 'console-mono', live.id));
         add('Type', live.type ? LayerThumbnail.getTypeBadge(live.type).label : '');
         if (typeof live.url === 'string' && /^https?:\/\//i.test(live.url)) {
             try { add('Source', new URL(live.url).hostname); } catch (error) { /* not a URL */ }
         }
-        add('Credit', plainText(live.attribution));
+        // Where the data comes from: the original source, then what it came through
+        add('Sources', richText(live.attribution, 'console-details-sources'));
+        add('License', live.license || 'Not given');
         if (on) {
             const stack = this._stack(live);
             if (stack) {

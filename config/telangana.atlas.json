@@ -60,7 +60,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/cadastrals/telangana/bhunaksha/tracgis/{z}/{x}/{y}.pbf",
       "sourceLayer": "TRACGIS_Bhunaksha_Cadastrals",
       "maxzoom": 13,
-      "attribution": "<a href='https://czmp.ncscm.res.in/'>Telangana Remote Sensing Applications Centre</a> - Collected by <a href='https://github.com/ramSeraph/indian_cadastrals/releases/tag/telangana'>Datameet Community</a>",
+      "attribution": "<a href='https://czmp.ncscm.res.in/'>Telangana Remote Sensing Applications Centre</a>, <a href='https://github.com/ramSeraph/indian_cadastrals/releases/tag/telangana'>Datameet Community</a>",
       "style": {
         "text-padding": 10,
         "text-font": [
@@ -190,7 +190,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/97738#Rectify_tab' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/97738#Rectify_tab'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/97738/thumb/3910Chiran_Kunta_lake_FTL.png",
       "bbox": "78.4158294,17.4139403,78.4237109,17.4197774",
       "initiallyChecked": false
@@ -204,7 +204,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/districts/lgd/{z}/{x}/{y}.pbf ",
       "sourceLayer": "LGD_Districts",
       "maxzoom": 10,
-      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>LGD/Bharatmaps</a> - Collected by <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/districts'>Datameet Community:LGD_Districts</a>",
+      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>LGD/Bharatmaps</a>, <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/districts'>Datameet Community:LGD_Districts</a>",
       "initiallyChecked": true,
       "filter": [
         "!=",

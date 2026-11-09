@@ -3,7 +3,7 @@
   "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/BeachFun.jpg/330px-BeachFun.jpg",
   "attribution": "<a href='https://chat.whatsapp.com/BbzANbnXuekARMMSyeo6Pf'>Amche.in community</a>",
   "areaOfInterest": "Goa, India",
-  "description": "Explore the latest land and coastal zoning maps from the Government of Goa",
+  "description": "Regional and Coastal Zone Plans, Construction Regulation Zones, Property Information (FORM 1 & 14), Panchayat and Ward Boundaries",
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/goa.atlas.json",
   "color": "#059669",
@@ -70,7 +70,7 @@
       "id": "goa-schools",
       "url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQAjIaxmEf4dv9eGjASL9YSlVGJLsmvfggZpGApiUP4YD6uexFG4otpwy0wQAWUFW4De4Pz4QKy79yV/pub?gid=1786282296&single=true&output=csv",
       "cache": "data/dfes/goa-schools.csv",
-      "attribution": "<a href='https://docs.google.com/spreadsheets/d/11jYu-XsKEDH65W9Q_zy8_pKyYYlyzsdh8FwS7kd-CEM/edit?usp=sharing'>Disaster Management Resources and Contacts/Schools, Directorate of Fire & Emergency Services, Govt. of Goa</a>",
+      "attribution": "<a href='https://docs.google.com/spreadsheets/d/11jYu-XsKEDH65W9Q_zy8_pKyYYlyzsdh8FwS7kd-CEM/edit?usp=sharing'>Disaster Management Resources and Contacts/Schools, Directorate of Fire &amp; Emergency Services, Govt. of Goa</a>",
       "style": {
         "circle-radius": [
           "case",
@@ -165,7 +165,7 @@
       "id": "aqi",
       "url": "https://backend.aqionline.in/api/devices?page=1&limit=50",
       "refresh": 300000,
-      "attribution": "<a href='https://aqionline.in'>AQI Online</a>, <a href='https://texmin.in/'>TEXMin</a> Ministry of Information Technology",
+      "attribution": "<a href='https://aqionline.in'>AQI Online</a>, <a href='https://texmin.in/'>TEXMin</a>, Ministry of Information Technology",
       "style": {
         "text-field": [
           "get",
@@ -261,7 +261,7 @@
       "url": "http://14.139.123.73:8080/geoserver/wms?service=WMS&version=1.3.0&request=GetMap&layers=nbss_geoserver:Goa_LUP&styles=&format=image/png&transparent=true",
       "proxyUrl": "https://amche-atlas-production.up.railway.app/proxy",
       "proxyReferer": "http://14.139.123.73:9090/WEB/goabhoomi.php",
-      "attribution": "<a href='http://gis.nbsslup.in/'>ICAR-NBSS&LUP (National Bureau of Soil Survey and Land Use Planning)</a>",
+      "attribution": "<a href='http://gis.nbsslup.in/'>ICAR-NBSS&amp;LUP (National Bureau of Soil Survey and Land Use Planning)</a>",
       "maxzoom": 18,
       "initiallyChecked": false
     },
@@ -280,13 +280,14 @@
         {
           "id": "nasadem-30-m",
           "title": "NASA NASADEM 30m",
-          "attribution": "https://asterweb.jpl.nasa.gov/gdem.asp",
+          "attribution": "<a href='https://asterweb.jpl.nasa.gov/gdem.asp'>asterweb.jpl.nasa.gov</a>",
+          "license": "Public Domain",
           "location": "Goa"
         },
         {
           "id": "cartodem-2-5-m",
           "title": "ISRO CartoDEM 2.5m (Bardez)",
-          "attribution": "https://bhuvan-app3.nrsc.gov.in/data/",
+          "attribution": "<a href='https://bhuvan-app3.nrsc.gov.in/data/'>bhuvan-app3.nrsc.gov.in</a>",
           "location": "Guirim"
         }
       ]
@@ -300,7 +301,8 @@
       "type": "tms",
       "id": "community-maps",
       "url": "https://mapwarper.net/mosaics/tile/2157/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://mapwarper.net/layers/2157'>CC-BY-SA Mapwarper community maps of Goa</a>"
+      "attribution": "<a href='https://mapwarper.net/layers/2157'>CC-BY-SA Mapwarper community maps of Goa</a>",
+      "license": "CC-BY-SA"
     },
     {
       "tags": [
@@ -577,6 +579,7 @@
       "id": "plot-slopes",
       "url": "https://gist.githubusercontent.com/planemad/f378d37b120b0ffc93db27d9541baa70/raw/56ecc74a6fdd3ea8170ee58a4cd2a87ba4f83f3d/goa-steep-plots.geojson",
       "attribution": "<a href='https://gist.github.com/planemad/f378d37b120b0ffc93db27d9541baa70'>CC-BY Plots with No Development Slopes by amche.in community</a>",
+      "license": "CC-BY",
       "style": {
         "text-font": [
           "Open Sans Bold"
@@ -767,7 +770,7 @@
       "description": "Plots have spot zoning changes for landuse and height. Data compiled from <a href='https://archive.org/details/gazetteofindia?tab=collection&query=39a&sin=TXT&and%5B%5D=subject%3A%22Goa+Gazette%22'>Govt. of Goa Gazettes</a> using pacel boundaries from <a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>",
       "type": "sheet",
       "url": "https://docs.google.com/spreadsheets/d/18L0ETYF3MXMyTlqMxaIHWMqeOOnnGLxB82yEpZTzpmI",
-      "attribution": "Goa Gazette Notifications compiled via <a href='https://docs.google.com/spreadsheets/d/18L0ETYF3MXMyTlqMxaIHWMqeOOnnGLxB82yEpZTzpmI' target='_blank'>Google Sheets</a>",
+      "attribution": "Goa Gazette Notifications compiled, <a href='https://docs.google.com/spreadsheets/d/18L0ETYF3MXMyTlqMxaIHWMqeOOnnGLxB82yEpZTzpmI'>Google Sheets</a>",
       "style": {
         "circle-color": [
           "match",
@@ -977,7 +980,7 @@
       "description": "Land parcels approved for spot landuse zone conversion under <a href='https://thebetterindia.com/environment/section-39a-goa-land-use-explained-11151394'>Section 39A of the Goa TCP Act</a>. Data compiled from <a href='https://archive.org/details/gazetteofindia?tab=collection&query=39a&sin=TXT&and%5B%5D=subject%3A%22Goa+Gazette%22'>Govt. of Goa Gazettes</a> using pacel boundaries from <a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>",
       "type": "geojson",
       "url": "https://bharatlas.com/api/r2/community/nL7zNStsW3/39A.geojson",
-      "attribution": "<a href='https://archive.org/details/gazetteofindia?tab=collection&query=39a&sin=TXT&and%5B%5D=subject%3A%22Goa+Gazette%22'>Govt. of Goa Gazettes</a> via <a href='https://bharatlas.com/api/r2/community/nL7zNStsW3/39A.geojson'>bharatlas community</a>",
+      "attribution": "<a href='https://archive.org/details/gazetteofindia?tab=collection&query=39a&sin=TXT&and%5B%5D=subject%3A%22Goa+Gazette%22'>Govt. of Goa Gazettes</a>, <a href='https://bharatlas.com/api/r2/community/nL7zNStsW3/39A.geojson'>bharatlas community</a>",
       "style": {
         "text-field": [
           "step",
@@ -1084,7 +1087,7 @@
       "sourceLayer": "Onemapgoa_GA_Cadastrals_Mar2026",
       "maxzoom": 15,
       "minzoom": 13,
-      "attribution": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>, <a href='https://onemapgoagis.goa.gov.in/map/'>OneMapGoa GIS</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>, <a href='https://onemapgoagis.goa.gov.in/map/'>OneMapGoa GIS</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "text-padding": [
           "interpolate",
@@ -1359,7 +1362,7 @@
       "type": "geojson",
       "id": "private-forests",
       "url": "https://gist.githubusercontent.com/planemad/54b84c11fc0325889f1127e49b5740db/raw/1f99740ddb55a1528d76a5364aa9a95c1fe800da/goa_private_forest_plots-jun-2026.geojson",
-      "attribution": "<a href='https://docs.google.com/spreadsheets/d/1OHrd9c61IQ2rE_pKqPrtMgT5AY5Wepru/edit?gid=378361244#gid=378361244'>Goa Private Forest Plots</a> - Collected by <a href='https://github.com/publicmap/amche-goa/issues/75'>Amche.in Community</a>",
+      "attribution": "<a href='https://docs.google.com/spreadsheets/d/1OHrd9c61IQ2rE_pKqPrtMgT5AY5Wepru/edit?gid=378361244#gid=378361244'>Goa Private Forest Plots</a>, <a href='https://github.com/publicmap/amche-goa/issues/75'>Amche.in Community</a>",
       "style": {
         "line-color": "green",
         "fill-color": "green"
@@ -1389,7 +1392,7 @@
       "type": "tms",
       "id": "notified-wetlands",
       "url": "https://mapwarper.net/mosaics/tile/2359/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://gswa.goa.gov.in/gazette-notification/'>Gazette Notifications, Goa State Wetland Authority</a>. Georeferenced using <a href='https://mapwarper.net/layers/2359'>Mapwarper</a>"
+      "attribution": "<a href='https://gswa.goa.gov.in/gazette-notification/'>Gazette Notifications, Goa State Wetland Authority</a>, <a href='https://mapwarper.net/layers/2359'>Mapwarper</a>"
     },
     {
       "tags": [
@@ -1403,7 +1406,7 @@
       "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=37001657-13b7-4065-8b80-cdb5594f15b1",
       "sourceLayer": "vector",
       "maxzoom": 14,
-      "attribution": "<a href='https://docs.google.com/spreadsheets/d/19dREaWRkcxG00UmGGCQa_5tdoouuVi5EfCQZ_BmB064/edit?gid=0#gid=0'>Goa Gazettes collected by amche.in community</a> - via <a href='https://www.maphub.co/map/37001657-13b7-4065-8b80-cdb5594f15b1'>Maphub</a>",
+      "attribution": "<a href='https://docs.google.com/spreadsheets/d/19dREaWRkcxG00UmGGCQa_5tdoouuVi5EfCQZ_BmB064/edit?gid=0#gid=0'>Goa Gazettes collected by amche.in community</a>, <a href='https://www.maphub.co/map/37001657-13b7-4065-8b80-cdb5594f15b1'>Maphub</a>",
       "filter": [
         "!=",
         "match_status",
@@ -1575,7 +1578,7 @@
       "sourceLayer": "vector",
       "minzoom": 0,
       "maxzoom": 15,
-      "attribution": "<a href='https://www.czma.goa.gov.in/ViewDoc.aspx'>CZMP 2011, Goa Coastal Zone Management Authority</a> - via <a href='https://www.maphub.co/map/884554fa-41f4-45ac-8794-185c5adc49fa'>Maphub</a>",
+      "attribution": "<a href='https://www.czma.goa.gov.in/ViewDoc.aspx'>CZMP 2011, Goa Coastal Zone Management Authority</a>, <a href='https://www.maphub.co/map/884554fa-41f4-45ac-8794-185c5adc49fa'>Maphub</a>",
       "initiallyChecked": false,
       "style": {
         "text-field": [
@@ -1632,7 +1635,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://drive.google.com/drive/u/1/folders/1TiKKrdqHg9gk89JhEVbkh05wlY_1o8u_' target='_blank'>https://drive.google.com/drive/u/1/folders/1TiKKrdqHg9gk89JhEVbkh05wlY_1o8u_</a> via <a href='https://mapwarper.net/maps/107414' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://drive.google.com/drive/u/1/folders/1TiKKrdqHg9gk89JhEVbkh05wlY_1o8u_'>Google Drive</a>, <a href='https://mapwarper.net/maps/107414'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/107414/thumb/Aldona_CZMP.png",
       "bbox": "73.857226,15.5518636,73.905981,15.6208893",
       "initiallyChecked": false
@@ -1650,7 +1653,7 @@
       "sourceLayer": "vector",
       "minzoom": 0,
       "maxzoom": 15,
-      "attribution": "<a href='https://goawrd.gov.in/goakhazan.pdf'>Bund prior to 1991, WRD, Goa</a> - via <a href='https://www.maphub.co/map/f7c37496-7c7d-484d-8339-bcb0f2e39c4b'>Maphub</a>",
+      "attribution": "<a href='https://goawrd.gov.in/goakhazan.pdf'>Bund prior to 1991, WRD, Goa</a>, <a href='https://www.maphub.co/map/f7c37496-7c7d-484d-8339-bcb0f2e39c4b'>Maphub</a>",
       "initiallyChecked": false,
       "style": {
         "text-field": [
@@ -1724,7 +1727,7 @@
       ],
       "title": "CZMP 2019 Hazard Lines",
       "description": "Coastal lines demarcating the high tide line (HTL), low tide line (LTL) and composite hazard line. The primary purpose of the composite hazard line is to identify hazard zones along the coastline that reflects a potential danger and risk to people and their property. The hazard line is part of <a href='https://en.wikipedia.org/wiki/Integrated_coastal_zone_management'>Integrated coastal zone management</a> and is required per <a href='https://mczma.gov.in/sites/default/files/MoEF%20CZMP%20Guidelines%20OM%2026-6-2019.pdf'>required for CZMP 2019 maps</a>. This hazard line been prepared for the coastlines of India by <a href='https://surveyofindia.gov.in/documents/integrated-coastal-hazard-zone-mapping.pdf'>Survey of India</a> as a 0.5 meter contour line extending upto 7km inland at 1:10k scale to be used in CZMP 2019 maps. The line is an estimation of the highest tide level forecasted over the next 100 years. See <a href='https://moef.gov.in/uploads/2019/10/Climate-Change-and-the-Vulnerable-Indian-Coast_compressed.pdf'>Hazard line for the coast of India and its implications in coastal management (pg.29), MoEFCC</a> for the methods of delianation of the hazard line. This includes collection and presentation of data, identifying flood lines over the last 40 years (which includes sea level rise impacts), and a prediction of erosion to take place over the next 100 years and digital photogrammetric processing of high resolution Aerial photography data.",
-      "attribution": "<a href='https://drive.google.com/drive/folders/1iNbSXi3WeurJJzDLz2srVCziiHcYnxFa'>Tidal and Hazard Lines, CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a> - Collected by <a href='https://indianopenmaps.com/viewer#source=/not-so-open/coastal/regulation-lines/goa/&map=' target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
+      "attribution": "<a href='https://drive.google.com/drive/folders/1iNbSXi3WeurJJzDLz2srVCziiHcYnxFa'>Tidal and Hazard Lines, CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a>, <a href='https://indianopenmaps.com/viewer#source=/not-so-open/coastal/regulation-lines/goa/&map='>Datameet Community</a>",
       "type": "vector",
       "id": "2019-czmp-lines",
       "sourceLayer": "CZMP_2019_Goa_Hazard_Lines",
@@ -1856,7 +1859,7 @@
       "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=c2f4f183-2526-4cbd-bc8b-985928a84222",
       "sourceLayer": "vector",
       "maxzoom": 14,
-      "attribution": "<a href='https://goawrd.gov.in/goakhazan.pdf'>Khazan Land, WRD, Goa</a> - via <a href='https://www.maphub.co/map/ece88d0e-2c10-4b78-a163-904a4cf16dd4'>Maphub</a>",
+      "attribution": "<a href='https://goawrd.gov.in/goakhazan.pdf'>Khazan Land, WRD, Goa</a>, <a href='https://www.maphub.co/map/ece88d0e-2c10-4b78-a163-904a4cf16dd4'>Maphub</a>",
       "style": {
         "fill-opacity": 0.2,
         "text-halo-color": "#b3ff0f",
@@ -1898,7 +1901,7 @@
       "type": "geojson",
       "id": "mining-lease-blocks",
       "url": "https://gist.githubusercontent.com/planemad/0c1f34b223972881bd71f67dbdcf0be2/raw/701815ecba13b261f00e8adc81ed9bc4469d44a4/goa-mining-lease-auction-blocks.geojson",
-      "attribution": "RTI via <a href='https://gist.github.com/planemad/0c1f34b223972881bd71f67dbdcf0be2'>Goa Foundation</a>",
+      "attribution": "RTI, <a href='https://gist.github.com/planemad/0c1f34b223972881bd71f67dbdcf0be2'>Goa Foundation</a>",
       "initiallyChecked": false,
       "style": {
         "text-field": [
@@ -1926,7 +1929,7 @@
       "url": "https://indianopenmaps.com/not-so-open/goa/urban/land-use/amrut/{z}/{x}/{y}.pbf",
       "sourceLayer": "GA_AMRUT_ULU",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.nrsc.gov.in/readmore_AMRUT'>Bhuvan/AMRUT (2015-2023)</a> - Collected by <a href='https://github.com/ramSeraph/indian_land_features/releases/tag/urban-land-use'>Datameet Community</a>",
+      "attribution": "<a href='https://www.nrsc.gov.in/readmore_AMRUT'>Bhuvan/AMRUT (2015-2023)</a>, <a href='https://github.com/ramSeraph/indian_land_features/releases/tag/urban-land-use'>Datameet Community</a>",
       "style": {
         "text-font": [
           "Open Sans Regular"
@@ -2426,7 +2429,7 @@
           0.3
         ]
       },
-      "attribution": "GSBB <a href='https://mapwarper.net/maps/102030'>MapWarper</a>",
+      "attribution": "GSBB, <a href='https://mapwarper.net/maps/102030'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/102030/thumb/11._2025_GSBB_Detail_Plan_for_Colva_Lake.png",
       "bbox": "73.9183777,15.2753816,73.9238164,15.2832137",
       "initiallyChecked": false
@@ -2459,7 +2462,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://parivesh.nic.in/newupgrade/#/report/ec?proposalId=122438739'>Parivesh</a> via <a href='https://mapwarper.net/maps/98587'>MapWarper</a>",
+      "attribution": "<a href='https://parivesh.nic.in/newupgrade/#/report/ec?proposalId=122438739'>Parivesh</a>, <a href='https://mapwarper.net/maps/98587'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/98587/thumb/replinshment_study_report_20.08.25.png",
       "bbox": "73.8839661,15.4909629,73.8853313,15.492675",
       "initiallyChecked": false
@@ -2554,7 +2557,7 @@
           0.3
         ]
       },
-      "attribution": "Goa Foundation via RTI via <a href='https://mapwarper.net/maps/104836' target='_blank'>MapWarper</a>",
+      "attribution": "Goa Foundation, RTI, <a href='https://mapwarper.net/maps/104836'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/104836/thumb/Scan_20260401_091357.png",
       "bbox": "73.3759215,14.6852803,74.4085958,15.9776146",
       "initiallyChecked": false
@@ -2617,7 +2620,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://forest.goa.gov.in/wild-life-management'>Goa Forest Department</a> via <a href='https://mapwarper.net/layers/2337#Show_tab'>MapWarper</a>",
+      "attribution": "<a href='https://forest.goa.gov.in/wild-life-management'>Goa Forest Department</a>, <a href='https://mapwarper.net/layers/2337#Show_tab'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/97500/thumb/Screenshot_2025-09-30_at_3.06.41%E2%80%AFPM.png",
       "bbox": "74.0563668,15.3793377,74.3106547,15.7209933",
       "initiallyChecked": false
@@ -2628,7 +2631,7 @@
       "type": "geojson",
       "id": "mhadei-diversion-project",
       "url": "https://gist.githubusercontent.com/planemad/841266d3a44935383860dcb4d3c8e322/raw/03002a2ea4f029c39ca22b8865552b94c10435d9/mhadei-project.geojson",
-      "attribution": "Collected by <a href='https://gist.github.com/planemad/841266d3a44935383860dcb4d3c8e322'>Amche Goa Community</a>",
+      "attribution": "<a href='https://gist.github.com/planemad/841266d3a44935383860dcb4d3c8e322'>Amche Goa Community</a>",
       "style": {
         "line-color": "blue",
         "fill-color": "blue",
@@ -2689,7 +2692,7 @@
           0.3
         ]
       },
-      "attribution": "The water budget of the Mahadayi river and its implications for the inter-state dispute via<a href='https://mapwarper.net/maps/98327'>MapWarper</a>",
+      "attribution": "The water budget of the Mahadayi river and its implications for the inter-state dispute, <a href='https://mapwarper.net/maps/98327'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/98327/thumb/Screenshot_2025-10-22_at_11.29.32%E2%80%AFPM.png",
       "bbox": "73.6232307,15.0563609,74.4812173,15.7425805",
       "initiallyChecked": false
@@ -2704,7 +2707,7 @@
       "type": "tms",
       "id": "ams-map",
       "url": "https://mapwarper.net/maps/tile/89833/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://maps.lib.utexas.edu/maps/ams/india/'>Perry-Castañeda Library Map Collection, The University of Texas at Austin</a> via <a href='https://mapwarper.net/maps/89833'>MapWarper</a>"
+      "attribution": "<a href='https://maps.lib.utexas.edu/maps/ams/india/'>Perry-Castañeda Library Map Collection, The University of Texas at Austin</a>, <a href='https://mapwarper.net/maps/89833'>MapWarper</a>"
     },
     {
       "tags": [
@@ -2722,7 +2725,8 @@
         74.362,
         15.861
       ],
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Goa_Bus_Network_Map_2025.png'>CC-BY Wikipedia/user:Planemad</a>, CC-by <a href='https://ktclgoa.com/gtfs/'>Kadamba Transport Corporation Limited GTFS updated Jan 2025</a>"
+      "attribution": "<a href='https://ktclgoa.com/gtfs/'>Kadamba Transport Corporation Limited GTFS updated Jan 2025</a>, <a href='https://commons.wikimedia.org/wiki/File:Goa_Bus_Network_Map_2025.png'>CC-BY Wikipedia/user:Planemad</a>",
+      "license": "CC-BY"
     },
     {
       "tags": [
@@ -2875,7 +2879,7 @@
         ]
       },
       "url": "https://docs.google.com/spreadsheets/d/1aXvMgc6V2bNToyZPPgOY53My3piXK1e9RicHYboPcnI/export?format=csv&gid=1861433359",
-      "attribution": "Data from Google Sheets - <a href=\"https://docs.google.com/spreadsheets/d/1aXvMgc6V2bNToyZPPgOY53My3piXK1e9RicHYboPcnI/export?format=csv&gid=1861433359\" target=\"_blank\">View source</a>",
+      "attribution": "Google Sheets, <a href='https://docs.google.com/spreadsheets/d/1aXvMgc6V2bNToyZPPgOY53My3piXK1e9RicHYboPcnI/export?format=csv&gid=1861433359'>Google Docs</a>",
       "bbox": [
         73.7031448,
         14.9409187,
@@ -2912,7 +2916,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Forest_Cover_Map_Of_Goa_2007.jpg'>File:Forest_Cover_Map_Of_Goa_2007.jpg</a> via <a href='https://warper.wmflabs.org/maps/9257#Rectify_tab'>MapWarper</a>",
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Forest_Cover_Map_Of_Goa_2007.jpg'>File:Forest_Cover_Map_Of_Goa_2007.jpg</a>, <a href='https://warper.wmflabs.org/maps/9257#Rectify_tab'>MapWarper</a>",
       "bbox": "73.6475218,14.8655995,74.379549,15.8221062",
       "initiallyChecked": false
     },
@@ -2944,7 +2948,7 @@
           0.1
         ]
       },
-      "attribution": "Forest Survey of India - <a href=\"https://mapwarper.net/maps/95901#Rectify_tab\" target=\"_blank\">View Original</a>",
+      "attribution": "Forest Survey of India, <a href='https://mapwarper.net/maps/95901#Rectify_tab'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/95901/thumb/ftm_0.png"
     },
     {
@@ -2975,7 +2979,7 @@
           0.1
         ]
       },
-      "attribution": "Forest Survey of India - <a href=\"https://mapwarper.net/maps/95898#Rectify_tab\" target=\"_blank\">View Original</a>",
+      "attribution": "Forest Survey of India, <a href='https://mapwarper.net/maps/95898#Rectify_tab'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/95898/thumb/fcm.png"
     },
     {
@@ -2989,7 +2993,7 @@
       "type": "tms",
       "id": "tillari-cads",
       "url": "https://mapwarper.net/mosaics/tile/2267/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://archive.org/details/in.goa.egaz.2425-36.SI/2425-36-SI-EOG-2/'>Department of Water Resources, Government of Goa, notified on 2024-12-06</a>. Georeferenced using <a href='https://mapwarper.net/layers/2267#Show_tab'>Mapwarper</a>"
+      "attribution": "<a href='https://archive.org/details/in.goa.egaz.2425-36.SI/2425-36-SI-EOG-2/'>Department of Water Resources, Government of Goa, notified on 2024-12-06</a>, <a href='https://mapwarper.net/layers/2267#Show_tab'>Mapwarper</a>"
     },
     {
       "tags": [
@@ -3002,7 +3006,7 @@
       "id": "salvador-do-mundo-landuse-survey",
       "url": "https://mapwarper.net/maps/tile/96085/{z}/{x}/{y}.png",
       "style": {},
-      "attribution": "© MapWarper - <a href=\"https://mapwarper.net/maps/96085#Rectify_tab\" target=\"_blank\">View Original</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/96085#Rectify_tab'>© MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/96085/thumb/Salvador_M_lulc__1_.png",
       "initiallyChecked": false
     },
@@ -3018,7 +3022,7 @@
       "style": {
         "raster-opacity": 1
       },
-      "attribution": "<a href='https://dn721908.ca.archive.org/0/items/in.goa.egaz.2627-8.SI/2627-8-SI-EOG-1.pdf' target='_blank'>https://dn721908.ca.archive.org/0/items/in.goa.egaz.2627-8.SI/2627-8-SI-EOG-1.pdf</a> via <a href='https://mapwarper.net/maps/107207' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://dn721908.ca.archive.org/0/items/in.goa.egaz.2627-8.SI/2627-8-SI-EOG-1.pdf'>dn721908.ca.archive.org</a>, <a href='https://mapwarper.net/maps/107207'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/107207/thumb/https_dn721908.ca.archive.org_0_items_in.goa.egaz.2627-8.SI_2627-8-SI-EOG-1.png",
       "bbox": "73.7974475,15.4306391,73.8416473,15.4967975",
       "initiallyChecked": false
@@ -3047,7 +3051,7 @@
           0.05
         ]
       },
-      "attribution": "Fish, Curry and Rice via <a href='https://mapwarper.net/maps/89528'>MapWarper</a>",
+      "attribution": "Fish, Curry and Rice, <a href='https://mapwarper.net/maps/89528'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/89528/thumb/IMG_4225.png",
       "bbox": "73.8625273,15.5908022,73.8877474,15.6217674",
       "initiallyChecked": false
@@ -3061,7 +3065,7 @@
       "headerImage": "assets/map-layers/goa/czmp.jpg",
       "legendImage": "assets/map-layers/goa/2019-czmp-coastal-landuse-legend.png",
       "description": "Draft Goa Coastal Zone Management Plan 2019 showing existing coastal landuse prepared by the National Centre for Earth Science Studies at 1:25000 scale per <a href='https://environmentclearance.nic.in/writereaddata/CRZ_Notifications/CRZ_Notification_2019/0.pdf'>CRZ 2019 Notification</a>. Read the <a href='https://drive.google.com/drive/folders/1PinhVq3BLJl4FOAePXjdBdaC1f-nNAqG'>Draft CZMP Report</a> for more details.",
-      "attribution": "<a href='https://drive.google.com/drive/folders/1iNbSXi3WeurJJzDLz2srVCziiHcYnxFa'>Coastal Landuse, CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a> - Collected by <a href=\"https://datameet.org\" target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
+      "attribution": "<a href='https://drive.google.com/drive/folders/1iNbSXi3WeurJJzDLz2srVCziiHcYnxFa'>Coastal Landuse, CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "type": "tms",
       "id": "draft-2019-czmp-landuse",
       "url": "https://www.indianopenmaps.com/not-so-open/coastal/2019/goa/landuse/regulation/ncess/{z}/{x}/{y}.webp",
@@ -3092,7 +3096,7 @@
       "headerImage": "assets/map-layers/goa/czmp.jpg",
       "legendImage": "assets/map-layers/goa/2019-czmp-legend.png",
       "description": "Draft Goa Coastal Zone Management Plan 2019 prepared by the National Centre for Earth Science Studies at 1:4000 scale per <a href='https://environmentclearance.nic.in/writereaddata/CRZ_Notifications/CRZ_Notification_2019/0.pdf'>CRZ 2019 Notification</a>. Read the <a href='https://drive.google.com/drive/folders/1PinhVq3BLJl4FOAePXjdBdaC1f-nNAqG'>Draft CZMP Report</a> for more details.",
-      "attribution": "<a href='https://drive.google.com/drive/folders/1C62y8vFp7Q9Tb2EvZoIobDUkhoj4-Odb'>CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a> - Collected by <a href=\"https://datameet.org\" target=\"_blank\" rel=\"noopener noreferrer\">Datameet Community</a>",
+      "attribution": "<a href='https://drive.google.com/drive/folders/1C62y8vFp7Q9Tb2EvZoIobDUkhoj4-Odb'>CZMP 2019 (Draft)</a>, <a href='https://envcc.goa.gov.in/'>Dept. of Environment and Climate Change, Goa</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "type": "tms",
       "id": "draft-2019-czmp",
       "url": "https://indianopenmaps.com/czmp/goa/2019/4k/ncess/{z}/{x}/{y}.webp",
@@ -3125,7 +3129,7 @@
       "type": "tms",
       "id": "2011-czmp",
       "url": "https://indianopenmaps.fly.dev/not-so-open/coastal/goa/regulation/ncscm/{z}/{x}/{y}.webp",
-      "attribution": "<a href='https://czmp.ncscm.res.in/'>National Center For Sustainable Coastal Management</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>"
+      "attribution": "<a href='https://czmp.ncscm.res.in/'>National Center For Sustainable Coastal Management</a>, <a href='https://datameet.org'>Datameet Community</a>"
     },
     {
       "tags": [
@@ -3138,7 +3142,7 @@
       "type": "tms",
       "id": "2021-regional-plan",
       "url": "https://mapwarper.net/mosaics/tile/2054/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://tcp.goa.gov.in/'>Regional Development Plan for Goa 2021, TCP Goa</a>. Georeferenced using <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
+      "attribution": "<a href='https://tcp.goa.gov.in/'>Regional Development Plan for Goa 2021, TCP Goa</a>, <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
       "style": {
         "raster-opacity": [
           "interpolate",
@@ -3185,7 +3189,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/107309' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/107309'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/107309/thumb/6116199095442542411.png",
       "bbox": "73.7986298,15.5741004,73.823407,15.5932236",
       "initiallyChecked": false
@@ -3201,7 +3205,7 @@
       "type": "tms",
       "id": "2011-outline-plan",
       "url": "https://mapwarper.net/mosaics/tile/2151/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://tcp.goa.gov.in/'>Outline Development Plan 2011, TCP Goa</a>. Georeferenced using <a href='https://mapwarper.net/layers/2151#Show_tab'>Mapwarper</a>"
+      "attribution": "<a href='https://tcp.goa.gov.in/'>Outline Development Plan 2011, TCP Goa</a>, <a href='https://mapwarper.net/layers/2151#Show_tab'>Mapwarper</a>"
     },
     {
       "tags": [
@@ -3213,7 +3217,7 @@
       "type": "tms",
       "id": "taluka-plan",
       "url": "https://mapwarper.net/maps/tile/87245/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://tcp.goa.gov.in/'>Regional Development Plan for Goa 2021, Goa Town & Country Planning Department</a>. Georeferenced using <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
+      "attribution": "<a href='https://tcp.goa.gov.in/'>Regional Development Plan for Goa 2021, Goa Town &amp; Country Planning Department</a>, <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
       "headerImage": "https://mapwarper.net/uploads/87245/thumb/tiswadi-taluka_jsrtploe.png",
       "style": {
         "raster-contrast": 0.0,
@@ -3250,7 +3254,7 @@
           0.3
         ]
       },
-      "attribution": "© MapWarper - <a href=\"https://warper.wmflabs.org/maps/9009#Rectify_tab\" target=\"_blank\">View Original</a>",
+      "attribution": "© MapWarper, <a href='https://warper.wmflabs.org/maps/9009#Rectify_tab'>Wikimaps Warper</a>",
       "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/1888_Plan_of_Nova_Goa_%28Panjim%29.jpg/120px-1888_Plan_of_Nova_Goa_%28Panjim%29.jpg",
       "initiallyChecked": false
     },
@@ -3279,7 +3283,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/86484' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/86484'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/86484/thumb/4_Mapusa_SOI_Toposheet_1991.png",
       "bbox": "73.7389406,15.4920666,73.8849907,15.6355595",
       "initiallyChecked": false
@@ -3312,7 +3316,7 @@
           0.3
         ]
       },
-      "attribution": "© MapWarper - <a href=\"https://warper.wmflabs.org/maps/8998#Preview_tab\" target=\"_blank\">View Original</a>",
+      "attribution": "© MapWarper, <a href='https://warper.wmflabs.org/maps/8998#Preview_tab'>Wikimaps Warper</a>",
       "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/1888_plan_of_Mapusa.jpg/120px-1888_plan_of_Mapusa.jpg",
       "initiallyChecked": false
     },
@@ -3342,7 +3346,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Admiralty_Chart_No_492_Enseada_da_Agoada_and_Baia_de_Mormugao,_Published_1884,_New_Edition_1942.jpg' target='_blank'>File:Admiralty_Chart_No_492_Enseada_da_Agoada_and_Baia_de_Mormugao,_Published_1884,_New_Edition_1942.jpg</a> via <a href='https://warper.wmflabs.org/maps/4759' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Admiralty_Chart_No_492_Enseada_da_Agoada_and_Baia_de_Mormugao,_Published_1884,_New_Edition_1942.jpg'>File:Admiralty_Chart_No_492_Enseada_da_Agoada_and_Baia_de_Mormugao,_Published_1884,_New_Edition_1942.jpg</a>, <a href='https://warper.wmflabs.org/maps/4759'>MapWarper</a>",
       "bbox": "73.738769,15.311888,73.9117588,15.5356252",
       "initiallyChecked": false
     },
@@ -3373,7 +3377,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:FONSECA(1878)_p024_MAP_OF_GOA.jpg' target='_blank'>File:FONSECA(1878)_p024_MAP_OF_GOA.jpg</a> via <a href='https://warper.wmflabs.org/maps/10010' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:FONSECA(1878)_p024_MAP_OF_GOA.jpg'>File:FONSECA(1878)_p024_MAP_OF_GOA.jpg</a>, <a href='https://warper.wmflabs.org/maps/10010'>MapWarper</a>",
       "bbox": "73.6035796,14.7623608,74.4087517,15.9133403",
       "initiallyChecked": false
     },
@@ -3405,7 +3409,7 @@
           0.3
         ]
       },
-      "attribution": "© MapWarper - <a href=\"https://warper.wmflabs.org/maps/9000#Rectify_tab\" target=\"_blank\">View Original</a>",
+      "attribution": "© MapWarper, <a href='https://warper.wmflabs.org/maps/9000#Rectify_tab'>Wikimaps Warper</a>",
       "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/1840_Plan_of_Mormugao.jpg/120px-1840_Plan_of_Mormugao.jpg",
       "initiallyChecked": false
     },
@@ -3437,7 +3441,7 @@
           0.3
         ]
       },
-      "attribution": "© MapWarper - <a href=\"https://warper.wmflabs.org/maps/8997#Rectify_tab\" target=\"_blank\">View Original</a>",
+      "attribution": "© MapWarper, <a href='https://warper.wmflabs.org/maps/8997#Rectify_tab'>Wikimaps Warper</a>",
       "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/1814_Portugueze_Territory_at_Goa.jpg/120px-1814_Portugueze_Territory_at_Goa.jpg",
       "initiallyChecked": false
     },
@@ -3451,7 +3455,8 @@
       "type": "tms",
       "id": "1853-admiralty-chart",
       "url": "https://warper.wmflabs.org/maps/tile/4749/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Admiralty_Chart_No_740_West_Coast_of_India,_Published_1858,_New_Edition_1914.jpg'>Wikimedia Commons: Admiralty Chart No 740 West Coast of India, Published 1858, New Edition 1914</a> via <a href='https://warper.wmflabs.org/maps/4749'>Wikimaps Warper</a> released in public domain"
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Admiralty_Chart_No_740_West_Coast_of_India,_Published_1858,_New_Edition_1914.jpg'>Wikimedia Commons: Admiralty Chart No 740 West Coast of India, Published 1858, New Edition 1914</a>, <a href='https://warper.wmflabs.org/maps/4749'>Wikimaps Warper</a>",
+      "license": "Public Domain"
     },
     {
       "tags": [
@@ -3478,7 +3483,7 @@
           0.3
         ]
       },
-      "attribution": "Burton Map Cabinet via <a href='https://mapwarper.net/maps/107035' target='_blank'>MapWarper</a>",
+      "attribution": "Burton Map Cabinet, <a href='https://mapwarper.net/maps/107035'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/107035/thumb/p15150coll4_7187_full.png",
       "bbox": "73.3286963,14.5795529,74.5815759,16.2328661",
       "initiallyChecked": false
@@ -3493,7 +3498,8 @@
       "type": "tms",
       "id": "1775-admiralty-chart",
       "url": "https://warper.wmflabs.org/maps/tile/8717/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Admiralty_Chart_No_793_Goa_Harbour,_with_a_View,_Published_1775.jpg'>Wikimedia Commons: Admiralty Chart No 793 Goa Harbour, with a View, Published 1775</a> via <a href='https://warper.wmflabs.org/maps/8717#Show_tab'>Wikimaps Warper</a> released in public domain"
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Admiralty_Chart_No_793_Goa_Harbour,_with_a_View,_Published_1775.jpg'>Wikimedia Commons: Admiralty Chart No 793 Goa Harbour, with a View, Published 1775</a>, <a href='https://warper.wmflabs.org/maps/8717#Show_tab'>Wikimaps Warper</a>",
+      "license": "Public Domain"
     },
     {
       "title": "Map of the island of Goa in India and its bordering lands 1747",
@@ -3518,7 +3524,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Map_of_the_island_of_Goa_in_India_and_its_bordering_lands_1747.jpg' target='_blank'>File:Map_of_the_island_of_Goa_in_India_and_its_bordering_lands_1747.jpg</a> via <a href='https://warper.wmflabs.org/maps/10015' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Map_of_the_island_of_Goa_in_India_and_its_bordering_lands_1747.jpg'>File:Map_of_the_island_of_Goa_in_India_and_its_bordering_lands_1747.jpg</a>, <a href='https://warper.wmflabs.org/maps/10015'>MapWarper</a>",
       "bbox": "73.6870942,14.8508877,74.5514717,16.0163983"
     }
   ]

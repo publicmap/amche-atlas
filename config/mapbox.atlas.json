@@ -136,7 +136,8 @@
       "description": "Detailed street level map data layers sourced from <a href='https://www.openstreetmap.org/#map=11/15.4054/73.9280' target='_blank'>OpenStreetMap contributors</a> and other data sources via <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-streets-v8/' target='_blank'>Mapbox Streets</a> vector tiles.",
       "type": "style",
       "headerImage": "assets/map-layers/mapbox/map-layer-mapbox-streets.png",
-      "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
+      "attribution": "<a href='https://www.mapbox.com/about/maps'>© Mapbox</a>, <a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
+      "license": "ODbL",
       "layers": [
         {
           "title": "Hillshade",
@@ -229,7 +230,8 @@
       "type": "vector",
       "title": "3D Buildings",
       "description": "Building footprints extruded to their mapped height, from the <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-streets-v8/#building' target='_blank'>Mapbox Streets v8 building layer</a>. Only footprints flagged <code>extrude</code> are drawn, from zoom 15; heights come from OpenStreetMap <code>height</code>/<code>min_height</code> tags where surveyed and are estimated from floor counts otherwise. Faces are shaded from light to dark with height, so taller massing reads at a glance.",
-      "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
+      "attribution": "<a href='https://www.mapbox.com/about/maps'>© Mapbox</a>, <a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
+      "license": "ODbL",
       "url": "mapbox://mapbox.mapbox-streets-v8",
       "sourceLayer": "building",
       "minzoom": 15,
@@ -406,7 +408,7 @@
       "title": "Mapbox Terrain Contours",
       "sourceLayer": "contour",
       "description": "Elevation contour lines from <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-terrain-v2/' target='_blank'>Mapbox Terrain v2</a>. Index contours (every 5th and 10th line) are drawn heavier and carry the elevation label in metres; intermediate contours are lighter.",
-      "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.maxar.com/' rel='noopener nofollow'>© Maxar</a>",
+      "attribution": "<a href='https://www.mapbox.com/about/maps'>© Mapbox</a>, <a href='https://www.maxar.com/'>© Maxar</a>",
       "url": "mapbox://mapbox.mapbox-terrain-v2",
       "style": {
         "overlay/line-color": [
@@ -529,7 +531,7 @@
       "title": "Hypsometry",
       "sourceLayer": "contour",
       "description": "Elevation contour lines from <a href='https://docs.mapbox.com/data/tilesets/reference/mapbox-terrain-v2/' target='_blank'>Mapbox Terrain v2</a>. Index contours (every 5th and 10th line) are drawn heavier and carry the elevation label in metres; intermediate contours are lighter.",
-      "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.maxar.com/' rel='noopener nofollow'>© Maxar</a>",
+      "attribution": "<a href='https://www.mapbox.com/about/maps'>© Mapbox</a>, <a href='https://www.maxar.com/'>© Maxar</a>",
       "url": "mapbox://mapbox.mapbox-terrain-v2",
       "style": {
         "fill-opacity": 0.1,
@@ -763,7 +765,7 @@
       "title": "Mapbox Satellite",
       "description": "Satellite imagery from Mapbox. See <a href='https://docs.mapbox.com/help/dive-deeper/imagery/'>Mapbox Satellite Imagery</a> for details.",
       "headerImage": "assets/map-layers/mapbox/map-layer-satellite.png",
-      "attribution": "<a href='https://www.mapbox.com/about/maps' rel='noopener nofollow'>© Mapbox</a> <a href='https://www.maxar.com/' rel='noopener nofollow'>© Maxar</a>",
+      "attribution": "<a href='https://www.mapbox.com/about/maps'>© Mapbox</a>, <a href='https://www.maxar.com/'>© Maxar</a>",
       "url": "mapbox://mapbox.satellite",
       "maxzoom": 22,
       "style": {

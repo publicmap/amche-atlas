@@ -656,6 +656,28 @@
             cursor: pointer;
         }
 
+        /* The license for reuse (layer.license), prominent in the header */
+        .license-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.4rem;
+            border: 1px solid rgba(16, 185, 129, 0.6);
+            background: rgba(16, 185, 129, 0.15);
+            color: #6ee7b7;
+            font-size: 0.65rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .license-chip.is-missing {
+            border-style: dashed;
+            border-color: rgba(234, 179, 8, 0.6);
+            background: rgba(234, 179, 8, 0.08);
+            color: #fde68a;
+        }
+
         .layer-id-badge.copied,
         .atlas-badge-chip.copied {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
@@ -1056,6 +1078,7 @@
                         </div>
                         <div class="flex items-center gap-1.5 flex-wrap mt-1.5">
                             <button type="button" class="atlas-badge-chip" id="lh-atlas-badge" title="Click to copy atlas config link" style="display: none;"></button>
+                            <button type="button" class="license-chip" id="lh-license-badge" title="License for reuse - click to edit"></button>
                         </div>
                 <div id="description-card" class="desc-card">
                     <button type="button" id="desc-summary" class="desc-summary" title="Edit description and attribution">
@@ -1067,8 +1090,15 @@
                         <textarea id="layer-description" rows="6" placeholder="Optional description"
                             class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"></textarea>
                         <label class="block text-sm font-medium mb-2">Attribution</label>
-                        <textarea id="layer-attribution" rows="3" placeholder="Optional attribution (HTML allowed)"
+                        <textarea id="layer-attribution" rows="3" placeholder="Original source first, then what it came through, separated by commas (HTML links allowed)"
                             class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        <label class="block text-sm font-medium mb-2 mt-3" for="layer-license">License</label>
+                        <input type="text" id="layer-license" placeholder="e.g. CC-BY-4.0, ODbL, Public Domain" list="layer-license-options"
+                            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <datalist id="layer-license-options">
+                            <option value="CC0"></option><option value="CC-BY-4.0"></option><option value="CC-BY-SA-4.0"></option>
+                            <option value="ODbL"></option><option value="Public Domain"></option>
+                        </datalist>
                         <button type="button" id="desc-done" class="section-done-btn mt-2"><sl-icon name="check2"></sl-icon> Done</button>
                     </div>
                 </div>

@@ -162,6 +162,7 @@ export class MapCreator {
         $('#layer-id').val('');
         $('#layer-description').val('');
         $('#layer-attribution').val('');
+        $('#layer-license').val('');
         $('#data-preview-details').hide();
         $('#settings-section').hide();
         $('#add-to-map-btn').prop('disabled', true);
@@ -320,7 +321,7 @@ export class MapCreator {
             this.updateConfigPreview();
         });
 
-        $('#layer-id, #layer-description, #layer-attribution').on('input', () => {
+        $('#layer-id, #layer-description, #layer-attribution, #layer-license').on('input', () => {
             this.updateConfigPreview();
         });
 
@@ -476,6 +477,7 @@ export class MapCreator {
         if (parsed.type !== undefined) $('#layer-type').val(parsed.type);
         if (parsed.description !== undefined) $('#layer-description').val(parsed.description);
         if (parsed.attribution !== undefined) $('#layer-attribution').val(parsed.attribution);
+        if (parsed.license !== undefined) $('#layer-license').val(parsed.license);
 
         const baseUrl = window.location.origin + window.location.pathname;
         const configJson = JSON.stringify(parsed).replace(/"/g, "'");
@@ -1562,6 +1564,7 @@ export class MapCreator {
         $('#layer-type').val(config.type || 'tms');
         $('#layer-description').val(config.description || '');
         $('#layer-attribution').val(config.attribution || '');
+        $('#layer-license').val(config.license || '');
 
         // Point/Line/Area/Label style checkboxes only make sense when
         // geometry is unknown up front (vector tiles, and overpass — a query
@@ -1643,7 +1646,7 @@ export class MapCreator {
 
     applyOsmDataModeFieldState() {
         const dynamic = this.currentLayerType === 'osm' && this._dataMode === 'dynamic';
-        $('#layer-title, #layer-description, #layer-attribution').prop('disabled', dynamic);
+        $('#layer-title, #layer-description, #layer-attribution, #layer-license').prop('disabled', dynamic);
         $('#osm-dynamic-note').toggle(dynamic);
     }
 
@@ -1662,7 +1665,7 @@ export class MapCreator {
         this._osmRef = null;
         this._dataMode = 'dynamic';
         $('#osm-data-mode-section').hide();
-        $('#layer-title, #layer-description, #layer-attribution').prop('disabled', false);
+        $('#layer-title, #layer-description, #layer-attribution, #layer-license').prop('disabled', false);
         $('#osm-dynamic-note').hide();
     }
 
@@ -1987,6 +1990,7 @@ export class MapCreator {
         const layerId = $('#layer-id').val().trim() || this.generateId(title);
         const description = $('#layer-description').val().trim();
         const attribution = $('#layer-attribution').val().trim();
+        const license = $('#layer-license').val().trim();
 
         const isExternalUrl = typeof this.currentDataSource === 'string' &&
             (this.currentDataSource.startsWith('http://') || this.currentDataSource.startsWith('https://'));
@@ -2030,6 +2034,10 @@ export class MapCreator {
             config.attribution = attribution;
         }
 
+        if (license) {
+            config.license = license;
+        }
+
         if (bbox && $('#include-bbox-checkbox').is(':checked')) {
             config.bbox = bbox;
         }
@@ -2046,6 +2054,7 @@ export class MapCreator {
         const layerId = $('#layer-id').val().trim() || this.generateId(title);
         const description = $('#layer-description').val().trim();
         const attribution = $('#layer-attribution').val().trim();
+        const license = $('#layer-license').val().trim();
 
         const idField = $('#feature-id-field').val() || 'id';
         const nameField = $('#feature-name-field').val();
@@ -2092,6 +2101,10 @@ export class MapCreator {
 
         if (attribution) {
             config.attribution = attribution;
+        }
+
+        if (license) {
+            config.license = license;
         }
 
         if (bbox && $('#include-bbox-checkbox').is(':checked')) {
@@ -2143,6 +2156,7 @@ export class MapCreator {
         const layerType = $('#layer-type').val() || baseConfig.type;
         const description = $('#layer-description').val().trim() || baseConfig.description;
         const attribution = $('#layer-attribution').val().trim() || baseConfig.attribution;
+        const license = $('#layer-license').val().trim() || baseConfig.license;
 
         const config = {
             ...baseConfig,
@@ -2150,7 +2164,8 @@ export class MapCreator {
             title: title,
             type: layerType,
             description: description,
-            attribution: attribution
+            attribution: attribution,
+            license: license
         };
 
         if (!description) {
@@ -2158,6 +2173,9 @@ export class MapCreator {
         }
         if (!attribution) {
             delete config.attribution;
+        }
+        if (!license) {
+            delete config.license;
         }
 
         if (this.usesDetectedGeometry(layerType) && !this._styleManuallyEdited) {

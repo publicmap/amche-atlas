@@ -59,7 +59,7 @@
       "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=03f1d864-8e66-490b-b770-4ef18865901b",
       "minzoom": 0,
       "maxzoom": 15,
-      "attribution": "<a href='https://sra.gov.in/details/sub-category/gismis-slum-data'>Slum Clusters 2015, Slum Rehabilitation Authority, Brihanmumbai,</a> via <a href='https://www.maphub.co/map/03f1d864-8e66-490b-b770-4ef18865901b'>Maphub</a> - Collected by <a href='https://data.opencity.in/dataset/mumbai-slum-cluster-map'>OpenCity.in</a>",
+      "attribution": "<a href='https://sra.gov.in/details/sub-category/gismis-slum-data'>Slum Clusters 2015, Slum Rehabilitation Authority, Brihanmumbai</a>, <a href='https://www.maphub.co/map/03f1d864-8e66-490b-b770-4ef18865901b'>Maphub</a>, <a href='https://data.opencity.in/dataset/mumbai-slum-cluster-map'>OpenCity.in</a>",
       "inspect": {
         "id": "area_km2"
       },
@@ -84,7 +84,7 @@
       "sourceLayer": "NCSCM_MH_Cadastrals",
       "maxzoom": 14,
       "minzoom": 13,
-      "attribution": "Source: <a href='https://czmp.ncscm.res.in/' target='_blank' rel='noopener noreferrer'>National Center For Sustainable Coastal Management</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
+      "attribution": "<a href='https://czmp.ncscm.res.in/'>National Center For Sustainable Coastal Management</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "text-padding": [
           "interpolate",
@@ -242,7 +242,7 @@
       "type": "tms",
       "id": "gmlr-project-plan",
       "url": "https://mapwarper.net/maps/tile/92974/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://www.scribd.com/document/468036054/GMLR-EC-Report-pdf'>Proposed flyover at Hedgewar Chowk - MCGM GMLR Project</a> via <a href='https://mapwarper.net/maps/92974'>Map Warper</a>",
+      "attribution": "<a href='https://www.scribd.com/document/468036054/GMLR-EC-Report-pdf'>Proposed flyover at Hedgewar Chowk - MCGM GMLR Project</a>, <a href='https://mapwarper.net/maps/92974'>Map Warper</a>",
       "style": {
         "raster-opacity": [
           "interpolate",
@@ -271,7 +271,7 @@
       "type": "tms",
       "id": "dp-1991",
       "url": "https://mapwarper.net/maps/tile/67753/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://dpremarks.mcgm.gov.in/srdp1991/'>BMC SRDP 1991</a> via <a href='https://mapwarper.net/maps/67753'>Map Warper</a>"
+      "attribution": "<a href='https://dpremarks.mcgm.gov.in/srdp1991/'>BMC SRDP 1991</a>, <a href='https://mapwarper.net/maps/67753'>Map Warper</a>"
     },
     {
       "tags": [
@@ -283,7 +283,7 @@
       "type": "cog",
       "id": "navi-mumbai-cidco-plan",
       "url": "https://pub-5d7a831c335c4d83b8b0f8ebe750e175.r2.dev/City-Tiles/Navi_Mumbai_CIDCO.tif",
-      "attribution": "<a href='https://cidco.maharashtra.gov.in/Page?Token=831AAA8551'>CIDCO</a> via <a href='https://datsvarun.github.io/master-plan-viewer/'>datsvarun.github.io<a>"
+      "attribution": "<a href='https://cidco.maharashtra.gov.in/Page?Token=831AAA8551'>CIDCO</a>, datsvarun.github.io"
     },
     {
       "tags": [
@@ -295,7 +295,7 @@
       "type": "cog",
       "id": "2038-navi-mumbai-development-plan",
       "url": "https://pub-5d7a831c335c4d83b8b0f8ebe750e175.r2.dev/City-Tiles/Navi_Mumbai_DP38_COG.tif",
-      "attribution": "<a href='https://www.nmmc.gov.in/online-information/Development%20Control%20Regulations'>NMMC</a> via <a href='https://datsvarun.github.io/master-plan-viewer/'>datsvarun.github.io<a>"
+      "attribution": "<a href='https://www.nmmc.gov.in/online-information/Development%20Control%20Regulations'>NMMC</a>, datsvarun.github.io"
     },
     {
       "tags": [
@@ -307,7 +307,7 @@
       "type": "cog",
       "id": "2046-thane-development-plan",
       "url": "https://pub-5d7a831c335c4d83b8b0f8ebe750e175.r2.dev/City-Tiles/Thane-26-COG-Final_2.tif",
-      "attribution": "<a href='https://thanecity.gov.in/'>TMC</a> via <a href='https://datsvarun.github.io/master-plan-viewer/'>datsvarun.github.io<a>",
+      "attribution": "<a href='https://thanecity.gov.in/'>TMC</a>, datsvarun.github.io",
       "style": {
         "raster-opacity": [
           "interpolate",
@@ -337,7 +337,7 @@
       "type": "cog",
       "id": "2034-mumbai-development-plan",
       "url": "https://pub-5d7a831c335c4d83b8b0f8ebe750e175.r2.dev/City-Tiles/Mumbai_Final_COG.tif",
-      "attribution": "<a href='https://dpremarks.mcgm.gov.in/dp2034/'>MCGM</a> via <a href='https://datsvarun.github.io/master-plan-viewer/'>datsvarun.github.io<a>",
+      "attribution": "<a href='https://dpremarks.mcgm.gov.in/dp2034/'>MCGM</a>, datsvarun.github.io",
       "style": {
         "raster-opacity": [
           "interpolate",
@@ -366,7 +366,7 @@
       "type": "cog",
       "id": "2044-panvel-development-plan",
       "url": "https://pub-5d7a831c335c4d83b8b0f8ebe750e175.r2.dev/City-Tiles/Panvel_DP.tif",
-      "attribution": "<a href='https://panvelcorporation.maharashtra.gov.in/'>PMC</a> via <a href='https://datsvarun.github.io/master-plan-viewer/'>datsvarun.github.io<a>",
+      "attribution": "<a href='https://panvelcorporation.maharashtra.gov.in/'>PMC</a>, datsvarun.github.io",
       "style": {
         "raster-opacity": [
           "interpolate",
@@ -395,7 +395,7 @@
       "type": "cog",
       "id": "2028-bhiwandi-development-plan",
       "url": "https://pub-5d7a831c335c4d83b8b0f8ebe750e175.r2.dev/City-Tiles/Bhiwandi-Area_MMRDA_COG.tif",
-      "attribution": "<a href='https://www.bncmc.gov.in/department.php?department_id=51'>BNCMC</a> via <a href='https://datsvarun.github.io/master-plan-viewer/'>datsvarun.github.io<a>"
+      "attribution": "<a href='https://www.bncmc.gov.in/department.php?department_id=51'>BNCMC</a>, datsvarun.github.io"
     },
     {
       "title": "Sanjay Gandhi National Park Zonal Masterplan 2025 (Draft)",
@@ -420,7 +420,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://vvcmc.in/wp-content/uploads/2025/09/TpDept_25_9_2025.pdf' target='_blank'>https://vvcmc.in/wp-content/uploads/2025/09/TpDept_25_9_2025.pdf</a> via <a href='https://mapwarper.net/maps/108838' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://vvcmc.in/wp-content/uploads/2025/09/TpDept_25_9_2025.pdf'>vvcmc.in</a>, <a href='https://mapwarper.net/maps/108838'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/108838/thumb/sgnp-masterplan.png",
       "bbox": "72.8229342,19.1237503,72.9978592,19.3593569",
       "initiallyChecked": false
@@ -437,7 +437,8 @@
       "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=44fe011b-6d8e-44a3-8ea4-fa600d1a33c2",
       "sourceLayer": "vector",
       "maxzoom": 14,
-      "attribution": "<a href=''>NASA LST 2023</a> via <a href='https://www.maphub.co/map/44fe011b-6d8e-44a3-8ea4-fa600d1a33c2'>Maphub</a>",
+      "attribution": "NASA LST 2023, <a href='https://www.maphub.co/map/44fe011b-6d8e-44a3-8ea4-fa600d1a33c2'>Maphub</a>",
+      "license": "Public Domain",
       "style": {
         "line-color": "white",
         "line-width": 0.1,
@@ -477,7 +478,8 @@
       "type": "tms",
       "id": "mumbai-lst-2023",
       "url": "mapbox://planemad.811byiyq",
-      "attribution": "<a href=''>landsat 8</a> via <a href='https://drive.google.com/drive/folders/1aX1YMS_G_l8F0ptI1isHUYzKMVOD01Rg'>OpenCity</a>"
+      "attribution": "landsat 8, <a href='https://drive.google.com/drive/folders/1aX1YMS_G_l8F0ptI1isHUYzKMVOD01Rg'>OpenCity</a>",
+      "license": "Public Domain"
     },
     {
       "tags": [
@@ -489,7 +491,8 @@
       "type": "tms",
       "id": "mumbai-lst-2015",
       "url": "mapbox://planemad.36kaf0bf",
-      "attribution": "<a href=''>landsat 8</a> via <a href='https://drive.google.com/drive/folders/1aX1YMS_G_l8F0ptI1isHUYzKMVOD01Rg'>OpenCity</a>"
+      "attribution": "landsat 8, <a href='https://drive.google.com/drive/folders/1aX1YMS_G_l8F0ptI1isHUYzKMVOD01Rg'>OpenCity</a>",
+      "license": "Public Domain"
     },
     {
       "tags": [
@@ -501,7 +504,8 @@
       "type": "tms",
       "id": "mumbai-transit",
       "url": "https://warper.wmflabs.org/maps/tile/8742/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Rapid_transit_map_of_Mumbai.jpg'>CC-by-sa-2.0 Rapid transit map of Mumbai, Maximilian Dörrbecker</a> via <a href='https://mapwarper.net/maps/8742'>Wikimaps Warper</a>"
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Rapid_transit_map_of_Mumbai.jpg'>CC-by-sa-2.0 Rapid transit map of Mumbai, Maximilian Dörrbecker</a>, <a href='https://mapwarper.net/maps/8742'>Wikimaps Warper</a>",
+      "license": "CC-BY-SA-2.0"
     },
     {
       "title": "Landuse Plan for Bombay Twin Cities (1964)",
@@ -510,7 +514,7 @@
       "type": "tms",
       "id": "1964-twin-cities-plan",
       "url": "https://mapwarper.net/maps/tile/93402/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://www.instagram.com/p/C2UHUQWueiedhd_HRzaMjPHesTSLrce0YNY9-80/?img_index=1'>1964 Symposium on the first Development Plan for Greater Bombay (Mulk Raj Anand, ed., Marg Publications, 1965)</a> via <a href='https://mapwarper.net/maps/93402#Show'>Mapwarper</a>"
+      "attribution": "<a href='https://www.instagram.com/p/C2UHUQWueiedhd_HRzaMjPHesTSLrce0YNY9-80/?img_index=1'>1964 Symposium on the first Development Plan for Greater Bombay (Mulk Raj Anand, ed., Marg Publications, 1965)</a>, <a href='https://mapwarper.net/maps/93402#Show'>Mapwarper</a>"
     },
     {
       "title": "Bombay Guide Map (1933)",
@@ -519,7 +523,7 @@
       "type": "tms",
       "id": "1933-guide",
       "url": "https://mapwarper.net/maps/tile/29682/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://www.geographicus.com/P/AntiqueMap/Bombay-surveyindia-1933'>Survey Of India</a> via <a href='https://mapwarper.net/maps/29682'>Map Warper</a>",
+      "attribution": "<a href='https://www.geographicus.com/P/AntiqueMap/Bombay-surveyindia-1933'>Survey Of India</a>, <a href='https://mapwarper.net/maps/29682'>Map Warper</a>",
       "style": {
         "raster-opacity": [
           "interpolate",
@@ -547,7 +551,8 @@
       "type": "tms",
       "id": "1914-map",
       "url": "https://warper.wmflabs.org/maps/tile/2871/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Bombay_%28Baedeker,_1914%29.jpg'>Wikimedia Commons: Bombay (Baedeker, 1914).jpg</a> via <a href='https://warper.wmflabs.org/maps/2871'>Wikimaps Warper</a> released in public domain"
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Bombay_%28Baedeker,_1914%29.jpg'>Wikimedia Commons: Bombay (Baedeker, 1914).jpg</a>, <a href='https://warper.wmflabs.org/maps/2871'>Wikimaps Warper</a>",
+      "license": "Public Domain"
     },
     {
       "title": "Bombay Survey (1898)",
@@ -556,7 +561,8 @@
       "type": "tms",
       "id": "1898-survey",
       "url": "https://warper.wmflabs.org/maps/tile/8744/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Survey_of_India_Map_of_Parts_of_Bombay_City_%26_District_Thana_(1898).jpg'>Wikimedia Commons: Survey of India Map of Parts of Bombay City & District Thana (1898).jpg</a> via <a href='https://warper.wmflabs.org/maps/8744'>Wikimaps Warper</a> released in public domain"
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Survey_of_India_Map_of_Parts_of_Bombay_City_%26_District_Thana_(1898).jpg'>Wikimedia Commons: Survey of India Map of Parts of Bombay City &amp; District Thana (1898).jpg</a>, <a href='https://warper.wmflabs.org/maps/8744'>Wikimaps Warper</a>",
+      "license": "Public Domain"
     },
     {
       "title": "Cook's Plan of Bombay (1887)",
@@ -565,7 +571,8 @@
       "type": "tms",
       "id": "1887-plan",
       "url": "https://warper.wmflabs.org/maps/tile/8743/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Cook%27s_Plan_of_Bombay%22_(1887).jpg'>Wikimedia Commons: File:Cook's Plan of Bombay (1887).jpg</a> via <a href='https://warper.wmflabs.org/maps/8743'>Wikimaps Warper</a> released in public domain"
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Cook%27s_Plan_of_Bombay%22_(1887).jpg'>Wikimedia Commons: File:Cook's Plan of Bombay (1887).jpg</a>, <a href='https://warper.wmflabs.org/maps/8743'>Wikimaps Warper</a>",
+      "license": "Public Domain"
     },
     {
       "title": "Admiralty Chart of Bombay Harbor (1879)",
@@ -574,7 +581,8 @@
       "type": "tms",
       "id": "1879-admiralty-chart",
       "url": "https://warper.wmflabs.org/maps/tile/2056/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Admiralty_Chart_No_2621_Bombay_Harbor,_India_(_Mumbai_)_-_Geographicus_-_BombayHarbor-admiralty-1879,_Published_1864.jpg'>Wikimedia Commons: British Admiralty Chart No. 2621</a> via <a href='https://warper.wmflabs.org/maps/2056'>Wikimaps Warper</a> released in public domain"
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Admiralty_Chart_No_2621_Bombay_Harbor,_India_(_Mumbai_)_-_Geographicus_-_BombayHarbor-admiralty-1879,_Published_1864.jpg'>Wikimedia Commons: British Admiralty Chart No. 2621</a>, <a href='https://warper.wmflabs.org/maps/2056'>Wikimaps Warper</a>",
+      "license": "Public Domain"
     },
     {
       "title": "Bombay Native Town Plan (1855)",
@@ -583,7 +591,8 @@
       "type": "tms",
       "id": "1855-plan",
       "url": "https://warper.wmflabs.org/maps/tile/8739/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Map_of_the_native_town_of_Bombay,_completed_to_1855.png'>Wikimedia Commons: Map of the native town of Bombay, completed to 1855</a> via <a href='https://warper.wmflabs.org/maps/8739'>Wikimaps Warper</a> released in public domain",
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Map_of_the_native_town_of_Bombay,_completed_to_1855.png'>Wikimedia Commons: Map of the native town of Bombay, completed to 1855</a>, <a href='https://warper.wmflabs.org/maps/8739'>Wikimaps Warper</a>",
+      "license": "Public Domain",
       "style": {
         "raster-opacity": [
           "interpolate",
@@ -611,7 +620,8 @@
       "type": "tms",
       "id": "1843-islands-map",
       "url": "https://warper.wmflabs.org/maps/tile/8737/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:1843_Murphy_Map_of_Island_of_Bombay_and_Colaba.png'>Wikimedia Commons: 1843 Murphy Map of Island of Bombay and Colaba</a> via <a href='https://warper.wmflabs.org/maps/8737'>Wikimaps Warper</a> released in public domain"
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:1843_Murphy_Map_of_Island_of_Bombay_and_Colaba.png'>Wikimedia Commons: 1843 Murphy Map of Island of Bombay and Colaba</a>, <a href='https://warper.wmflabs.org/maps/8737'>Wikimaps Warper</a>",
+      "license": "Public Domain"
     },
     {
       "title": "Niebuhr's Map of Bombay (1764)",
@@ -620,7 +630,8 @@
       "type": "tms",
       "id": "1764-islands-map",
       "url": "https://warper.wmflabs.org/maps/tile/1848/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Bombay_Niebuhr%27s_Map_1764.jpg'>Wikimedia Commons/British Library: Bombay Niebuhr's Map 1764</a> via <a href='https://warper.wmflabs.org/mosaics/13#Show_tab'>Wikimaps Warper</a> released in public domain"
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Bombay_Niebuhr%27s_Map_1764.jpg'>Wikimedia Commons/British Library: Bombay Niebuhr's Map 1764</a>, <a href='https://warper.wmflabs.org/mosaics/13#Show_tab'>Wikimaps Warper</a>",
+      "license": "Public Domain"
     }
   ]
 }

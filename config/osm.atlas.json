@@ -54,7 +54,8 @@
       "description": "Live OSM features matching <code>office=government</code> <code>amenity=townhall</code> <code>amenity=courthouse</code>, fetched from the Overpass API as the viewport changes. Source query: <a href='https://overpass-turbo.eu/s/2wnj' target='_blank'>https://overpass-turbo.eu/s/2wn6</a>.",
       "query": "[out:json][timeout:125];\n(\n  nwr[\"office\"=\"government\"]({{bbox}});\n  nwr[\"amenity\"=\"townhall\"]({{bbox}});\n  nwr[\"amenity\"=\"courthouse\"]({{bbox}});\n);\nout geom center;",
       "minzoom": 11,
-      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap contributors</a> via <a href='https://overpass-turbo.eu/s/2wnj'>Overpass Turbo</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/copyright'>OpenStreetMap contributors</a>, <a href='https://overpass-turbo.eu/s/2wnj'>Overpass Turbo</a>",
+      "license": "ODbL",
       "style": {
         "circle-color": "#10b981",
         "circle-radius": 2,
@@ -79,7 +80,8 @@
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "place_labels",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "license": "ODbL",
       "style": {
         "symbol-sort-key": [
           "-",
@@ -806,7 +808,8 @@
       "url": "https://tiles.openstreetmap.us/vector/openmaptiles/{z}/{x}/{y}.mvt",
       "sourceLayer": "aerodrome_label",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
+      "license": "ODbL",
       "style": {
         "text-field": [
           "step",
@@ -877,7 +880,8 @@
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "public_transport",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/#features-19'>Shortbread vector tiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://shortbread-tiles.org/schema/1.0/#features-19'>Shortbread vector tiles</a>",
+      "license": "ODbL",
       "style": {
         "circle-radius": [
           "match",
@@ -921,7 +925,8 @@
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "pois",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "license": "ODbL",
       "style": {
         "text-field": [
           "step",
@@ -974,7 +979,8 @@
       "sourceLayer": "addresses",
       "minzoom": 14,
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.1/#layer-addresses'>Shortbread vector tiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://shortbread-tiles.org/schema/1.1/#layer-addresses'>Shortbread vector tiles</a>",
+      "license": "ODbL",
       "style": {
         "text-field": [
           "coalesce",
@@ -1018,7 +1024,8 @@
       "sourceLayer": "power_line",
       "minzoom": 0,
       "maxzoom": 14,
-      "attribution": "© OpenStreetMap contributors via <a href='https://openinframap.org/#2/26/12'>OpenInfraMap</a>",
+      "attribution": "© OpenStreetMap contributors, <a href='https://openinframap.org/#2/26/12'>OpenInfraMap</a>",
+      "license": "ODbL",
       "initiallyChecked": false,
       "inspect": {
         "id": "osm_id",
@@ -1058,7 +1065,8 @@
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "streets",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "license": "ODbL",
       "filter": [
         "match",
         [
@@ -1152,7 +1160,8 @@
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "streets",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "license": "ODbL",
       "filter": [
         "match",
         [
@@ -1214,7 +1223,8 @@
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "street_polygons",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "license": "ODbL",
       "filter": [
         "match",
         [
@@ -1276,7 +1286,8 @@
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "street_labels",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "license": "ODbL",
       "filter": [
         "match",
         [
@@ -1335,7 +1346,8 @@
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "streets",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "license": "ODbL",
       "filter": [
         "match",
         [
@@ -1524,7 +1536,8 @@
       "description": "Live OSM features matching <code>landuse=construction</code> and <code>landuse=landfill</code>, fetched from the Overpass API as the viewport changes.",
       "query": "/*\nThis has been generated by the overpass-turbo wizard.\nThe original search was:\n“landuse=landfill”\n*/\n[out:json][timeout:25];\n// gather results\nnwr[\"landuse\"=\"landfill\"]({{bbox}});\nnwr[\"landuse\"=\"construction\"]({{bbox}});\n// print results\nout geom;",
       "minzoom": 12,
-      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap contributors</a> via <a href='https://overpass-api.de/'>Overpass API</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/copyright'>OpenStreetMap contributors</a>, <a href='https://overpass-api.de/'>Overpass API</a>",
+      "license": "ODbL",
       "style": {
         "circle-color": "white",
         "circle-radius": 1,
@@ -1578,7 +1591,8 @@
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "streets",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "license": "ODbL",
       "filter": [
         "match",
         [
@@ -1766,7 +1780,8 @@
       "description": "Live OSM features matching <code>aeroway=*</code>, fetched from the Overpass API as the viewport changes. Source query: <a href='https://overpass-turbo.eu/s/2wDM' target='_blank'>https://overpass-turbo.eu/s/2wDM</a>.",
       "query": "[out:json][timeout:25];\n// gather results\nnwr[\"aeroway\"]({{bbox}});\n// print results\nout geom;",
       "minzoom": 7,
-      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap contributors</a> via <a href='https://overpass-turbo.eu/s/2wDM'>Overpass Turbo</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/copyright'>OpenStreetMap contributors</a>, <a href='https://overpass-turbo.eu/s/2wDM'>Overpass Turbo</a>",
+      "license": "ODbL",
       "style": {
         "fill-color": [
           "coalesce",
@@ -1823,7 +1838,8 @@
       "description": "Live OSM features matching <code>boundary=protected_area</code>, fetched from the Overpass API as the viewport changes. Source query: <a href='https://overpass-turbo.eu/s/2wuR' target='_blank'>https://overpass-turbo.eu/s/2wuR</a>.",
       "query": "/*\nThis has been generated by the overpass-turbo wizard.\nThe original search was:\n“boundary=protected_area”\n*/\n[out:json][timeout:225];\n// gather results\nnwr[\"boundary\"=\"protected_area\"]({{bbox}});\n// print results\nout geom;",
       "minzoom": 10,
-      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap contributors</a> via <a href='https://overpass-turbo.eu/s/2wuR'>Overpass Turbo</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/copyright'>OpenStreetMap contributors</a>, <a href='https://overpass-turbo.eu/s/2wuR'>Overpass Turbo</a>",
+      "license": "ODbL",
       "style": {
         "fill-color": [
           "coalesce",
@@ -1903,7 +1919,8 @@
       "type": "geojson",
       "url": "https://gist.githubusercontent.com/planemad/73e70f0937db02845c577386d560f65c/raw/85d8c87797b54290867014691f9f766227971663/osm-india-boundary-additions.geojson",
       "maxzoom": 13,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
+      "license": "ODbL",
       "style": {
         "line-color": [
           "match",
@@ -1939,7 +1956,8 @@
         "Buildings"
       ],
       "description": "Building footprints extruded to their mapped height, straight from OpenStreetMap via the <a href='https://openmaptiles.org/schema/#building' target='_blank'>OpenMapTiles building layer</a>. Very few buildings carry a surveyed <code>height</code> tag, so heights are almost always estimated from <code>building:levels</code> - OpenMapTiles assumes a 3.66 m (12 ft) storey plus a roof allowance, which runs tall for Indian buildings, so the level count is recovered and re-derived at 3.1 m a storey to match the Mapbox Streets source. Faces are shaded from light to dark with height.",
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
+      "license": "ODbL",
       "url": "https://tiles.openstreetmap.us/vector/openmaptiles/{z}/{x}/{y}.mvt",
       "sourceLayer": "building",
       "minzoom": 14,
@@ -2151,7 +2169,8 @@
       "url": "https://tiles.openstreetmap.us/vector/openmaptiles/{z}/{x}/{y}.mvt",
       "sourceLayer": "boundary",
       "maxzoom": 13,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
+      "license": "ODbL",
       "style": {
         "overlay/line-color": [
           "case",
@@ -2394,7 +2413,8 @@
       "url": "https://vtiles.openhistoricalmap.org/maps/ohm_admin/{z}/{x}/{y}.pbf",
       "sourceLayer": "boundaries",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openhistoricalmap.org/#map=5/51.97/2.90&layers=O&date=1925-12-23&daterange=1825-01-01,2025-12-31'>OpenHistoricalMap</a> via <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
+      "attribution": "<a href='https://www.openhistoricalmap.org/#map=5/51.97/2.90&layers=O&date=1925-12-23&daterange=1825-01-01,2025-12-31'>OpenHistoricalMap</a>, <a href='https://tiles.openstreetmap.us/vector/openmaptiles/#map=12/40.781/-73.965'>OSM US OpenMapTiles</a>",
+      "license": "CC0",
       "style": {
         "fill-color": "rgba(255, 255, 255, 0.001)",
         "line-color": "black",
@@ -2429,7 +2449,8 @@
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "water_polygons",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "license": "ODbL",
       "style": {
         "line-opacity": 0.9,
         "fill-opacity": 0.5,
@@ -2458,7 +2479,8 @@
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "water_lines",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "license": "ODbL",
       "style": {
         "line-opacity": 0.9,
         "line-color": [
@@ -2517,7 +2539,8 @@
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "sites",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread OSMF vector tiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread OSMF vector tiles</a>",
+      "license": "ODbL",
       "style": {
         "text-font": [
           "Open Sans Regular"
@@ -2677,7 +2700,8 @@
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "land",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread OSMF vector tiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread OSMF vector tiles</a>",
+      "license": "ODbL",
       "style": {
         "text-font": [
           "Open Sans Regular"
@@ -2953,7 +2977,7 @@
       "type": "tms",
       "id": "openrailwaymap",
       "url": "https://tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://openrailwaymap.app/#view=1.37/9/0' target='_blank'>© OpenRailwayMap contributors</a>",
+      "attribution": "<a href='https://openrailwaymap.app/#view=1.37/9/0'>© OpenRailwayMap contributors</a>",
       "style": {
         "raster-opacity": [
           "interpolate",
@@ -2985,7 +3009,8 @@
       "url": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
       "sourceLayer": "ocean",
       "maxzoom": 14,
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a> via <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>, <a href='https://shortbread-tiles.org/schema/1.0/'>Shortbread vector tiles</a>",
+      "license": "ODbL",
       "style": {
         "line-color": "#e6e6e6",
         "fill-opacity": 0.5,
@@ -3008,6 +3033,7 @@
       "maxzoom": 19,
       "url": "https://tile.tracestrack.com/_/{z}/{x}/{y}.webp?key=2865d32445cfad4676de8bf2b0acf7e6",
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
+      "license": "ODbL",
       "style": {
         "raster-opacity": [
           "interpolate",
@@ -3043,6 +3069,7 @@
       "maxzoom": 19,
       "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
       "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
+      "license": "ODbL",
       "style": {
         "raster-opacity": [
           "interpolate",
@@ -3076,7 +3103,7 @@
       "type": "tms",
       "maxzoom": 19,
       "url": "https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=8n1qroRJ9APPiRFK8YVe",
-      "attribution": " <a href='https://cloud.maptiler.com/tiles/>Maptiler</a>",
+      "attribution": "<a href='https://cloud.maptiler.com/tiles/'>Maptiler</a>",
       "style": {
         "raster-opacity": [
           "interpolate",

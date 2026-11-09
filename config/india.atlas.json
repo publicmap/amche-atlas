@@ -34,7 +34,7 @@
       "type": "vector",
       "url": "https://indianopenmaps.fly.dev/habitations/karmashapes-points/{z}/{x}/{y}.pbf",
       "sourceLayer": "karmashapes_points_v0",
-      "attribution": "https://karmashapes.wordpress.com/2023/03/05/karmashapes-v0/",
+      "attribution": "<a href='https://karmashapes.wordpress.com/2023/03/05/karmashapes-v0/'>karmashapes.wordpress.com</a>",
       "maxzoom": 9,
       "style": {
         "circle-radius": 10,
@@ -71,7 +71,7 @@
       "type": "vector",
       "url": "https://indianopenmaps.fly.dev/not-so-open/education/schools/udise/ncog/{z}/{x}/{y}.pbf",
       "sourceLayer": "NCOG_UDISE_Schools",
-      "attribution": "<a href='https://schoolgis.nic.in'>Ministry of Education, Department of School Education & Literacy</a> - Collected by <a href='https://github.com/ramSeraph/indian_facilities/releases/tag/education'>Datameet Community</a>",
+      "attribution": "<a href='https://schoolgis.nic.in'>Ministry of Education, Department of School Education &amp; Literacy</a>, <a href='https://github.com/ramSeraph/indian_facilities/releases/tag/education'>Datameet Community</a>",
       "maxzoom": 10,
       "style": {
         "text-field": [
@@ -108,7 +108,8 @@
       "sourceLayer": "google-open-buildings-india-2023",
       "minzoom": 12,
       "maxzoom": 15,
-      "attribution": "CC-BY <a href='https://sites.research.google/open-buildings/'>Google Open Buildings</a> - Collected by <a href='https://indianopenmaps.com/viewer#source=/google-buildings/&map='>Datameet Community</a>",
+      "attribution": "<a href='https://sites.research.google/open-buildings/'>Google Open Buildings</a>, <a href='https://indianopenmaps.com/viewer#source=/google-buildings/&map='>Datameet Community</a>",
+      "license": "CC-BY",
       "style": {
         "fill-extrusion-height": [
           "get",
@@ -152,7 +153,7 @@
       "url": "https://indianopenmaps.fly.dev/pincodes/datagovin/{z}/{x}/{y}.pbf",
       "sourceLayer": "Datagov_Pincode_Boundaries",
       "maxzoom": 10,
-      "attribution": "<a href='https://www.data.gov.in/resource/delivery-post-office-pincode-boundary'>Ministry of Communications Department of Posts</a> - Collected by <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/postal'>Datameet Community</a>",
+      "attribution": "<a href='https://www.data.gov.in/resource/delivery-post-office-pincode-boundary'>Ministry of Communications Department of Posts</a>, <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/postal'>Datameet Community</a>",
       "style": {
         "text-field": [
           "step",
@@ -287,7 +288,7 @@
       "sourceLayer": "contour",
       "minzoom": 6,
       "maxzoom": 14,
-      "attribution": "<a href='https://bhuvan-app3.nrsc.gov.in/data/download/index.php'>ISRO CartoDEM 30m v3r1</a> - Collected by <a href='https://github.com/ramSeraph/indian_land_features/releases/tag/cartodem-30m-v3r1'>Datameet Community</a>",
+      "attribution": "<a href='https://bhuvan-app3.nrsc.gov.in/data/download/index.php'>ISRO CartoDEM 30m v3r1</a>, <a href='https://github.com/ramSeraph/indian_land_features/releases/tag/cartodem-30m-v3r1'>Datameet Community</a>",
       "initiallyChecked": false,
       "style": {
         "text-field": [
@@ -322,7 +323,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/urban/wards/sbm/{z}/{x}/{y}.pbf",
       "sourceLayer": "SBM_Wards",
       "maxzoom": 12,
-      "attribution": "<a href='https://sbm-g-esriindia1.hub.arcgis.com/'>Swachh Bharat Mission GIS</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://sbm-g-esriindia1.hub.arcgis.com/'>Swachh Bharat Mission GIS</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "text-field": [
           "match",
@@ -444,7 +445,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/panchayats/lgd/{z}/{x}/{y}.pbf ",
       "sourceLayer": "LGD_Panchayats",
       "maxzoom": 10,
-      "attribution": "<a href='https://mapservice.gov.in/gismapservice/rest/services/BharatMapService/Village_Boundary/MapServer/0'>NIC Bharatmaps GIS</a>, <a href='https://lgdirectory.gov.in/' target='_blank'>Local Government Directory, Ministry of Panchayati Raj</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://mapservice.gov.in/gismapservice/rest/services/BharatMapService/Village_Boundary/MapServer/0'>NIC Bharatmaps GIS</a>, <a href='https://lgdirectory.gov.in/'>Local Government Directory, Ministry of Panchayati Raj</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "text-field": [
           "get",
@@ -483,7 +484,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/villages/lgd/{z}/{x}/{y}.pbf ",
       "sourceLayer": "LGD_Villages",
       "maxzoom": 10,
-      "attribution": "<a href='https://mapservice.gov.in/gismapservice/rest/services/BharatMapService/Village_Boundary/MapServer/0'>NIC Bharatmaps GIS</a>, <a href='https://lgdirectory.gov.in/' target='_blank'>Local Government Directory, Ministry of Panchayati Raj</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://mapservice.gov.in/gismapservice/rest/services/BharatMapService/Village_Boundary/MapServer/0'>NIC Bharatmaps GIS</a>, <a href='https://lgdirectory.gov.in/'>Local Government Directory, Ministry of Panchayati Raj</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "text-field": [
           "get",
@@ -579,7 +580,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/blocks/lgd/{z}/{x}/{y}.pbf ",
       "sourceLayer": "LGD_Blocks",
       "maxzoom": 10,
-      "attribution": "<a href='https://mapservice.gov.in/gismapservice/rest/services/BharatMapService/Admin_Boundary_GramPanchayat/MapServer/2'>NIC Bharatmaps GIS</a>, <a href='https://lgdirectory.gov.in/' target='_blank'>Local Government Directory, Ministry of Panchayati Raj</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://mapservice.gov.in/gismapservice/rest/services/BharatMapService/Admin_Boundary_GramPanchayat/MapServer/2'>NIC Bharatmaps GIS</a>, <a href='https://lgdirectory.gov.in/'>Local Government Directory, Ministry of Panchayati Raj</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "text-field": [
           "get",
@@ -623,7 +624,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/districts/lgd/{z}/{x}/{y}.pbf ",
       "sourceLayer": "LGD_Districts",
       "maxzoom": 10,
-      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>LGD/Bharatmaps</a> - Collected by <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/districts'>Datameet Community:LGD_Districts</a>",
+      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>LGD/Bharatmaps</a>, <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/districts'>Datameet Community:LGD_Districts</a>",
       "style": {
         "fill-color": "rgba(255, 255, 255, 1)",
         "fill-opacity": [
@@ -675,7 +676,7 @@
       "sourceLayer": "LGD_States",
       "minzoom": 0,
       "maxzoom": 10,
-      "attribution": "Source: <a href='https://lgdirectory.gov.in' target='_blank' rel='noopener noreferrer'>Local Government Directory</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
+      "attribution": "<a href='https://lgdirectory.gov.in'>Local Government Directory</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "text-padding": 50,
         "text-field": [
@@ -714,7 +715,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/constituencies/assembly/lgd/{z}/{x}/{y}.pbf ",
       "sourceLayer": "LGD_Assembly_Constituencies",
       "maxzoom": 10,
-      "attribution": "<a href='https://mapservice.gov.in/gismapservice/rest/services/BharatMapService/AC_PC/MapServer/2'>LGD/Bharatmaps/ECI</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://mapservice.gov.in/gismapservice/rest/services/BharatMapService/AC_PC/MapServer/2'>LGD/Bharatmaps/ECI</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "text-field": [
           "get",
@@ -768,7 +769,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/constituencies/parliament/lgd/{z}/{x}/{y}.pbf ",
       "sourceLayer": "LGD_Parliament_Constituencies",
       "maxzoom": 10,
-      "attribution": "<a href='https://mapservice.gov.in/gismapservice/rest/services/BharatMapService/AC_PC/MapServer/1'>LGD/Bharatmaps/ECI</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://mapservice.gov.in/gismapservice/rest/services/BharatMapService/AC_PC/MapServer/1'>LGD/Bharatmaps/ECI</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "text-field": [
           "get",
@@ -828,7 +829,7 @@
       "sourceLayer": "PMGSY_Habitations",
       "minzoom": 0,
       "maxzoom": 9,
-      "attribution": "Source: <a href='https://geosadak-pmgsy.nic.in/OpenData' target='_blank' rel='noopener noreferrer'>PMGSY</a>",
+      "attribution": "<a href='https://geosadak-pmgsy.nic.in/OpenData'>PMGSY</a>",
       "style": {
         "text-field": [
           "get",
@@ -859,7 +860,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/wetlands/parivesh/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bharatmaps_Parivesh_Wetland_Boundaries",
       "maxzoom": 11,
-      "attribution": "<a href='https://vedas.sac.gov.in/wetlands/index.html'>1:10k Wetland Polygons (2019), Space Applications Centre, ISRO</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://vedas.sac.gov.in/wetlands/index.html'>1:10k Wetland Polygons (2019), Space Applications Centre, ISRO</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "line-color": "blue",
         "fill-color": [
@@ -940,7 +941,7 @@
       "url": "https://indianopenmaps.fly.dev/streams/wris/{z}/{x}/{y}.pbf",
       "sourceLayer": "wris_streams",
       "maxzoom": 11,
-      "attribution": "<a href='https://indiawris.gov.in/wris/'>India WRIS</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://indiawris.gov.in/wris/'>India WRIS</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "line-color": "#0084f7",
         "line-opacity": 0.8,
@@ -1039,7 +1040,7 @@
       "url": "https://indianopenmaps.com/not-so-open/irrigation/dams/bharatmaps/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bharatmaps_Dams",
       "maxzoom": 3,
-      "attribution": "Source: <a href='https://bharatmaps.gov.in' target='_blank' rel='noopener noreferrer'>Bharatmaps</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
+      "attribution": "<a href='https://bharatmaps.gov.in'>Bharatmaps</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "circle-color": "#0084f7",
         "circle-opacity": 1,
@@ -1078,7 +1079,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/irrigation/canal-names/bharatmaps/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bharatmaps_Canals_with_names",
       "maxzoom": 10,
-      "attribution": "<a href='https://bharatmaps.gov.in' target='_blank' rel='noopener noreferrer'>Bharatmaps</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
+      "attribution": "<a href='https://bharatmaps.gov.in'>Bharatmaps</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "line-color": "blue",
         "line-opacity": 1,
@@ -1105,7 +1106,7 @@
       "url": "https://indianopenmaps.fly.dev/watersheds/wris/{z}/{x}/{y}.pbf",
       "sourceLayer": "wris_watershed",
       "maxzoom": 10,
-      "attribution": "<a href='https://indiawris.gov.in/wris/#/riverBasins'>India Water Resources Information System, Ministry of Jal Shakti</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://indiawris.gov.in/wris/#/riverBasins'>India Water Resources Information System, Ministry of Jal Shakti</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "fill-color": "rgba(0, 0, 0, 0)",
         "line-color": "blue",
@@ -1140,7 +1141,7 @@
       "url": "https://indianopenmaps.fly.dev/micro-watersheds/priorities/slusi/{z}/{x}/{y}.pbf",
       "sourceLayer": "SLUSI_Priority_MicroWatersheds",
       "maxzoom": 10,
-      "attribution": "<a href='https://soilhealth.dac.gov.in/slusi-visualisation/'>Soil and Land Use Survey of India, Ministry of Agriculture and Farmers Welfare</a> - Collected by <a href='https://github.com/ramSeraph/indian_water_features/releases/tag/hydro-boundaries'>Datameet Community</a>",
+      "attribution": "<a href='https://soilhealth.dac.gov.in/slusi-visualisation/'>Soil and Land Use Survey of India, Ministry of Agriculture and Farmers Welfare</a>, <a href='https://github.com/ramSeraph/indian_water_features/releases/tag/hydro-boundaries'>Datameet Community</a>",
       "style": {
         "fill-color": [
           "match",
@@ -1184,7 +1185,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/forests/beats/fsi/{z}/{x}/{y}.pbf",
       "sourceLayer": "FSI_Beats",
       "maxzoom": 11,
-      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>Bharatmaps/Forest Survey of India</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>Bharatmaps/Forest Survey of India</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "line-color": "#006400",
         "line-width": [
@@ -1266,7 +1267,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/forests/esz/parivesh/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bharatmaps_Parivesh_Eco_Sensitive_Zones",
       "maxzoom": 9,
-      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>Bharatmaps/Parivesh</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>Bharatmaps/Parivesh</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "line-color": "#006400",
         "line-width": [
@@ -1355,7 +1356,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/forests/wildlife/reserves-and-corridors/parivesh/{z}/{x}/{y}.pbf ",
       "sourceLayer": "Bharatmaps_Parivesh_Wildlife_Reserves_and_Corridors",
       "maxzoom": 10,
-      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>Bharatmaps/Parivesh</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>Bharatmaps/Parivesh</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "line-color": "#006400",
         "line-width": 0,
@@ -1397,7 +1398,7 @@
         ]
       },
       "description": "Map designating the entire Western Ghats as an Ecologically Sensitive Area (ESA) and dividing it into three zones (ESZ 1, 2, and 3) with varying levels of ecological sensitivity for the Western Ghats of India from the <a href='https://archive.org/details/ReportOfTheWesternGhatsEcologyExpertPanel'>Report of the Western Ghats Ecology Expert Panel (WGEEP, 2011)</a> headed by Prof. Madhav Gadgil.",
-      "attribution": "<a href='https://archive.org/details/ReportOfTheWesternGhatsEcologyExpertPanel'>WGEEP, MoEFCC</a> via <a href='https://mapwarper.net/layers/2377'>Mapwarper</a>"
+      "attribution": "<a href='https://archive.org/details/ReportOfTheWesternGhatsEcologyExpertPanel'>WGEEP, MoEFCC</a>, <a href='https://mapwarper.net/layers/2377'>Mapwarper</a>"
     },
     {
       "tags": [
@@ -1426,7 +1427,7 @@
       },
       "bbox": "74.558,13.862,74.988,14.251",
       "description": "Map of Eco-Sensitive Zone of Shravati Wildlife Sanctuary along with latitude and longitude and prominent locations from <a href='https://archive.org/details/in.gazette.central.e.2019-08-05.210456/page/n37/mode/2up'>Gazette of India - Extraordinary, 2019-08-05, Part II-Section 3-Sub-Section(ii)</a>",
-      "attribution": "<a href='https://archive.org/details/in.gazette.central.e.2019-08-05.210456/page/n37/mode/2up'>2019-08-05 MoEFCC Notification</a> via <a href='https://editor.allmaps.org/mask?url=https%3A%2F%2Fiiif.archive.org%2Fiiif%2Fin.gazette.central.e.2019-08-05.210456%2Fmanifest.json&image=https%3A%2F%2Fiiif.archive.org%2Fimage%2Fiiif%2F3%2Fin.gazette.central.e.2019-08-05.210456%252F210456_jp2.zip%252F210456_jp2%252F210456_0016.jp2'>Allmaps</a>"
+      "attribution": "<a href='https://archive.org/details/in.gazette.central.e.2019-08-05.210456/page/n37/mode/2up'>2019-08-05 MoEFCC Notification</a>, <a href='https://editor.allmaps.org/mask?url=https%3A%2F%2Fiiif.archive.org%2Fiiif%2Fin.gazette.central.e.2019-08-05.210456%2Fmanifest.json&image=https%3A%2F%2Fiiif.archive.org%2Fimage%2Fiiif%2F3%2Fin.gazette.central.e.2019-08-05.210456%252F210456_jp2.zip%252F210456_jp2%252F210456_0016.jp2'>Allmaps</a>"
     },
     {
       "tags": [
@@ -1439,7 +1440,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/coastal/regulation-lines/parivesh/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bharatmaps_Parivesh_CRZ_Regulatory_Lines",
       "maxzoom": 14,
-      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>Bharatmaps/Parivesh</a> - Collected by <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/coastal'>Datameet Community</a>",
+      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>Bharatmaps/Parivesh</a>, <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/coastal'>Datameet Community</a>",
       "style": {
         "symbol-placement": "line",
         "text-field": [
@@ -1551,7 +1552,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/coastal/regulation-zones/parivesh/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bharatmaps_Parivesh_CRZ_Regulatory_Zones",
       "maxzoom": 14,
-      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>Bharatmaps/Parivesh</a> - Collected by <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/coastal'>Datameet Community</a>",
+      "attribution": "<a href='https://bharatmaps.gov.in/BharatMaps/Home/Map'>Bharatmaps/Parivesh</a>, <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/coastal'>Datameet Community</a>",
       "filter": [
         "!",
         [
@@ -1628,7 +1629,7 @@
       "url": "https://indianopenmaps.com/not-so-open/coastal/regulation-zones/parivesh/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bharatmaps_Parivesh_CRZ_Regulatory_Zones",
       "maxzoom": 14,
-      "attribution": "<a href='https://bharatmapsparivesh.parivesh.nic.in/parivesh_bharatmaps/rest/services/parivesh2/CRZ2019/MapServer'>CRZ2019, Bharatmaps/Parivesh</a> - via <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/coastal'>Datameet Community</a>",
+      "attribution": "<a href='https://bharatmapsparivesh.parivesh.nic.in/parivesh_bharatmaps/rest/services/parivesh2/CRZ2019/MapServer'>CRZ2019, Bharatmaps/Parivesh</a>, <a href='https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/coastal'>Datameet Community</a>",
       "filter": [
         "==",
         [
@@ -1737,7 +1738,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/cultural/monuments/zones/asi/bhuvan/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bhuvan_ASI_Boundaries",
       "maxzoom": 13,
-      "attribution": "Source: <a href='https://bhuvan.nrsc.gov.in/' target='_blank' rel='noopener noreferrer'>BHuvan/ASI</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a>",
+      "attribution": "<a href='https://bhuvan.nrsc.gov.in/'>BHuvan/ASI</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "text-field": [
           "step",
@@ -1871,7 +1872,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://aim-india.aai.aero/eaip/eaip-v2-01-2026/eAIP/ERC-INDIA.pdf' target='_blank'>https://aim-india.aai.aero/eaip/eaip-v2-01-2026/eAIP/ERC-INDIA.pdf</a> via <a href='https://mapwarper.net/maps/108469' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://aim-india.aai.aero/eaip/eaip-v2-01-2026/eAIP/ERC-INDIA.pdf'>aim-india.aai.aero</a>, <a href='https://mapwarper.net/maps/108469'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/108469/thumb/ERC-INDIA.png",
       "bbox": "56.4071754,-12.0416884,101.3040213,41.8688727",
       "initiallyChecked": false
@@ -1887,7 +1888,7 @@
       "url": " https://indianopenmaps.fly.dev/not-so-open/mining/leases/major/ncog/{z}/{x}/{y}.pbf",
       "sourceLayer": "NCOG_Major_Mining_Leases",
       "maxzoom": 11,
-      "attribution": "<a href='https://mss.ncog.gov.in/login'>National Centre of Geo-Informatics(NCOG) Mining Surveillance System</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://mss.ncog.gov.in/login'>National Centre of Geo-Informatics(NCOG) Mining Surveillance System</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "text-field": [
           "step",
@@ -2151,7 +2152,7 @@
       "type": "tms",
       "id": "soi-osm",
       "url": "https://indianopenmaps.fly.dev/soi/osm/{z}/{x}/{y}.webp",
-      "attribution": "<a href='https://surveyofindia.gov.in/pages/copyright-policy'>© Survey of India</a>, <a href='https://onlinemaps.surveyofindia.gov.in/'>Open Series Maps 2011</a> via <a href='https://ramseraph.github.io/opendata/maps/SOI/'>Datameet Community</a>"
+      "attribution": "<a href='https://surveyofindia.gov.in/pages/copyright-policy'>© Survey of India</a>, <a href='https://onlinemaps.surveyofindia.gov.in/'>Open Series Maps 2011</a>, <a href='https://ramseraph.github.io/opendata/maps/SOI/'>Datameet Community</a>"
     },
     {
       "tags": [
@@ -2164,7 +2165,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/landuse/10k/sisdp/phase2/bhuvan/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bhuvan_SISDP_Phase2_LULC_10k_2016-2019",
       "maxzoom": 13,
-      "attribution": "<a href='https://bhuvanpanchayat.nrsc.gov.in'>Bhuvan Land Use Land Cover (10K):SIS-DP Phase2:2018-23</a> - Collected by <a href='https://github.com/ramSeraph/indian_land_features/releases/tag/landuse'>Datameet Community</a>",
+      "attribution": "<a href='https://bhuvanpanchayat.nrsc.gov.in'>Bhuvan Land Use Land Cover (10K):SIS-DP Phase2:2018-23</a>, <a href='https://github.com/ramSeraph/indian_land_features/releases/tag/landuse'>Datameet Community</a>",
       "style": {
         "text-font": [
           "Open Sans Regular"
@@ -2691,7 +2692,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/landuse/10k/sisdpv2/bhuvan/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bhuvan_SISDP_V2_LULC_10k",
       "maxzoom": 13,
-      "attribution": "<a href='https://bhuvanpanchayat.nrsc.gov.in'>Bhuvan Land Use Land Cover (10K):SIS-DP Phase2:2018-23</a> - Collected by <a href='https://github.com/ramSeraph/indian_land_features/releases/tag/landuse'>Datameet Community</a>",
+      "attribution": "<a href='https://bhuvanpanchayat.nrsc.gov.in'>Bhuvan Land Use Land Cover (10K):SIS-DP Phase2:2018-23</a>, <a href='https://github.com/ramSeraph/indian_land_features/releases/tag/landuse'>Datameet Community</a>",
       "style": {
         "text-font": [
           "Open Sans Regular"
@@ -2893,7 +2894,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/lineament/50k/bhuvan/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bhuvan_Lineament_50k_0506",
       "maxzoom": 8,
-      "attribution": "<a href='https://bhuvan-app1.nrsc.gov.in/thematic/thematic/index.php'>Bhuvan</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://bhuvan-app1.nrsc.gov.in/thematic/thematic/index.php'>Bhuvan</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "line-color": [
           "match",
@@ -2986,7 +2987,7 @@
       "url": " https://indianopenmaps.fly.dev/not-so-open/groundwater-prospects/lgeom/bhuvan/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bhuvan_Groundwater_Prospects_LGEOM",
       "maxzoom": 11,
-      "attribution": "<a href='https://bhuvan-app1.nrsc.gov.in/gwis/'>Bhuvan - Bhujal, Ministry of Drinking Water and Sanitation</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://bhuvan-app1.nrsc.gov.in/gwis/'>Bhuvan - Bhujal, Ministry of Drinking Water and Sanitation</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "line-color": "blue",
         "line-width": [
@@ -3113,7 +3114,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/geomorphology/50k/bhuvan/{z}/{x}/{y}.pbf",
       "sourceLayer": "Bhuvan_Geomorphology_50k_0506",
       "maxzoom": 11,
-      "attribution": "<a href='https://bhuvan-app1.nrsc.gov.in/thematic/thematic/index.php'>Bhuvan</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://bhuvan-app1.nrsc.gov.in/thematic/thematic/index.php'>Bhuvan</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "line-color": "black",
         "line-width": [
@@ -3272,7 +3273,7 @@
           0.1
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/102839' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/102839'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/102839/thumb/Screenshot_2026-02-20_at_3.26.15%E2%80%AFPM.png",
       "bbox": "93.8331832,6.773293,93.9054805,6.8278547",
       "initiallyChecked": false
@@ -3303,7 +3304,7 @@
           0.1
         ]
       },
-      "attribution": "<a href='https://environmentclearance.nic.in/auth/ECGeneral_Report.aspx?pid=41797' target='_blank'>ANIIDCO</a> via <a href='https://mapwarper.net/maps/102833' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://environmentclearance.nic.in/auth/ECGeneral_Report.aspx?pid=41797'>ANIIDCO</a>, <a href='https://mapwarper.net/maps/102833'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/102833/thumb/G_Nicobar_1_vjihgmeu.png",
       "bbox": "93.6180812,6.7051398,93.9702066,7.2571048",
       "initiallyChecked": false
@@ -3336,7 +3337,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/97908' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/97908'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/97908/thumb/Screenshot_2025-10-12_at_1.54.08%E2%80%AFPM.png",
       "bbox": "65.8455538,6.6779257,99.7729434,37.4049672",
       "initiallyChecked": false
@@ -3350,7 +3351,7 @@
       "id": "gsi-landslide",
       "url": "https://bhukosh.gsi.gov.in/arcgis/services/Landslide/NLSM/MapServer/WMSServer?type4portal=WMS&SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=0,2,3,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,21,24&FORMAT=image%2Fpng&WIDTH=1275&HEIGHT=775&BBOX=8208232.124329313,1746630.5071529609,8232596.427578078,1761440.18167672&CRS=EPSG%3A3857&STYLES=,,,,,,,,,,,,,,,,,,,&TRANSPARENT=TRUE",
       "maxzoom": 12,
-      "attribution": "<a href='https://www.gsi.gov.in/webcenter/portal/OCBIS/pageQuickLinks/pageNLSM' target='_blank'>National Landslide Susceptibility Mapping (NLSM), Geological Survey Of India</a> via <a href='https://bhukosh.gsi.gov.in/Bhukosh/MapViewer.aspx' target='_blank'>Bhukosh</a>"
+      "attribution": "<a href='https://www.gsi.gov.in/webcenter/portal/OCBIS/pageQuickLinks/pageNLSM'>National Landslide Susceptibility Mapping (NLSM), Geological Survey Of India</a>, <a href='https://bhukosh.gsi.gov.in/Bhukosh/MapViewer.aspx'>Bhukosh</a>"
     },
     {
       "tags": [
@@ -3365,7 +3366,7 @@
       "id": "gsi-marine-geology",
       "url": "https://bhukosh.gsi.gov.in/arcgis/services/Marine/Marine_Geology/MapServer/WMSServer?type4portal=WMS&SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=0,2,4,5,6,7,8&FORMAT=image%2Fpng&WIDTH=1275&HEIGHT=775&BBOX=7.302116383789734,68.47464354531868,12.747703894063509,77.43351332028521&CRS=EPSG%3A4326&STYLES=,,,,,,&TRANSPARENT=TRUE",
       "maxzoom": 12,
-      "attribution": "<a href='https://www.gsi.gov.in/webcenter/portal/OCBIS/pageQuickLinks/pageNLSM' target='_blank'>National Landslide Susceptibility Mapping (NLSM), Geological Survey Of India</a> via <a href='https://bhukosh.gsi.gov.in/Bhukosh/MapViewer.aspx' target='_blank'>Bhukosh</a>"
+      "attribution": "<a href='https://www.gsi.gov.in/webcenter/portal/OCBIS/pageQuickLinks/pageNLSM'>National Landslide Susceptibility Mapping (NLSM), Geological Survey Of India</a>, <a href='https://bhukosh.gsi.gov.in/Bhukosh/MapViewer.aspx'>Bhukosh</a>"
     },
     {
       "title": "Great Indian Railways Atlas 2026",
@@ -3390,7 +3391,7 @@
           0.1
         ]
       },
-      "attribution": "<a href='https://indianrailstuff.com' target='_blank'>Samit Roychoudhury</a> via <a href='https://mapwarper.net/maps/108683' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://indianrailstuff.com'>Samit Roychoudhury</a>, <a href='https://mapwarper.net/maps/108683'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/108683/thumb/ir-atlas.png",
       "bbox": "68.3203668,7.7682242,97.4385072,37.2872074",
       "initiallyChecked": false
@@ -3418,7 +3419,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://surveyofindia.gov.in/UserFiles/files/RAILWAY%203_5M_ENG_25_31stEdn2025.pdf' target='_blank'>Survey Of India</a> via <a href='https://mapwarper.net/maps/107806' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://surveyofindia.gov.in/UserFiles/files/RAILWAY%203_5M_ENG_25_31stEdn2025.pdf'>Survey Of India</a>, <a href='https://mapwarper.net/maps/107806'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/107806/thumb/RAILWAY_3_5M_ENG_25_31stEdn2025.png",
       "bbox": "65.3782764,2.3725089,99.3278618,38.3625613",
       "initiallyChecked": false
@@ -3447,7 +3448,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://www.davidrumsey.com/luna/servlet/detail/RUMSEY~8~1~328296~90096788:March-1915-map-of-railway-systems-i?sort=Pub_List_No_InitialSort%2CPub_Date%2CPub_List_No%2CSeries_No#' target='_blank'>https://www.davidrumsey.com/luna/servlet/detail/RUMSEY~8~1~328296~90096788:March-1915-map-of-railway-systems-i?sort=Pub_List_No_InitialSort%2CPub_Date%2CPub_List_No%2CSeries_No#</a> via <a href='https://mapwarper.net/maps/52833' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://www.davidrumsey.com/luna/servlet/detail/RUMSEY~8~1~328296~90096788:March-1915-map-of-railway-systems-i?sort=Pub_List_No_InitialSort%2CPub_Date%2CPub_List_No%2CSeries_No#'>davidrumsey.com</a>, <a href='https://mapwarper.net/maps/52833'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/52833/thumb/13440000.png",
       "bbox": "60.0942287,2.0067687,103.0829347,38.5042557",
       "initiallyChecked": false
@@ -3475,7 +3476,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Physical_Map_of_India.jpg' target='_blank'>File:Physical_Map_of_India.jpg</a> via <a href='https://warper.wmflabs.org/maps/10357' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Physical_Map_of_India.jpg'>File:Physical_Map_of_India.jpg</a>, <a href='https://warper.wmflabs.org/maps/10357'>MapWarper</a>",
       "bbox": "67.0351318,7.0451882,98.0253216,37.708835",
       "initiallyChecked": false
     },
@@ -3504,7 +3505,7 @@
           0.3
         ]
       },
-      "attribution": "<a href=\"https://commons.wikimedia.org/wiki/File:Admiralty_Chart_No_827_Vengurla_to_Cape_Comorin,_Published_1877,_New_Edition_1914.jpg\" target=\"_blank\">File:Admiralty_Chart_No_827_Vengurla_to_Cape_Comorin,_Published_1877,_New_Edition_1914.jpg</a> via <a href=\"https://warper.wmflabs.org/maps/6346#Preview_tab\" target=\"_blank\">MapWarper</a>",
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Admiralty_Chart_No_827_Vengurla_to_Cape_Comorin,_Published_1877,_New_Edition_1914.jpg'>File:Admiralty_Chart_No_827_Vengurla_to_Cape_Comorin,_Published_1877,_New_Edition_1914.jpg</a>, <a href='https://warper.wmflabs.org/maps/6346#Preview_tab'>MapWarper</a>",
       "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Admiralty_Chart_No_827_Vengurla_to_Cape_Comorin%2C_Published_1877%2C_New_Edition_1914.jpg/120px-Admiralty_Chart_No_827_Vengurla_to_Cape_Comorin%2C_Published_1877%2C_New_Edition_1914.jpg",
       "bbox": "69.8665829,4.0629612,79.2039852,17.4602489"
     },
@@ -3515,7 +3516,8 @@
       "type": "tms",
       "id": "1906-atlas",
       "url": "https://warper.wmflabs.org/mosaics/tile/15/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/Category:Atlas_of_India_(1827-1906)'>Wikimedia Commons: Atlas of India (1827-1906)</a> via <a href='https://warper.wmflabs.org/mosaics/15#Show_tab'>Wikimaps Warper</a> released in public domain",
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/Category:Atlas_of_India_(1827-1906)'>Wikimedia Commons: Atlas of India (1827-1906)</a>, <a href='https://warper.wmflabs.org/mosaics/15#Show_tab'>Wikimaps Warper</a>",
+      "license": "Public Domain",
       "tags": [
         "historic",
         "atlas"
@@ -3528,7 +3530,8 @@
       "type": "tms",
       "id": "1855-geology",
       "url": "https://warper.wmflabs.org/maps/tile/2258/{z}/{x}/{y}.png",
-      "attribution": "<a href=https://commons.wikimedia.org/wiki/File:Greenough_Geology_India_1855.jpg'>Wikimedia Commons: Greenough Geology India 1855</a> via <a href='https://warper.wmflabs.org/maps/2258'>Wikimaps Warper</a> released in public domain",
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Greenough_Geology_India_1855.jpg'>Wikimedia Commons: Greenough Geology India 1855</a>, <a href='https://warper.wmflabs.org/maps/2258'>Wikimaps Warper</a>",
+      "license": "Public Domain",
       "tags": [
         "historic",
         "geology"
@@ -3541,7 +3544,8 @@
       "type": "tms",
       "id": "1814-lambton-survey",
       "url": "https://warper.wmflabs.org/mosaics/tile/13/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/Category:Lambton%27s_peninsular_survey'>Wikimedia Commons: Lambtons peninsular survey</a> via <a href='https://warper.wmflabs.org/mosaics/13#Show_tab'>Wikimaps Warper</a> released in public domain",
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/Category:Lambton%27s_peninsular_survey'>Wikimedia Commons: Lambtons peninsular survey</a>, <a href='https://warper.wmflabs.org/mosaics/13#Show_tab'>Wikimaps Warper</a>",
+      "license": "Public Domain",
       "tags": [
         "historic",
         "survey"
@@ -3557,7 +3561,8 @@
       "type": "tms",
       "id": "1792-general-atlas",
       "url": "https://warper.wmflabs.org/maps/tile/7050/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Southern_India_Wilkinson.png'>Wikimedia Commons: Southern India Wilkinson.png </a> via <a href='https://warper.wmflabs.org/maps/7050'>Wikimaps Warper</a> released in public domain"
+      "attribution": "<a href='https://commons.wikimedia.org/wiki/File:Southern_India_Wilkinson.png'>Wikimedia Commons: Southern India Wilkinson.png</a>, <a href='https://warper.wmflabs.org/maps/7050'>Wikimaps Warper</a>",
+      "license": "Public Domain"
     },
     {
       "tags": [
@@ -3619,7 +3624,7 @@
       "tileSize": 256,
       "maxzoom": 15,
       "description": "Imagery captured by US <a href='https://en.wikipedia.org/wiki/CORONA_(satellite)'>CORONA</a> series fo spy satellites between 1965-1980.",
-      "attribution": "CORONA via <a href='https://bhuvanmaps.nrsc.gov.in/ras2mapcache'>Bhuvan</a>"
+      "attribution": "CORONA, <a href='https://bhuvanmaps.nrsc.gov.in/ras2mapcache'>Bhuvan</a>"
     }
   ]
 }

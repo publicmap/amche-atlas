@@ -64,7 +64,7 @@
       "sourceLayer": "GSDL_Cadastrals",
       "maxzoom": 13,
       "minzoom": 13,
-      "attribution": "<a href='https://gsdl.org.in/revenue/#'>GSDL, Delhi</a> - Collected by <a href='https://github.com/ramSeraph/indian_cadastrals/releases/tag/delhi'>Datameet Community</a>",
+      "attribution": "<a href='https://gsdl.org.in/revenue/#'>GSDL, Delhi</a>, <a href='https://github.com/ramSeraph/indian_cadastrals/releases/tag/delhi'>Datameet Community</a>",
       "style": {
         "text-padding": [
           "interpolate",
@@ -208,7 +208,7 @@
       "url": "https://indianopenmaps.fly.dev/not-so-open/cadastrals/haryana/hrsac/{z}/{x}/{y}.pbf",
       "sourceLayer": "HRSAC_HR_Cadastrals",
       "maxzoom": 14,
-      "attribution": "<a href='https://hsac.org.in/eodb/'>Haryana Space Applications Center</a> - Collected by <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://hsac.org.in/eodb/'>Haryana Space Applications Center</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "text-font": [
           "Open Sans Bold"
@@ -627,7 +627,7 @@
       "type": "tms",
       "id": "draft-2041-mpd-delhi",
       "url": "https://allmaps.xyz/images/8d6198c82284323b/{z}/{x}/{y}@2x.png",
-      "attribution": "<a href='https://dda.gov.in/master-plan-delhi-2041-draft'>MPD 2041 (Draft), DDA</a> via <a href='https://editor.allmaps.org/mask?url=https%3A%2F%2Fiiif.archive.org%2Fiiif%2Fdelhi-mpd-2041%2Fmanifest.json&image=https%3A%2F%2Fiiif.archive.org%2Fimage%2Fiiif%2F3%2Fdelhi-mpd-2041%252FDraft%2520Landuse%2520Plan%2520For%2520Delhi%25202014_jp2.zip%252FDraft%2520Landuse%2520Plan%2520For%2520Delhi%25202014_jp2%252FDraft%2520Landuse%2520Plan%2520For%2520Delhi%25202014_0000.jp2>Allmaps</a>"
+      "attribution": "<a href='https://dda.gov.in/master-plan-delhi-2041-draft'>MPD 2041 (Draft), DDA</a>, <a href='https://editor.allmaps.org/mask?url=https%3A%2F%2Fiiif.archive.org%2Fiiif%2Fdelhi-mpd-2041%2Fmanifest.json&image=https%3A%2F%2Fiiif.archive.org%2Fimage%2Fiiif%2F3%2Fdelhi-mpd-2041%252FDraft%2520Landuse%2520Plan%2520For%2520Delhi%25202014_jp2.zip%252FDraft%2520Landuse%2520Plan%2520For%2520Delhi%25202014_jp2%252FDraft%2520Landuse%2520Plan%2520For%2520Delhi%25202014_0000.jp2'>Allmaps</a>"
     },
     {
       "title": "Gurgaon Master Plan 2031",
@@ -637,7 +637,7 @@
       "type": "tms",
       "id": "gurugram-plan-2034",
       "url": "https://mapwarper.net/maps/tile/58486/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://tcpharyana.gov.in/Development_Plan/ColouredCopy/GMUC_DDP_2031.pdf'>https://tcpharyana.gov.in/Development_Plan/ColouredCopy/GMUC_DDP_2031.pdf</a> via <a href='https://mapwarper.net/maps/58486'>Map Warper</a>"
+      "attribution": "<a href='https://tcpharyana.gov.in/Development_Plan/ColouredCopy/GMUC_DDP_2031.pdf'>tcpharyana.gov.in</a>, <a href='https://mapwarper.net/maps/58486'>Map Warper</a>"
     }
   ]
 }

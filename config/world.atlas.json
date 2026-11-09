@@ -144,7 +144,7 @@
         "satellite"
       ],
       "url": "https://earthlive.maptiles.arcgis.com/arcgis/rest/services/GOES/GOES31D/MapServer/tile/{z}/{y}/{x}",
-      "attribution": "<a href='https://www.star.nesdis.noaa.gov/goes/index.php'>NOAA GOES</a> + <a href='https://himawari8.nict.go.jp'>JMA Himwari</a> via <a href='https://www.arcgis.com/home/item.html?id=37a875ff3611496883b7ccca97f0f5f4'>JMA Himawari</a>"
+      "attribution": "<a href='https://www.star.nesdis.noaa.gov/goes/index.php'>NOAA GOES</a>, <a href='https://himawari8.nict.go.jp'>JMA Himwari</a>, <a href='https://www.arcgis.com/home/item.html?id=37a875ff3611496883b7ccca97f0f5f4'>JMA Himawari</a>"
     },
     {
       "title": "ESRI World Imagery",
@@ -158,7 +158,7 @@
         "imagery"
       ],
       "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      "attribution": "<a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9'>ESRI World Imagery</a> via <a href='https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer'>ArcGIS Online</a>"
+      "attribution": "<a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9'>ESRI World Imagery</a>, <a href='https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer'>ArcGIS Online</a>"
     },
     {
       "title": "ESRI Hillshade",
@@ -172,7 +172,7 @@
         "terrain"
       ],
       "url": "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
-      "attribution": "<a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9'>ESRI World Imagery</a> via <a href='https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer'>ArcGIS Online</a>"
+      "attribution": "<a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9'>ESRI World Imagery</a>, <a href='https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer'>ArcGIS Online</a>"
     },
     {
       "title": "TopPlusOpen",
@@ -187,7 +187,8 @@
       "id": "topplusopen",
       "maxzoom": 18,
       "url": "https://sgx.geodatenzentrum.de/wmts_topplus_open/tile/1.0.0/web/default/WEBMERCATOR/{z}/{y}/{x}.png",
-      "attribution": "<a href='https://www.bkg.bund.de'>Bundesamt für Kartographie und Geodäsie (BKG)</a>, <a href='https://sgx.geodatenzentrum.de/web_public/gdz/lizenz/dl-de-by-2-0.pdf'>dl-de/by-2-0</a>"
+      "attribution": "<a href='https://www.bkg.bund.de'>Bundesamt für Kartographie und Geodäsie (BKG)</a>",
+      "license": "dl-de/by-2-0"
     },
     {
       "title": "TopPlusOpen Grey",
@@ -202,7 +203,8 @@
       "id": "topplusopen-grey",
       "maxzoom": 18,
       "url": "https://sgx.geodatenzentrum.de/wmts_topplus_open/tile/1.0.0/web_grau/default/WEBMERCATOR/{z}/{y}/{x}.png",
-      "attribution": "<a href='https://www.bkg.bund.de'>Bundesamt für Kartographie und Geodäsie (BKG)</a>, <a href='https://sgx.geodatenzentrum.de/web_public/gdz/lizenz/dl-de-by-2-0.pdf'>dl-de/by-2-0</a>"
+      "attribution": "<a href='https://www.bkg.bund.de'>Bundesamt für Kartographie und Geodäsie (BKG)</a>",
+      "license": "dl-de/by-2-0"
     },
     {
       "id": "landsat-thermal",
@@ -215,7 +217,8 @@
         "landsat"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/729051470412a5531306086866ad7a91/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=lwir11&rescale=44000,50500&colormap_name=inferno",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2'>Microsoft Planetary Computer</a>",
+      "license": "Public Domain",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -246,7 +249,8 @@
         "landsat"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/729051470412a5531306086866ad7a91/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=red&assets=green&assets=blue&color_formula=gamma+RGB+2.7,+saturation+1.5,+sigmoidal+RGB+15+0.55",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2'>Microsoft Planetary Computer</a>",
+      "license": "Public Domain",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -278,7 +282,8 @@
         "vegetation"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/729051470412a5531306086866ad7a91/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=nir08&assets=red&assets=green&color_formula=gamma+RGB+2.7,+saturation+1.5,+sigmoidal+RGB+15+0.55",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2'>Microsoft Planetary Computer</a>",
+      "license": "Public Domain",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -309,7 +314,8 @@
         "index"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/729051470412a5531306086866ad7a91/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=red&assets=nir08&asset_as_band=True&expression=(nir08-red)/(nir08%2Bred)&rescale=-1,1&colormap_name=rdylgn",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2'>Microsoft Planetary Computer</a>",
+      "license": "Public Domain",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -340,7 +346,8 @@
         "index"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/729051470412a5531306086866ad7a91/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=green&assets=nir08&asset_as_band=True&expression=(green-nir08)/(green%2Bnir08)&rescale=-1,1&colormap_name=blues",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2'>Microsoft Planetary Computer</a>",
+      "license": "Public Domain",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -370,7 +377,8 @@
         "landsat"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/729051470412a5531306086866ad7a91/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=landsat-c2-l2&assets=swir16&assets=nir08&assets=blue&color_formula=gamma+RGB+2.7,+saturation+1.5,+sigmoidal+RGB+15+0.55",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=landsat-c2-l2'>Microsoft Planetary Computer</a>",
+      "license": "Public Domain",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -401,7 +409,7 @@
         "sentinel"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/c932260f94ece68190385a68709e725a/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=sentinel-1-grd&assets=vv&assets=vh&expression=vv;vh;vv/vh&rescale=0,600&rescale=0,270&rescale=0,9&asset_as_band=True",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=sentinel-1-grd' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=sentinel-1-grd'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -427,7 +435,7 @@
         "sentinel"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/3096748e869bb4f11942c97f9ac99064/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=sentinel-2-l2a&assets=visual&asset_bidx=visual|1,2,3&nodata=0",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=sentinel-2-l2a' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=sentinel-2-l2a'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -458,7 +466,7 @@
         "index"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/e38240e92a8a6d68af4fe49a4348a6dc/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=modis-13Q1-061&assets=250m_16_days_NDVI&colormap_name=modis-13A1|Q1&rescale=0,10000",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=modis-13Q1-061' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=modis-13Q1-061'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -484,7 +492,7 @@
         "thermal"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/79f3b4b1cece28eead8861c56fe0029a/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=modis-11A2-061&assets=LST_Day_1km&colormap_name=jet&rescale=255,310",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=modis-11A2-061' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=modis-11A2-061'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -551,7 +559,7 @@
         }
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/34958fd0da78d9838913718b9399804f/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=modis-14A2-061&assets=FireMask&colormap_name=modis-14A1|A2",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=modis-14A2-061' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=modis-14A2-061'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -632,7 +640,7 @@
         }
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/04e13b67e78515f940bb3e662eb04178/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=esa-worldcover&assets=map&colormap_name=esa-worldcover",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=esa-worldcover' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=esa-worldcover'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false
     },
     {
@@ -644,7 +652,7 @@
         "water"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/715067ee8c23aa2629a0049ff8d6d897/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=jrc-gsw&assets=occurrence&colormap_name=jrc-occurrence&nodata=0",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=jrc-gsw' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=jrc-gsw'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false
     },
     {
@@ -658,7 +666,7 @@
         "jrc"
       ],
       "url": "https://di-jrcglobaldata.img.arcgis.com/arcgis/rest/services/Water_Occurrence/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image",
-      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis' target='_blank' rel='noopener noreferrer'>JRC Global Surface Water</a> via Esri Living Atlas",
+      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis'>JRC Global Surface Water</a>, Esri Living Atlas",
       "initiallyChecked": false
     },
     {
@@ -672,7 +680,7 @@
         "jrc"
       ],
       "url": "https://di-jrcglobaldata.img.arcgis.com/arcgis/rest/services/Maximum_Water_Extent/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image",
-      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis' target='_blank' rel='noopener noreferrer'>JRC Global Surface Water</a> via Esri Living Atlas",
+      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis'>JRC Global Surface Water</a>, Esri Living Atlas",
       "initiallyChecked": false
     },
     {
@@ -686,7 +694,7 @@
         "jrc"
       ],
       "url": "https://di-jrcglobaldata.img.arcgis.com/arcgis/rest/services/Seasonality/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image",
-      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis' target='_blank' rel='noopener noreferrer'>JRC Global Surface Water</a> via Esri Living Atlas",
+      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis'>JRC Global Surface Water</a>, Esri Living Atlas",
       "initiallyChecked": false
     },
     {
@@ -700,7 +708,7 @@
         "jrc"
       ],
       "url": "https://di-jrcglobaldata.img.arcgis.com/arcgis/rest/services/Recurrence/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image",
-      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis' target='_blank' rel='noopener noreferrer'>JRC Global Surface Water</a> via Esri Living Atlas",
+      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis'>JRC Global Surface Water</a>, Esri Living Atlas",
       "initiallyChecked": false
     },
     {
@@ -714,7 +722,7 @@
         "jrc"
       ],
       "url": "https://di-jrcglobaldata.img.arcgis.com/arcgis/rest/services/Occurrence_Change_Intensity/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image",
-      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis' target='_blank' rel='noopener noreferrer'>JRC Global Surface Water</a> via Esri Living Atlas",
+      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis'>JRC Global Surface Water</a>, Esri Living Atlas",
       "initiallyChecked": false
     },
     {
@@ -728,7 +736,7 @@
         "jrc"
       ],
       "url": "https://di-jrcglobaldata.img.arcgis.com/arcgis/rest/services/Transitions/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image",
-      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis' target='_blank' rel='noopener noreferrer'>JRC Global Surface Water</a> via Esri Living Atlas",
+      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis'>JRC Global Surface Water</a>, Esri Living Atlas",
       "initiallyChecked": false
     },
     {
@@ -742,7 +750,7 @@
         "jrc"
       ],
       "url": "https://di-jrcglobaldata.img.arcgis.com/arcgis/rest/services/GSW_Yearly_History_TimeEnabled/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image",
-      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis' target='_blank' rel='noopener noreferrer'>JRC Global Surface Water</a> via Esri Living Atlas",
+      "attribution": "<a href='https://www.esri.com/arcgis-blog/products/arcgis-online/imagery/jrc-global-surface-water-ready-to-use-imagery-layers-for-analysis'>JRC Global Surface Water</a>, Esri Living Atlas",
       "initiallyChecked": false
     },
     {
@@ -755,7 +763,7 @@
         "terrain"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/1a9fc5b5c12058bd9b59120b9f90c7e0/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=cop-dem-glo-30&assets=data&colormap_name=terrain&rescale=-1000,4000",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=cop-dem-glo-30' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=cop-dem-glo-30'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false
     },
     {
@@ -768,7 +776,7 @@
         "socioeconomic"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/ef424e741a4ff72a5f890128e47b130d/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=hrea&assets=estimated-brightness&colormap_name=magma&rescale=1,200",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=hrea' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=hrea'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false
     },
     {
@@ -783,7 +791,7 @@
         "vegetation"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/3096748e869bb4f11942c97f9ac99064/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=sentinel-2-l2a&assets=B08&assets=B04&assets=B03&color_formula=gamma+RGB+2.7,+saturation+1.5,+sigmoidal+RGB+15+0.55",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=sentinel-2-l2a' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=sentinel-2-l2a'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -814,7 +822,7 @@
         "index"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/3096748e869bb4f11942c97f9ac99064/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=sentinel-2-l2a&assets=B04&assets=B08&asset_as_band=True&expression=(B08-B04)/(B08%2BB04)&rescale=-1,1&colormap_name=rdylgn",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=sentinel-2-l2a' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=sentinel-2-l2a'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -845,7 +853,7 @@
         "index"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/3096748e869bb4f11942c97f9ac99064/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=sentinel-2-l2a&assets=B03&assets=B08&asset_as_band=True&expression=(B03-B08)/(B03%2BB08)&rescale=-1,1&colormap_name=blues",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=sentinel-2-l2a' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=sentinel-2-l2a'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -897,7 +905,7 @@
         }
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/3cb5d339ae18d4024b39fc818a476324/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=alos-fnf-mosaic&assets=C&colormap_name=alos-fnf",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=alos-fnf-mosaic' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=alos-fnf-mosaic'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false
     },
     {
@@ -956,7 +964,7 @@
         }
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/f34f0a9f34e5295e6c5c7c50457ea409/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=io-lulc-annual-v02&assets=data&colormap_name=io-lulc-9-class",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=io-lulc-annual-v02' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=io-lulc-annual-v02'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -1167,7 +1175,7 @@
         }
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/43853e455a99ce4c9048c46a9c0bedf1/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=esa-cci-lc&assets=lccs_class&colormap_name=esa-cci-lc",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=esa-cci-lc' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=esa-cci-lc'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -1192,7 +1200,7 @@
         "modis"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/3ee6def6c1025ad0f0c8447e38d3a160/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=modis-64A1-061&assets=Burn_Date&colormap_name=modis-64A1",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=modis-64A1-061' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=modis-64A1-061'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -1217,7 +1225,7 @@
         "climate"
       ],
       "url": "https://planetarycomputer.microsoft.com/api/data/v1/mosaic/7013718fb077a2fcc8576b6ac4f7ff80/tiles/WebMercatorQuad/{z}/{x}/{y}@2x?collection=noaa-cdr-sea-surface-temperature-optimum-interpolation&assets=sst&colormap_name=rdylbu_r&rescale=-1000,3500",
-      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=noaa-cdr-sea-surface-temperature-optimum-interpolation' target='_blank' rel='noopener noreferrer'>Microsoft Planetary Computer</a>",
+      "attribution": "<a href='https://planetarycomputer.microsoft.com/explore?collection=noaa-cdr-sea-surface-temperature-optimum-interpolation'>Microsoft Planetary Computer</a>",
       "initiallyChecked": false,
       "pcMosaicSearch": {
         "collections": [
@@ -1244,7 +1252,8 @@
       "type": "tms",
       "id": "gebco-bathymetry",
       "url": "https://tiles.arcgis.com/tiles/C8EMgrsFcRFL6LrL/arcgis/rest/services/GEBCO_basemap_NCEI/MapServer/tile/{z}/{y}/{x}",
-      "attribution": "CC-0 <a href='https://www.gebco.net/data-products/gridded-bathymetry-data'>GEBCO Bathymetry</a> via <a href='https://tiles.arcgis.com/tiles/C8EMgrsFcRFL6LrL/arcgis/rest/services/GEBCO_basemap_NCEI/MapServer'>ArcGIS Online</a>"
+      "attribution": "<a href='https://www.gebco.net/data-products/gridded-bathymetry-data'>GEBCO Bathymetry</a>, <a href='https://tiles.arcgis.com/tiles/C8EMgrsFcRFL6LrL/arcgis/rest/services/GEBCO_basemap_NCEI/MapServer'>ArcGIS Online</a>",
+      "license": "CC0"
     },
     {
       "id": "overture-buildings",
@@ -1259,7 +1268,8 @@
       "sourceLayer": "building",
       "minzoom": 0,
       "maxzoom": 14,
-      "attribution": "<a href='https://docs.overturemaps.org/attribution' target='_blank' rel='noopener noreferrer'>Overture Maps Foundation</a>, <a href='https://www.openstreetmap.org/copyright' target='_blank' rel='noopener noreferrer'>OpenStreetMap</a>",
+      "attribution": "<a href='https://docs.overturemaps.org/attribution'>Overture Maps Foundation</a>, <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
+      "license": "ODbL",
       "initiallyChecked": false,
       "style": {
         "fill-color": "#f97316",
@@ -1304,7 +1314,8 @@
       "sourceLayer": "segment",
       "minzoom": 0,
       "maxzoom": 14,
-      "attribution": "<a href='https://docs.overturemaps.org/attribution' target='_blank' rel='noopener noreferrer'>Overture Maps Foundation</a>, <a href='https://www.openstreetmap.org/copyright' target='_blank' rel='noopener noreferrer'>OpenStreetMap</a>",
+      "attribution": "<a href='https://docs.overturemaps.org/attribution'>Overture Maps Foundation</a>, <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
+      "license": "ODbL",
       "initiallyChecked": false,
       "style": {
         "line-color": "#2563eb",
@@ -1337,7 +1348,8 @@
       "sourceLayer": "place",
       "minzoom": 0,
       "maxzoom": 14,
-      "attribution": "<a href='https://docs.overturemaps.org/attribution' target='_blank' rel='noopener noreferrer'>Overture Maps Foundation</a>, <a href='https://www.openstreetmap.org/copyright' target='_blank' rel='noopener noreferrer'>OpenStreetMap</a>",
+      "attribution": "<a href='https://docs.overturemaps.org/attribution'>Overture Maps Foundation</a>, <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
+      "license": "ODbL",
       "initiallyChecked": false,
       "style": {
         "circle-color": "#db2777",
@@ -1371,7 +1383,8 @@
       "sourceLayer": "division_boundary",
       "minzoom": 0,
       "maxzoom": 12,
-      "attribution": "<a href='https://docs.overturemaps.org/attribution' target='_blank' rel='noopener noreferrer'>Overture Maps Foundation</a>, <a href='https://www.openstreetmap.org/copyright' target='_blank' rel='noopener noreferrer'>OpenStreetMap</a>",
+      "attribution": "<a href='https://docs.overturemaps.org/attribution'>Overture Maps Foundation</a>, <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
+      "license": "ODbL",
       "initiallyChecked": false,
       "style": {
         "line-color": "#7c3aed",
@@ -1407,7 +1420,8 @@
       "sourceLayer": "land_use",
       "minzoom": 0,
       "maxzoom": 13,
-      "attribution": "<a href='https://docs.overturemaps.org/attribution' target='_blank' rel='noopener noreferrer'>Overture Maps Foundation</a>, <a href='https://www.openstreetmap.org/copyright' target='_blank' rel='noopener noreferrer'>OpenStreetMap</a>",
+      "attribution": "<a href='https://docs.overturemaps.org/attribution'>Overture Maps Foundation</a>, <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
+      "license": "ODbL",
       "initiallyChecked": false,
       "style": {
         "fill-color": "#84cc16",

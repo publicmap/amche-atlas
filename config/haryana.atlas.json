@@ -192,7 +192,7 @@
       "sourceLayer": "HRSAC_HR_Cadastrals",
       "minzoom": 0,
       "maxzoom": 14,
-      "attribution": "<a href='https://hsac.in/eodb/map' target='_blank' rel='noopener noreferrer'>Haryan Space Applications Center</a> - Collected by <a href='https://datameet.org' target='_blank' rel='noopener noreferrer'>Datameet Community</a> via <a href='https://indianopenmaps.com/viewer#source=/not-so-open/cadastrals/haryana/hrsac/&map=' target='_blank' rel='noopener noreferrer'>IndianOpenMaps</a>",
+      "attribution": "<a href='https://hsac.in/eodb/map'>Haryan Space Applications Center</a>, <a href='https://datameet.org'>Datameet Community</a>, <a href='https://indianopenmaps.com/viewer#source=/not-so-open/cadastrals/haryana/hrsac/&map='>IndianOpenMaps</a>",
       "initiallyChecked": true,
       "inspect": {
         "id": "OBJECTID",

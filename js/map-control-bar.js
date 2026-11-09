@@ -235,11 +235,27 @@ export class MapControlBar {
         this.find.openRoute(route);
     }
 
-    /** Open a map's details page in Find. */
-    showLayer(layer) {
+    /**
+     * Open a map's details page in Find.
+     * @param {{activate?: boolean}} [options] - activate: turn the map on (the default)
+     */
+    showLayer(layer, options = {}) {
         if (!layer) return;
         this.setMode('find', { focus: false });
-        this.find.showLayer(layer);
+        this.find.showLayer(layer, options);
+    }
+
+    /** Where Find is - atlas mode, a map's details - for restore() once the layer editor closes. */
+    snapshot() {
+        if (this._mode !== 'find') return null;
+        return { atlas: !!this.find.atlasOpen, layer: this.find.detailsOpen ? this.find.details.layer : null };
+    }
+
+    restore(snapshot) {
+        if (!snapshot) return;
+        this.setMode('find', { focus: false });
+        if (snapshot.atlas && !this.find.atlasOpen) this.find.toggleAtlas();
+        if (snapshot.layer) this.find.showLayer(snapshot.layer, { activate: false });
     }
 
     /** Find scrolled to a section (atlas is the Map section), or closed if it is open already. */

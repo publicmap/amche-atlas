@@ -1038,6 +1038,8 @@ export class MapBrowserControl {
         this._showLoadingOverlay();
 
         this._ensureIframe();
+        // Where Find was - a map's details, atlas mode - to go back to on close
+        if (!this._isOpen) this._returnTo = window.mapConsole?.snapshot?.() || null;
         window.mapConsole?.setMode('explore', { keepQuery: true });
         this._overlay.style.display = 'block';
         this._isOpen = true;
@@ -1113,6 +1115,8 @@ export class MapBrowserControl {
         }
 
         // Back to the console, where the panel was opened from
+        window.mapConsole?.restore?.(this._returnTo);
+        this._returnTo = null;
         window.mapConsole?.el?.querySelector('.map-control-bar-main')?.focus({ preventScroll: true });
     }
 

@@ -53,7 +53,7 @@
       "type": "geojson",
       "id": "gba-zones",
       "url": "https://gist.githubusercontent.com/planemad/2264d2ae80ed7d400af79628c7179263/raw/dd7547186b418c9e486b2a80109204b4ff00f77e/bengaluru-gba-zones-2025.kml",
-      "attribution": "Greater bengaluru Authority via <a href='https://data.opencity.in/dataset/greater-bengaluru-authority-corporations-delimitation-2025'>OpenCity.in</a>",
+      "attribution": "Greater bengaluru Authority, <a href='https://data.opencity.in/dataset/greater-bengaluru-authority-corporations-delimitation-2025'>OpenCity.in</a>",
       "style": {
         "line-width": 5,
         "text-field": [
@@ -87,7 +87,7 @@
       "type": "tms",
       "id": "2015-rmp-plu",
       "url": "https://mapwarper.net/mosaics/tile/2147/{z}/{x}/{y}.png",
-      "attribution": "<a href='http://www.uddkar.gov.in/en/rmp-2015'>Bengaluru Revised Master Plan 2015, BDA</a> via <a href='https://data.opencity.in/dataset/bda-revised-master-plan-2015'>OpenCity.in</a><a href='https://mapwarper.net/layers/2147'>Mapwarper</a>",
+      "attribution": "<a href='http://www.uddkar.gov.in/en/rmp-2015'>Bengaluru Revised Master Plan 2015, BDA</a>, <a href='https://data.opencity.in/dataset/bda-revised-master-plan-2015'>OpenCity.in</a>, <a href='https://mapwarper.net/layers/2147'>Mapwarper</a>",
       "initiallyChecked": true,
       "bbox": "77.5513094,12.9604601,77.6099516,12.999266"
     },
@@ -114,7 +114,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://www.themaphouse.com/artworks/262244-indian-government-bangalore-city-area-1965-c/' target='_blank'>themaphouse.com</a> via <a href='https://mapwarper.net/maps/107328' target='_blank'>MapWarper</a>",
+      "attribution": "<a href='https://www.themaphouse.com/artworks/262244-indian-government-bangalore-city-area-1965-c/'>themaphouse.com</a>, <a href='https://mapwarper.net/maps/107328'>MapWarper</a>",
       "headerImage": "https://mapwarper.net/uploads/107328/thumb/themaphouse-indian-government-bangalore-city-area-1965-c.jpg.png",
       "bbox": "77.5146551,12.8494866,77.6989152,13.0899945",
       "initiallyChecked": false
@@ -125,7 +125,7 @@
       "type": "tms",
       "id": "1940-survey",
       "url": "https://maps.blryesterday.com/1948/{z}/{x}/{y}.png",
-      "attribution": "Survey Of India via <a href='https://blryesterday.com/?year=1948'>MOD Foundation / blryesterday.com</a>"
+      "attribution": "Survey Of India, <a href='https://blryesterday.com/?year=1948'>MOD Foundation / blryesterday.com</a>"
     }
   ]
 }

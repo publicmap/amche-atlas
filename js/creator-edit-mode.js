@@ -289,12 +289,13 @@ export class CreatorEditMode {
         $('#layer-id').val(layer.id);
         $('#layer-description').val(layer.description || '');
         if (!this.sourceChanged || !$('#layer-attribution').val()) $('#layer-attribution').val(layer.attribution || '');
+        if (!this.sourceChanged || !$('#layer-license').val()) $('#layer-license').val(layer.license || '');
         if (layer.type) $('#layer-type').val(layer.type);
         $('#include-bbox-checkbox').prop('checked', !!layer.bbox);
 
         this.applyInspect(fields);
 
-        const handled = new Set(['id', 'title', 'type', 'description', 'attribution', 'inspect', 'bbox', 'initiallyChecked', 'saveUrl', 'style']);
+        const handled = new Set(['id', 'title', 'type', 'description', 'attribution', 'license', 'inspect', 'bbox', 'initiallyChecked', 'saveUrl', 'style']);
         const extras = {};
         Object.keys(layer).forEach(key => { if (!handled.has(key) && !SOURCE_KEYS.has(key)) extras[key] = layer[key]; });
         creator._layerConfigOverride = { ...extras, ...(layer.inspect ? { inspect: layer.inspect } : {}) };
