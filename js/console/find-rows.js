@@ -150,3 +150,32 @@ export function moreRow(text, onClick) {
 export function hint(text) {
     return el('div', 'console-hint', text);
 }
+
+const SAFE_URL = /^(https?:|mailto:|\/|#|\.)/i;
+
+/**
+ * Config HTML (a description, an attribution) as text, keeping its links -
+ * and only those - clickable; null when it has no text.
+ */
+export function richText(html, className = '') {
+    const holder = document.createElement('template');
+    holder.innerHTML = String(html || '');
+    const out = el('span', className);
+    const copy = (from, to) => from.childNodes.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) to.append(node.textContent);
+        else if (node.nodeType !== Node.ELEMENT_NODE) return;
+        else if (node.tagName === 'A' && SAFE_URL.test(node.getAttribute('href') || '')) {
+            const link = el('a', '', node.textContent);
+            link.href = node.getAttribute('href');
+            link.target = '_blank';
+            link.rel = 'noopener';
+            to.appendChild(link);
+        } else {
+            if (node.tagName === 'BR' || node.tagName === 'P') to.append(' ');
+            copy(node, to);
+        }
+    });
+    copy(holder.content, out);
+    out.normalize();
+    return out.textContent.trim() ? out : null;
+}

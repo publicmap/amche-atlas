@@ -219,6 +219,9 @@ export class LayerRegistry {
             map: config.map || null,
             areaOfInterest: config.areaOfInterest || '',
             description: config.description || '',
+            // Credit for the atlas, and the attribution of any of its layers
+            // that does not set its own (see _resolveLayer)
+            attribution: config.attribution || '',
             bbox: this._extractBbox(config),
             geojson: config.geojson || null,
             tags: config.tags || [],
@@ -467,6 +470,7 @@ export class LayerRegistry {
             tags: metadata.tags || (config && config.tags) || [],
             icon: metadata.icon || (config && config.icon) || null,
             headerImage: metadata.headerImage || (config && config.headerImage) || null,
+            attribution: metadata.attribution || (config && config.attribution) || '',
             style: metadata.style || (config && config.style) || null,
             inspect: metadata.inspect || (config && config.inspect) || null,
             stylePresets: metadata.stylePresets || (config && config.stylePresets) || null,
@@ -718,8 +722,10 @@ export class LayerRegistry {
     }
 
     /**
-     * Resolve a layer (cascade atlas-level style / inspect / stylePresets,
-     * but NOT headerImage or tags) onto the layer config.
+     * Resolve a layer (cascade atlas-level style / inspect / stylePresets and
+     * attribution, but NOT headerImage or tags) onto the layer config.
+     *
+     * The atlas's `attribution` is the layer's own when it sets none.
      *
      * Cascade order for `style` and `inspect` (later wins; all shallow-merged):
      *   1. Atlas-level `style` / `inspect` (applied to every layer in the atlas)
@@ -751,6 +757,10 @@ export class LayerRegistry {
         // Layers only use their own explicitly defined headerImage
 
         if (isCompleteDefinition) {
+            if (!resolvedLayer.attribution && atlasMetadata.attribution) {
+                resolvedLayer.attribution = atlasMetadata.attribution;
+            }
+
             // Resolve named style preset, if any
             let preset = null;
             if (resolvedLayer.stylePreset) {

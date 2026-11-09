@@ -9,6 +9,9 @@
  * - tags (the diagram): every map, wherever it lies, narrowed by the tag
  *   chips that open under the search field instead. Leaving it brings the
  *   filters back as they were.
+ *
+ * In Find's atlas mode the filters act on atlases: there is no "On the map"
+ * toggle, and the tags are the atlases' own (js/console/find-atlases.js).
  */
 import { el, icon } from './find-rows.js';
 import { isIncludingOutside, setIncludeOutside, setBrowseAll } from './find-scope.js';
@@ -69,6 +72,13 @@ export class FindFilters {
         this.sync();
     }
 
+    /** Atlas mode: only the in-view toggle applies. */
+    setAtlasMode(on) {
+        this.atlasMode = !!on;
+        this._active.node.hidden = this.atlasMode;
+        this.sync();
+    }
+
     get browsingTags() {
         return this.mode === 'tags';
     }
@@ -90,12 +100,13 @@ export class FindFilters {
     sync({ inactive = 0, outside = 0 } = {}) {
         const tags = this.mode === 'tags';
         const inView = !isIncludingOutside();
-        const left = (this.activeOnly ? inactive : 0) + (inView ? outside : 0);
+        const left = (this.activeOnly && !this.atlasMode ? inactive : 0) + (inView ? outside : 0);
 
         this._tags.glyph.name = tags ? 'diagram-3-fill' : 'diagram-3';
         this._tags.node.classList.toggle('on', tags);
         this._tags.node.setAttribute('aria-pressed', String(tags));
-        setTitle(this._tags.node, tags ? 'Browsing every map by tag - click to filter instead' : 'Browse every map by tag');
+        const things = this.atlasMode ? 'atlas' : 'map';
+        setTitle(this._tags.node, tags ? `Browsing every ${things} by tag - click to filter instead` : `Browse every ${things} by tag`);
 
         this._funnel.glyph.name = tags ? 'funnel' : 'funnel-fill';
         this._funnel.node.classList.toggle('on', !tags);

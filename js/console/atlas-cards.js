@@ -3,8 +3,9 @@
  * over a wash of the atlas's header image - its icon and name, then a badge
  * that zooms to it, then its eye. Only one atlas is on at a time, so only the
  * current atlas's card is expanded: its eye on, then the maps it opens with
- * (its first `initiallyChecked` maps, and how many more it has) and its whole
- * description, links and all. The others are just the header, their badge
+ * (its first `initiallyChecked` maps, and how many more it has) - its
+ * description and attribution are in the console's head
+ * (js/console/console-head.js). The others are just the header, their badge
  * and eye (off) showing while hovered. Picking a card, or its eye, switches
  * to that atlas.
  *
@@ -21,32 +22,6 @@ import { zoomTo, bboxInView, bboxDistance, formatAway, parseBbox } from './find-
 import { atlasMapCount, switchAtlas, previewAtlas, clearPreview } from './find-browse.js';
 
 const DEFAULTS_NAMED = 2;
-
-const SAFE_URL = /^(https?:|mailto:|\/|#|\.)/i;
-
-/** An atlas description's text, keeping its links (and only those) clickable. */
-function descriptionNode(html) {
-    const holder = document.createElement('template');
-    holder.innerHTML = String(html);
-    const out = el('span', 'console-atlas-card-desc');
-    const copy = (from, to) => from.childNodes.forEach(node => {
-        if (node.nodeType === Node.TEXT_NODE) to.append(node.textContent);
-        else if (node.nodeType !== Node.ELEMENT_NODE) return;
-        else if (node.tagName === 'A' && SAFE_URL.test(node.getAttribute('href') || '')) {
-            const link = el('a', '', node.textContent);
-            link.href = node.getAttribute('href');
-            link.target = '_blank';
-            link.rel = 'noopener';
-            to.appendChild(link);
-        } else {
-            if (node.tagName === 'BR' || node.tagName === 'P') to.append(' ');
-            copy(node, to);
-        }
-    });
-    copy(holder.content, out);
-    out.normalize();
-    return out.textContent.trim() ? out : null;
-}
 
 /** "Map A, Map B and 12 more maps": the maps the atlas opens with, then the rest. */
 function subtitle(atlasId) {
@@ -141,8 +116,6 @@ export function atlasCards(entries, onPick = switchAtlas) {
         if (current) {
             const body = el('div', 'console-atlas-card-body');
             body.appendChild(el('span', 'console-atlas-card-meta', subtitle(id)));
-            const desc = meta?.description ? descriptionNode(meta.description) : null;
-            if (desc) body.appendChild(desc);
             card.appendChild(body);
         }
 

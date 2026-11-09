@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/index.atlas.json",
   "color": "#dc2626",
+  "tags": [
+    "India"
+  ],
   "map": {
     "center": [
       74.6,

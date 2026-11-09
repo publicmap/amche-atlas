@@ -11,6 +11,9 @@
     ],
     "zoom": 12.4
   },
+  "tags": [
+    "India"
+  ],
   "geojson": {
     "type": "FeatureCollection",
     "features": [

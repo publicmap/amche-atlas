@@ -542,7 +542,7 @@ Available on all layer types unless noted otherwise.
 | `headerImage` | string | Thumbnail shown in the layer control. |
 | `legendImage` | string | Image shown in the legend panel when the layer is active. |
 | `legendMap` | array | Categorical raster legend — `[{ value, color, label }, ...]`. See [Categorical Raster Legends](#categorical-raster-legends-legendmap). Raster types (`tms`, `wmts`, `wms`, `cog`) only. |
-| `attribution` | string | HTML allowed. Shown in the bottom-right attribution control while the layer is visible. |
+| `attribution` | string | HTML allowed. Shown in the bottom-right attribution control while the layer is visible. Falls back to the atlas's own `attribution` when not set - see [Atlas-level `attribution`](#atlas-level-attribution). |
 | `initiallyChecked` | boolean | If `true`, the layer is on at first load (unless `?layers=` overrides). |
 | `opacity` | number | 0–1 multiplier applied on top of any `style` opacity. |
 | `style` | object | Mapbox GL paint/layout properties. See `config/_defaults.json` for the cascade. Keys may be prefixed with `<name>/` to create additional style passes from the same source — see [Multi-pass style variants](#multi-pass-style-variants). |
@@ -646,6 +646,23 @@ Setting `inspect: false`/`null` on a layer still disables interactivity (the ins
 ```
 
 Goa renders with the atlas defaults, Maharashtra with the `highlighted` preset on top of the defaults, and Karnataka with the defaults plus a per-layer `line-width` override.
+
+#### Atlas-level `attribution`
+
+An atlas may declare a top-level `attribution` (HTML allowed). It is the atlas's own credit, shown with its description when the atlas is opened in the map console's atlas picker, and the default attribution for every layer the atlas defines: a layer without an `attribution` of its own inherits the atlas's, while a layer that sets one keeps it. Layers referenced from another atlas keep the attribution of the atlas that defines them.
+
+```json
+{
+  "name": "OpenStreetMap",
+  "attribution": "<a href='https://www.openstreetmap.org/copyright'>© OpenStreetMap contributors</a>",
+  "layers": [
+    { "id": "food", "type": "overpass", "query": "..." },
+    { "id": "openrailwaymap", "type": "tms", "url": "...", "attribution": "© OpenRailwayMap contributors" }
+  ]
+}
+```
+
+`food` is credited to OpenStreetMap contributors; `openrailwaymap` keeps its own credit.
 
 #### Atlas `constants` — reusable values
 

@@ -4,7 +4,8 @@
   "icon": "https://upload.wikimedia.org/wikipedia/commons/a/a3/Mapillary_logo.svg",
   "areaOfInterest": "Global",
   "tags": [
-    "opendata"
+    "Earth",
+    "streetview"
   ],
   "version": "0.1.0",
   "color": "#05CB63",

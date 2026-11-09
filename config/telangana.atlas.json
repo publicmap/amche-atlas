@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/telangana.atlas.json",
   "color": "#ec4899",
+  "tags": [
+    "India"
+  ],
   "map": {
     "center": [
       76.4,

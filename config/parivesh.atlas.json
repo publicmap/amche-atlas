@@ -1,10 +1,14 @@
 {
   "name": "Parivesh - India Environmental Clearances",
   "areaOfInterest": "India",
+  "tags": [
+    "India",
+    "environment"
+  ],
   "icon": "https://upload.wikimedia.org/wikipedia/commons/4/41/Flag_of_India.svg",
-  "description": "Environmental clearance applications for projects across Indian states and union territories, sourced from <a href='https://parivesh.nic.in/'>Parivesh</a>. Data collected by the <a href='https://datameet.org'>Datameet</a> community and processed by <a href='https://github.com/ramSeraph/india-environmental-approvals'>india-environmental-approvals</a>.",
+  "description": "Alignments of projects requiring environmental clearance. See <a href='https://publicmap.github.io/parivesh-dashboard/'>Parivesh Dashboard</a> for current project status.",
   "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Air_pollution3.jpg/330px-Air_pollution3.jpg",
-  "attribution": "<a href='https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Air_pollution3.jpg/330px-Air_pollution3.jpg'>CC Janak Bhatta</a>",
+  "attribution": "<a href='https://parivesh.nic.in/'>Parivesh</a>, Ministry of Environment, Forest and Climate Change",
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/environmental-approvals.atlas.json",
   "color": "crimson",

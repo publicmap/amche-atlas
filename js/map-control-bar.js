@@ -13,8 +13,9 @@
  * - find: the head becomes a header bar - menu, atlas picker, close -
  *   then the search field with its filters and Find's
  *   sections (js/console/find-panel.js), with the map actions
- *   (js/layer-stack-footer.js) as its status line. The atlas picker's
- *   chevron swaps all of that for the atlas cards, one under another.
+ *   (js/layer-stack-footer.js) as its status line. The atlas label turns
+ *   Find to atlas mode: the bar grows with the atlas's description and
+ *   attribution, and the list is every atlas to browse.
  *
  * Esc, the close button, a map click or picking a place result return to
  * explore. The close button and a map click keep the query, so the atlas
@@ -81,7 +82,10 @@ export class MapControlBar {
         this._head = new ConsoleHead({
             onMenu: () => window.amche?.openNavMenu?.(),
             onAtlas: () => (this._mode === 'find' ? this.find.toggleAtlas() : this.setMode('find', { view: 'atlas', focus: false })),
-            onClose: () => this.setMode('explore', { keepQuery: true })
+            onClose: () => this.setMode('explore', { keepQuery: true }),
+            onBack: () => {
+                if (this.find.atlasOpen) this.find.toggleAtlas();
+            }
         });
         applyConsoleBrand(this._head.menu);
 
@@ -99,10 +103,6 @@ export class MapControlBar {
 
         const body = document.createElement('div');
         body.className = 'map-console-body when-find';
-        // The atlas cards and tag chips, filled by Find under the atlas picker
-        const atlasEl = document.createElement('div');
-        atlasEl.className = 'console-atlas-slot';
-        body.appendChild(atlasEl);
         if (searchEl) {
             searchEl.classList.add('when-find');
             body.appendChild(searchEl);
@@ -129,9 +129,10 @@ export class MapControlBar {
             onAtlasToggle: (open) => {
                 this._head.setPickerOpen(open);
                 this._el.classList.toggle('picking-atlas', open);
+                this._syncHead();
             }
         });
-        this.find.mount(body, { atlasEl, searchEl, optionsEl, stripEl, footerEl, onToggleHidden, map: this._map });
+        this.find.mount(body, { searchEl, optionsEl, stripEl, footerEl, onToggleHidden, map: this._map });
 
         const explore = document.createElement('div');
         explore.className = 'map-console-explore when-explore';
@@ -268,10 +269,11 @@ export class MapControlBar {
         else this.setMode('find', { view });
     }
 
-    /** The search field's placeholder, naming the atlas. */
+    /** The search field's placeholder, naming the atlas - or, in atlas mode, the atlases. */
     _syncHead() {
         if (!this._el) return;
-        this._searchToggle?.setPlaceholder(this._atlasName ? `Search ${this._atlasName}` : 'Search places and maps');
+        const placeholder = this.find?.atlasOpen ? 'Search atlases' : (this._atlasName ? `Search ${this._atlasName}` : 'Search places and maps');
+        this._searchToggle?.setPlaceholder(placeholder);
     }
 
     _apply() {
@@ -297,7 +299,9 @@ export class MapControlBar {
         const name = metadata ? (metadata.name || atlasId) : '';
 
         this._atlasName = name;
-        this._head.setAtlas({ name, description: metadata?.description || '', iconSrc: metadata?.icon || null, image: metadata?.headerImage || null });
+        this._head.setAtlas({ id: atlasId, name, description: metadata?.description || '', attribution: metadata?.attribution || '', iconSrc: metadata?.icon || null, image: metadata?.headerImage || null });
+        this._head.setPickerOpen(!!this.find?.atlasOpen);
+        this._head.refreshOverview();
         this._syncHead();
         this.find.setOnMap(layers);
         this.find.onMapActions.update(layers);

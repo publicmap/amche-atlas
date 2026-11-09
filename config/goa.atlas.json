@@ -1,13 +1,16 @@
 {
   "name": "गोंय Goa",
   "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/BeachFun.jpg/330px-BeachFun.jpg",
-  "attribution": "Header image: <a href='https://commons.wikimedia.org/wiki/File:BeachFun.jpg'>BeachFun</a> via Wikimedia Commons.",
+  "attribution": "<a href='https://chat.whatsapp.com/BbzANbnXuekARMMSyeo6Pf'>Amche.in community</a>",
   "areaOfInterest": "Goa, India",
-  "description": "Explore the latest land and coastal zoning maps from the Government of Goa and other sources gathered by the <a href='https://chat.whatsapp.com/BbzANbnXuekARMMSyeo6Pf'>Amche.in community</a> ",
+  "description": "Explore the latest land and coastal zoning maps from the Government of Goa",
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/goa.atlas.json",
   "color": "#059669",
   "wikidata": "Q1171",
+  "tags": [
+    "India"
+  ],
   "icon": "https://upload.wikimedia.org/wikipedia/commons/6/64/Goa_outline_shape.svg",
   "cadastralSearch": {
     "parquetUrl": "https://raw.githubusercontent.com/ourgoaindata/cadastral-search/v1.0.0/data/cadastral_search.parquet",
@@ -162,7 +165,7 @@
       "id": "aqi",
       "url": "https://backend.aqionline.in/api/devices?page=1&limit=50",
       "refresh": 300000,
-      "attribution": "<a href='https://aqionline.in'>AQI Online</a>",
+      "attribution": "<a href='https://aqionline.in'>AQI Online</a>, <a href='https://texmin.in/'>TEXMin</a> Ministry of Information Technology",
       "style": {
         "text-field": [
           "get",

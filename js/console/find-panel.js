@@ -2,8 +2,9 @@
  * Find - the console's results (see js/map-control-bar.js): one scrolling
  * list of sections - Routes, Locations, Places, Features and Map - under the
  * search field, with a tab for each section that has anything in it
- * (js/console/find-sections.js) to scroll to it. While the atlas picker is
- * open its cards take the place of all of it.
+ * (js/console/find-sections.js) to scroll to it. In atlas mode, opened from
+ * the console's atlas label, the list is every atlas instead
+ * (js/console/find-atlases.js) and the search field's filters act on those.
  *
  * The search field narrows the list one of two ways (js/console/find-filters.js):
  * by default its filters keep the Map section to the maps on the map and every
@@ -19,8 +20,9 @@
 import { el, sectionLabel, linkButton, hint } from './find-rows.js';
 import { watchLoading } from './layer-loading.js';
 import { atlasesForSelector, atlasName, atlasLayers, layerRow, activeIds, isLayerActive, switchAtlas, clearPreview } from './find-browse.js';
-import { scoped, layerBbox } from './find-scope.js';
+import { scoped, layerBbox, isIncludingOutside } from './find-scope.js';
 import { atlasCards, updateAtlasCards } from './atlas-cards.js';
+import { renderAtlases } from './find-atlases.js';
 import { ResultsRenderer, mapResults, locationResults, routeResults, placeResults, liveLayer } from './find-results.js';
 import { featureResults } from './find-features.js';
 import { FindSections } from './find-sections.js';
@@ -57,29 +59,28 @@ export class FindPanel {
         this._onHover = onHover;
         this._onAtlasToggle = onAtlasToggle;
         this._openAtlas = (atlasId) => this.openAtlas(atlasId);
-        // Picking from the atlas picker keeps it open, to try one atlas after another
+        // Picking in atlas mode keeps it open, to try one atlas after another
         this._tryAtlas = (atlasId) => {
             switchAtlas(atlasId);
-            this._clearQuery?.();
-            this._query = '';
-            this._sections = [];
             this._tagPath = [];
+        };
+        this._onAtlasTag = (tag) => {
+            this._atlasTag = tag;
+            this.render();
         };
         // Distances and arrows follow the map as it moves, in place
         this._onMapMove = () => {
             if (!this._atlasOpen || this._moveFrame) return;
             this._moveFrame = requestAnimationFrame(() => {
                 this._moveFrame = null;
-                updateAtlasCards(this._atlasHead);
+                updateAtlasCards(this._content);
             });
         };
         // The cards are redrawn once the switch lands, to move the eye
         this._onAtlasChanged = () => {
             if (!this._atlasOpen) return;
-            const top = this._atlasHead.scrollTop;
-            this._atlasHead.replaceChildren();
-            this._renderAtlasCards({ keepScroll: true });
-            this._atlasHead.scrollTop = top;
+            this._atlasKey = null;
+            this.render();
         };
         this._view = 'atlas';
         this._scrollTarget = null;
@@ -87,6 +88,8 @@ export class FindPanel {
         this._query = '';
         this._tagPath = [];
         this._atlasOpen = false;
+        this._atlasTag = null;
+        this._atlasKey = null;
         this._onMapLayers = [];
         this._onMapHidden = 0;
         this._sections = [];
@@ -125,20 +128,20 @@ export class FindPanel {
 
     /**
      * @param {HTMLElement} host - where Find's tabs, list and details go
-     * @param {{atlasEl?: HTMLElement, searchEl?: HTMLElement, optionsEl?: HTMLElement}} options -
-     *   atlasEl holds the atlas cards above the search field, searchEl takes the
-     *   filter buttons and optionsEl, under it, their toggles or tag chips
+     * @param {{searchEl?: HTMLElement, optionsEl?: HTMLElement}} options - searchEl
+     *   takes the filter buttons and optionsEl, under it, their toggles or tag chips
      */
-    mount(host, { atlasEl = null, searchEl = null, optionsEl = null, stripEl = null, footerEl = null, onToggleHidden = null, map = null } = {}) {
+    mount(host, { searchEl = null, optionsEl = null, stripEl = null, footerEl = null, onToggleHidden = null, map = null } = {}) {
         this._map = map || window.map;
         this._onToggleHidden = onToggleHidden;
         this.el = el('div', 'console-find');
         this.onMapActions = new OnMapActions();
-        this._atlasHead = atlasEl || el('div');
-        this._atlasHead.classList.add('console-atlas-selector');
         this.filters = new FindFilters({
             onChange: () => {
-                if (!this.filters.browsingTags) this._tagPath = [];
+                if (!this.filters.browsingTags) {
+                    this._tagPath = [];
+                    this._atlasTag = null;
+                }
                 this._scrollTarget = 'atlas';
                 this.render();
             }
@@ -228,14 +231,12 @@ export class FindPanel {
         clearPreview();
         this.details.open(layer, { backLabel });
         this.el.classList.add('showing-details');
-        this._atlasHead.hidden = true;
     }
 
     closeDetails() {
         if (!this.details?.isOpen) return;
         this.details.close();
         this.el.classList.remove('showing-details');
-        this._atlasHead.hidden = false;
         this.render();
     }
 
@@ -254,18 +255,12 @@ export class FindPanel {
         this.setView('atlas');
     }
 
-    /**
-     * The atlas picker's cards, opened or closed from the console's atlas card.
-     * They are built once as the picker opens: hovering a card previews its
-     * atlas on the map, and a redraw then would restart the hover and the
-     * scroll under the pointer.
-     */
+    /** Atlas mode, in or out, from the console's atlas label. */
     toggleAtlas() {
         this.closeDetails();
         this._setAtlasOpen(!this._atlasOpen);
-        this._atlasHead.replaceChildren();
-        if (this._atlasOpen) this._renderAtlasCards();
-        else this.render();
+        this._scrollTarget = 'top';
+        this.render();
     }
 
     get atlasOpen() {
@@ -273,8 +268,10 @@ export class FindPanel {
     }
 
     _setAtlasOpen(open) {
-        if (!open && this._atlasOpen) this._atlasHead.replaceChildren();
         this._atlasOpen = open;
+        this._atlasKey = null;
+        this.filters?.setAtlasMode(open);
+        this.el?.classList.toggle('atlas-mode', open);
         this._onAtlasToggle?.(open);
     }
 
@@ -356,10 +353,13 @@ export class FindPanel {
     }
 
     render() {
-        // The atlas cards stand in for the list while the picker is open
-        if (!this.el || this._atlasOpen) return;
+        if (!this.el) return;
         if (this.details?.isOpen) this.details.refresh();
         this._pendingRefresh = false;
+        if (this._atlasOpen) {
+            this._renderAtlasMode();
+            return;
+        }
         this._entries = [];
         this.featureSync.reset();
         const scrollTop = this._body.scrollTop;
@@ -401,12 +401,36 @@ export class FindPanel {
         this.onEntriesChanged?.(this._entries);
     }
 
-    _renderAtlasCards({ keepScroll = false } = {}) {
-        const { entries } = atlasesForSelector('', { all: true });
-        if (!entries.length) return;
-        const cards = atlasCards(entries, this._tryAtlas);
-        this._atlasHead.appendChild(cards);
-        if (!keepScroll) requestAnimationFrame(() => cards.querySelector('.console-atlas-card.current')?.scrollIntoView({ block: 'nearest' }));
+    /**
+     * Atlas mode: every atlas, filtered by the query, the view and the atlas
+     * tags (js/console/find-atlases.js). Redrawn only when one of those or the
+     * atlas on the map changes - hovering a card previews its atlas on the
+     * map, and a redraw then would restart the hover and the scroll under it.
+     */
+    _renderAtlasMode() {
+        const key = [this._query, this._atlasTag, this.filters.mode, isIncludingOutside(), window.layerRegistry?.getCurrentAtlas()].join('|');
+        if (key === this._atlasKey) {
+            this.filters.sync({ outside: this._atlasHidden });
+            return;
+        }
+        this._atlasKey = key;
+        const scrollTop = this._body.scrollTop;
+        this._entries = [];
+        this._content.replaceChildren();
+        this._tagSlot.replaceChildren();
+        this._sectionsBar.el.hidden = true;
+        const { hidden, tag } = renderAtlases(this._content, this._tagSlot, {
+            query: this._query,
+            browsingTags: this.filters.browsingTags,
+            tag: this._atlasTag,
+            onTag: this._onAtlasTag,
+            onPick: this._tryAtlas
+        });
+        this._atlasTag = tag;
+        this._atlasHidden = hidden;
+        this.filters.sync({ outside: hidden });
+        this._restoreScroll(scrollTop);
+        this.onEntriesChanged?.(this._entries);
     }
 
     /** Browsing by tag, the chips for the maps about to be listed; returns them narrowed to the chosen tags. */

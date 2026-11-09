@@ -249,41 +249,238 @@
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
-/* The picker's trigger at the end of the atlas label; while it is open the
-   label is a way back - "‹ Select Atlas" - and the menu, info icon, atlas
-   icon and image step aside */
-.console-atlas-back,
-.console-atlas-maps {
-    display: none;
-    flex-shrink: 0;
-    font-size: 18px;
-    color: var(--console-ink-2);
-}
-
-.map-console.picking-atlas .console-atlas-back,
-.map-console.picking-atlas .console-atlas-maps {
-    display: inline-block;
-}
-
-.map-console.picking-atlas .console-atlas-back {
-    margin-right: -4px;
-}
-
-.map-console.picking-atlas .console-home,
-.map-console.picking-atlas .console-atlas-chevron {
-    display: none !important;
-}
-
+/* The info icon at the end of the atlas label opens atlas mode, where the
+   bar grows with the atlas's description and attribution */
 .map-console .map-control-bar-main .console-atlas-chevron {
     font-size: 16px;
 }
 
-.map-console.picking-atlas .map-control-bar-head {
-    background-image: none;
+/* Atlas mode takes the bar's full width: no menu button */
+.map-console.picking-atlas .console-home {
+    display: none !important;
 }
 
-.map-console.picking-atlas .map-control-bar-main .map-control-bar-icon-wrap {
+.map-console.picking-atlas .map-control-bar-main .console-atlas-chevron {
+    color: var(--console-blue);
+}
+
+.map-control-bar-head {
+    flex-wrap: wrap;
+}
+
+.map-console.picking-atlas .map-control-bar-head {
+    background-image: linear-gradient(180deg, rgba(17, 24, 39, 0.6), rgba(17, 24, 39, 0.94) 70%), var(--head-image, none);
+}
+
+.console-atlas-details {
+    flex: 1 0 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 55vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px 12px 6px;
+    box-sizing: border-box;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--console-ink-2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.console-atlas-details[hidden] {
     display: none;
+}
+
+.console-atlas-details a {
+    color: var(--console-blue);
+    text-decoration: underline;
+}
+
+.console-atlas-credit {
+    font-size: 11.5px;
+    color: var(--console-ink-3);
+}
+
+.console-atlas-credit-label {
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 10px;
+}
+
+/* The atlas overview (js/console/atlas-overview.js): default maps, actions
+   and the maps by source - compact rows, so hundreds stay browsable */
+.console-atlas-overview {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-shadow: none;
+}
+
+.console-overview-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--console-ink-3);
+}
+
+.console-overview-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.map-console .console-overview-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--console-line-strong);
+    border-radius: var(--console-radius-sm);
+    background: rgba(17, 24, 39, 0.7);
+    color: var(--console-ink);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.map-console .console-overview-action:hover:not(:disabled) {
+    background: var(--console-hover);
+}
+
+.map-console .console-overview-action:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.console-tree {
+    border-radius: var(--console-radius-sm);
+}
+
+.console-tree > .console-tree-summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 26px;
+    padding: 0 6px;
+    border-radius: 6px;
+    list-style: none;
+    cursor: pointer;
+    color: var(--console-ink);
+}
+
+.console-tree > .console-tree-summary::-webkit-details-marker {
+    display: none;
+}
+
+.console-tree > .console-tree-summary::before {
+    content: '';
+    flex-shrink: 0;
+    width: 0;
+    height: 0;
+    border-left: 5px solid var(--console-ink-3);
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    transition: transform 0.12s;
+}
+
+.console-tree[open] > .console-tree-summary::before {
+    transform: rotate(90deg);
+}
+
+.console-tree > .console-tree-summary:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.console-tree > .console-tree-summary > sl-icon {
+    font-size: 13px;
+    color: var(--console-ink-2);
+}
+
+.console-tree-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.console-tree:not(.console-tree-branch) > .console-tree-summary .console-tree-name {
+    font-weight: 700;
+}
+
+.console-tree-count {
+    flex-shrink: 0;
+    color: var(--console-ink-3);
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.console-tree-branch {
+    margin-left: 12px;
+}
+
+.console-tree-branch > .console-tree-items {
+    margin-left: 14px;
+}
+
+.console-tree-items {
+    display: flex;
+    flex-direction: column;
+}
+
+.map-console .console-tree-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 24px;
+    padding: 0 6px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--console-ink-2);
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.map-console .console-tree-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--console-ink);
+}
+
+.console-tree-dot {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    border: 1px solid var(--console-ink-3);
+    box-sizing: border-box;
+}
+
+.console-tree-item.on .console-tree-dot {
+    border-color: var(--console-amber);
+    background: var(--console-amber);
+}
+
+.console-tree-item.on {
+    color: var(--console-ink);
+}
+
+.console-tree-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.console-tree-type {
+    flex-shrink: 0;
+    font-size: 10.5px;
+    color: var(--console-ink-3);
 }
 
 .map-console[data-mode="find"] .map-control-bar-head .console-btn:hover,
@@ -760,6 +957,11 @@ mapbox-search-box [class$='--Container'] {
 
 .console-filter-row[hidden] {
     display: none;
+}
+
+.console-filter-chip[hidden],
+.console-find.atlas-mode .console-tabs {
+    display: none !important;
 }
 
 .map-console .console-filter-chip {
@@ -1449,23 +1651,84 @@ mapbox-search-box [class$='--Container'] {
     border-top: 1px solid var(--console-line);
 }
 
+/* The current atlas's maps line in the head's details, opening every map
+   by source (js/console/atlas-sources.js) */
+.map-console .console-atlas-maps-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--console-ink-2);
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: left;
+    cursor: pointer;
+}
+
+.map-console .console-atlas-maps-line:hover {
+    color: var(--console-ink);
+}
+
+.console-atlas-maps-line > span {
+    flex: 1;
+    min-width: 0;
+}
+
+.console-atlas-maps-line sl-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-size: 12px;
+}
+
+.console-atlas-sources {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 6px -12px 0;
+    padding-bottom: 4px;
+    border-top: 1px solid var(--console-line);
+    cursor: default;
+}
+
+.console-atlas-sources[hidden] {
+    display: none;
+}
+
+.console-atlas-source-name {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px 2px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--console-ink-3);
+}
+
+.console-atlas-source-name > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.console-atlas-source-count {
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.console-atlas-source-map {
+    min-height: 44px;
+    padding: 4px 8px 4px 12px;
+}
+
 .console-atlas-card-meta {
     font-size: 12px;
     line-height: 1.4;
     color: var(--console-ink-2);
-}
-
-.console-atlas-card-desc {
-    display: block;
-    font-size: 12.5px;
-    line-height: 1.5;
-    color: var(--console-ink-2);
-    cursor: auto;
-}
-
-.console-atlas-card-desc a {
-    color: var(--console-blue);
-    text-decoration: underline;
 }
 
 /* ---------- On the map (js/layer-stack-strip.js) ---------- */
@@ -1785,30 +2048,6 @@ body.console-find .marker-docked {
     margin-left: auto;
 }
 
-/* The atlas picker open: its cards, one under another, in place of
-   everything else in Find */
-.map-console.picking-atlas .map-console-body > :not(.console-atlas-slot) {
-    display: none !important;
-}
-
-.map-console-body > .console-atlas-slot {
-    flex: 0 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-}
-
-/* The atlas cards under the atlas picker */
-.console-atlas-selector[hidden],
-.console-atlas-selector:empty {
-    display: none;
-}
-
-.console-atlas-selector {
-    padding-bottom: 8px;
-}
-
 .console-subsearch:not(:has(> :not([hidden]))) {
     display: none;
 }
@@ -1841,7 +2080,6 @@ body.console-find .marker-docked {
 .map-console.survey-mode .map-search-control > .console-btn,
 .map-console.survey-mode .console-filters,
 .map-console.survey-mode .console-search-options,
-.map-console.survey-mode .console-atlas-selector,
 .map-console.survey-mode .console-find {
     display: none !important;
 }

@@ -1,11 +1,13 @@
 {
   "name": "OpenStreetMap",
+  "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
   "description": "Freely editable map of the world by <a href='https://openstreetmap.org/'>OpenStreetMap contributors</a>. Join your <a href='https://openstreetmap.community'>community</a>",
   "areaOfInterest": "Global",
   "icon": "https://upload.wikimedia.org/wikipedia/commons/b/b0/Openstreetmap_logo.svg",
   "headerImage": "assets/map-layers/osm/map-layer-osm.png",
   "tags": [
-    "opendata"
+    "Earth",
+    "basemap"
   ],
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/osm.atlas.json",
@@ -3074,7 +3076,7 @@
       "type": "tms",
       "maxzoom": 19,
       "url": "https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=8n1qroRJ9APPiRFK8YVe",
-      "attribution": "<a href='https://www.openstreetmap.org/#map=16/15.49493/73.82864'>© OpenStreetMap contributors</a>",
+      "attribution": " <a href='https://cloud.maptiler.com/tiles/>Maptiler</a>",
       "style": {
         "raster-opacity": [
           "interpolate",

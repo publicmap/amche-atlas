@@ -5,6 +5,9 @@
   "icon": "https://upload.wikimedia.org/wikipedia/commons/e/e5/NASA_logo.svg",
   "areaOfInterest": "World",
   "version": "0.1.0",
+  "tags": [
+    "Earth"
+  ],
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/index.atlas.json",
   "color": "#06b6d4",
   "bbox": [

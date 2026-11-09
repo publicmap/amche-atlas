@@ -3,6 +3,9 @@
   "areaOfInterest": "Chennai, India",
   "description": "Atlas of Chennai curated by the <a href='https://github.com/publicmap/amche-atlas/issues'>Amche Atlas community</a>",
   "version": "0.1.0",
+  "tags": [
+    "India"
+  ],
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/chennai.atlas.json",
   "color": "#059669",
   "wikidata": "Q1171",

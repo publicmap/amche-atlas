@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/kerala.atlas.json",
   "color": "#0d9488",
+  "tags": [
+    "India"
+  ],
   "map": {
     "center": [
       76.4,

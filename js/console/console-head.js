@@ -2,15 +2,16 @@
  * The map console's head (js/map-control-bar.js): a header bar over the
  * atlas's header image, its icon and name at one size. Collapsed (Explore)
  * that label is all there is, and opens Find, with the console's status line
- * beneath. In Find the bar adds the menu before it, an info icon at its end -
- * the atlas picker's trigger, its cards (js/console/atlas-cards.js) holding
- * each atlas's description - and the close button.
+ * beneath. In Find the bar adds the menu before it, an info icon at its end
+ * and the close button.
  *
- * While the picker is open the label reads "‹ Select Atlas" from the bar's
- * left edge, in place of the menu, the atlas's icon and image: a way back to
- * the atlas picked.
+ * The atlas label opens the atlas mode of Find (js/console/find-panel.js):
+ * the bar grows to give the atlas's description and attribution beneath its
+ * name, then its overview (js/console/atlas-overview.js) - default maps,
+ * Reset Maps, and its maps by source - over the list of atlases to browse.
  */
-import { el, icon } from './find-rows.js';
+import { el, icon, richText } from './find-rows.js';
+import { AtlasOverview } from './atlas-overview.js';
 import { plainText } from './find-browse.js';
 
 function button(className, iconName, title) {
@@ -24,7 +25,7 @@ function button(className, iconName, title) {
 
 export class ConsoleHead {
     /**
-     * @param {{onMenu, onAtlas, onClose}} actions
+     * @param {{onMenu, onAtlas, onClose, onBack}} actions
      */
     constructor(actions) {
         this._iconKey = undefined;
@@ -42,38 +43,54 @@ export class ConsoleHead {
         const text = el('span', 'console-atlas-text');
         this._name = el('span', 'map-control-bar-name', 'Loading atlas');
         text.append(this._name);
-        const back = icon('chevron-left');
-        back.classList.add('console-atlas-back');
-        const maps = icon('map');
-        maps.classList.add('console-atlas-maps');
-        const info = icon('info-circle');
-        info.classList.add('console-atlas-chevron', 'when-find');
-        this.atlas.append(back, maps, wrap, text, info);
+        this._info = icon('info-circle');
+        this._info.classList.add('console-atlas-chevron', 'when-find');
+        this.atlas.append(wrap, text, this._info);
         this.atlas.addEventListener('click', actions.onAtlas);
 
         const close = button('console-btn console-close-btn when-find', 'x-lg', 'Close ( Esc )');
         close.addEventListener('click', actions.onClose);
-        this.head.append(this.menu, this.atlas, close);
+        // The atlas's description, attribution and overview, shown in atlas mode
+        this._details = el('div', 'console-atlas-details when-find');
+        this._details.hidden = true;
+        this._overview = new AtlasOverview({ onBack: actions.onBack });
+        this.head.append(this.menu, this.atlas, close, this._details);
     }
 
-    setAtlas({ name = '', description = '', iconSrc = null, image = null } = {}) {
-        this._atlasName = name || 'Loading atlas';
-        if (!this._picking) this._name.textContent = this._atlasName;
+    setAtlas({ id = null, name = '', description = '', attribution = '', iconSrc = null, image = null } = {}) {
+        this._name.textContent = name || 'Loading atlas';
         const desc = plainText(description);
+        if (id) this._overview.render(id);
+        // Rebuilt only for another atlas, keeping the details' scroll and open branches
+        const detailsKey = `${id}|${description}|${attribution}`;
+        if (detailsKey !== this._detailsKey) {
+            this._detailsKey = detailsKey;
+            const about = richText(description, 'console-atlas-about');
+            const credit = richText(attribution, 'console-atlas-credit');
+            if (credit) credit.prepend(el('span', 'console-atlas-credit-label', 'Attribution '));
+            this._details.replaceChildren(...[about, credit, this._overview.el].filter(Boolean));
+        }
         if (image) this.head.style.setProperty('--head-image', `url("${String(image).replace(/"/g, '%22')}")`);
         else this.head.style.removeProperty('--head-image');
-        this._title = name ? `${name}${desc ? ` - ${desc}` : ''} - pick an atlas` : 'Atlas';
-        if (!this._picking) this.atlas.title = this._title;
+        this._title = name ? `${name}${desc ? ` - ${desc}` : ''} - about this atlas, and others` : 'Atlas';
+        this.atlas.title = this._picking ? 'Back to the map list' : this._title;
         this.atlas.setAttribute('aria-label', name ? `Atlas: ${name}` : 'Atlas');
         this._setIcon(iconSrc);
     }
 
-    /** While the atlas picker is open the label asks for an atlas instead of naming one. */
+    /** Atlas mode: the bar gives the atlas's description and attribution. */
     setPickerOpen(open) {
         this._picking = !!open;
-        this._name.textContent = open ? 'Select Atlas' : (this._atlasName || 'Loading atlas');
-        this.atlas.title = open ? `Back to ${this._atlasName || 'the atlas'}` : (this._title || 'Atlas');
+        this._details.hidden = !open;
+        if (open) this._overview.refresh();
+        this._info.name = open ? 'info-circle-fill' : 'info-circle';
+        this.atlas.title = open ? 'Back to the map list' : (this._title || 'Atlas');
         this.atlas.setAttribute('aria-expanded', String(!!open));
+    }
+
+    /** The maps on the map changed: the overview's on marks and Reset Maps follow. */
+    refreshOverview() {
+        if (this._picking) this._overview.refresh();
     }
 
     _setIcon(src) {

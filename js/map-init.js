@@ -339,6 +339,7 @@ export class MapInitializer {
                 color: config.color || '#059669',
                 areaOfInterest: config.areaOfInterest || '',
                 description: config.description || '',
+                attribution: config.attribution || '',
                 bbox: layerRegistry._extractBbox(config),
                 isImported: true,
                 sourceUrl: configPath
