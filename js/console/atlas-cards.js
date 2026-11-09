@@ -100,6 +100,7 @@ export function atlasCards(entries, onPick = switchAtlas) {
         const card = el('div', ['console-atlas-card', current && 'current'].filter(Boolean).join(' '));
         const global = isGlobal(meta);
         card._bbox = global ? null : meta.bbox;
+        card.dataset.atlasId = id;
         card._name = name;
         card.tabIndex = 0;
         card.setAttribute('role', 'button');

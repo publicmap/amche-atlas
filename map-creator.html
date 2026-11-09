@@ -656,6 +656,40 @@
             cursor: pointer;
         }
 
+        /* Star a map to find it again (js/starred-layers.js) */
+        .lh-star-btn {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: transparent;
+            color: #9ca3af;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .lh-star-btn:hover {
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .lh-star-btn.on {
+            color: #ffbf00;
+            border-color: rgba(255, 191, 0, 0.6);
+            background: rgba(255, 191, 0, 0.12);
+        }
+
+        /* On the map: the console's eye, solid amber while on */
+        .lh-visible-btn.on {
+            color: #1a1405;
+            border-color: #ffbf00;
+            background: #ffbf00;
+        }
+
         /* The license for reuse (layer.license), prominent in the header */
         .license-chip {
             display: inline-flex;
@@ -751,7 +785,6 @@
 
         /* Viewing a layer: nothing is clickable to edit until Edit is pressed */
         .is-viewing #lh-thumbnail,
-        .is-viewing #desc-summary,
         .is-viewing #data-card .data-card-head {
             pointer-events: none;
         }
@@ -1017,6 +1050,107 @@
         .save-settings-dialog .ss-bar[data-state="over"] { --indicator-color: #ef4444; }
         .save-settings-dialog .ss-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: #9ca3af; }
         .save-settings-dialog .ss-action { align-self: flex-start; }
+
+        /* ---------- The map console's look (css/map-console.css) ---------- */
+        :root {
+            --c-surface: #111827;
+            --c-raised: #1a2332;
+            --c-hover: #243044;
+            --c-line: rgba(255, 255, 255, 0.11);
+            --c-line-strong: rgba(255, 255, 255, 0.26);
+            --c-ink: #f3f4f6;
+            --c-ink-2: rgba(243, 244, 246, 0.68);
+            --c-ink-3: rgba(243, 244, 246, 0.44);
+            --c-amber: #ffbf00;
+            --c-blue: #7cb4ff;
+        }
+
+        body, body.bg-gray-900 {
+            background: var(--c-surface) !important;
+            color: var(--c-ink);
+        }
+
+        #nav-bar {
+            border-bottom: 1px solid var(--c-line);
+        }
+
+        .section-box {
+            margin-bottom: 18px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--c-line);
+        }
+
+        .section-box h2,
+        .section-box h3,
+        .section-box h4,
+        .section-box summary.uppercase {
+            font-size: 10.5px !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.1em !important;
+            text-transform: uppercase;
+            color: var(--c-ink-3) !important;
+        }
+
+        .info-header-action {
+            height: 30px;
+            padding: 0 10px;
+            border-radius: 8px;
+            border-color: var(--c-line-strong);
+            background: var(--c-raised);
+            color: var(--c-ink);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .info-header-action:hover {
+            background: var(--c-hover);
+            border-color: var(--c-line-strong);
+        }
+
+        #edit-btn {
+            background: var(--c-amber) !important;
+            color: #1a1405 !important;
+            border-radius: 8px;
+        }
+
+        .section-box input[type="text"],
+        .section-box input[type="url"],
+        .section-box textarea,
+        .section-box select,
+        #desc-editor textarea,
+        #desc-editor input {
+            background: var(--c-raised) !important;
+            border-color: var(--c-line-strong) !important;
+            border-radius: 8px !important;
+            color: var(--c-ink) !important;
+        }
+
+        a,
+        #desc-summary a {
+            color: var(--c-blue);
+        }
+
+        .desc-summary {
+            color: var(--c-ink-2);
+            font-size: 12.5px;
+            line-height: 1.55;
+        }
+
+        /* Viewing a layer: its whole description and attribution, links live */
+        .is-viewing #desc-summary {
+            cursor: default;
+        }
+
+        .is-viewing #desc-summary:hover {
+            background: transparent;
+        }
+
+        .is-viewing .desc-clamp-2,
+        .is-viewing .desc-clamp-1 {
+            display: block;
+            -webkit-line-clamp: unset;
+            overflow: visible;
+        }
     </style>
     <script defer type="module" src="js/analytics.js"></script>
 </head>
@@ -1062,7 +1196,7 @@
                     </button>
                 </sl-tooltip>
             </div>
-            <button id="close-btn" class="text-white hover:text-gray-300 text-2xl leading-none" title="Close">&times;</button>
+            <button id="close-btn" class="text-white hover:text-gray-300 text-2xl leading-none" title="Close and go back to the map console, where this was opened from">&times;</button>
         </div>
 
         <!-- Content -->
@@ -1075,16 +1209,18 @@
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2">
                             <input type="text" id="layer-title" placeholder="Layer title" class="lh-title-input" aria-label="Title">
+                            <button type="button" id="lh-star" class="lh-star-btn" aria-pressed="false" title="Star this map to find it again" style="display: none;"><sl-icon name="star"></sl-icon></button>
+                            <button type="button" id="lh-visible" class="lh-star-btn lh-visible-btn" aria-pressed="false" title="Show this map" style="display: none;"><sl-icon name="eye-slash"></sl-icon></button>
                         </div>
                         <div class="flex items-center gap-1.5 flex-wrap mt-1.5">
                             <button type="button" class="atlas-badge-chip" id="lh-atlas-badge" title="Click to copy atlas config link" style="display: none;"></button>
                             <button type="button" class="license-chip" id="lh-license-badge" title="License for reuse - click to edit"></button>
                         </div>
                 <div id="description-card" class="desc-card">
-                    <button type="button" id="desc-summary" class="desc-summary" title="Edit description and attribution">
+                    <div id="desc-summary" class="desc-summary" role="button" tabindex="0" title="Edit description and attribution">
                         <div id="desc-summary-text" class="desc-clamp-2"></div>
                         <div id="desc-summary-attribution" class="desc-clamp-1"></div>
-                    </button>
+                    </div>
                     <div id="desc-editor" class="hidden">
                         <label class="block text-sm font-medium mb-2">Description</label>
                         <textarea id="layer-description" rows="6" placeholder="Optional description"

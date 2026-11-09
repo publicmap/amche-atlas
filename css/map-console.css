@@ -255,13 +255,53 @@
     font-size: 16px;
 }
 
-/* Atlas mode takes the bar's full width: no menu button */
-.map-console.picking-atlas .console-home {
+/* Atlas mode: the bar is navigation - "← Maps ›" before the atlas, back to
+   the map list - with no menu button or info icon */
+.console-atlas-back {
+    display: none;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.console-atlas-back sl-icon {
+    font-size: 16px;
+    color: var(--console-ink);
+}
+
+.map-console.picking-atlas .console-atlas-back {
+    display: inline-flex;
+}
+
+.console-atlas-back .console-crumb-from {
+    max-width: none;
+    overflow: visible;
+}
+
+.map-console.picking-atlas .map-control-bar-main:hover .console-atlas-back .console-crumb-from {
+    color: var(--console-blue);
+    text-decoration: underline;
+}
+
+.map-console.picking-atlas .console-home,
+.map-console.picking-atlas .map-control-bar-main .console-atlas-chevron,
+.map-console.picking-atlas .map-control-bar-main .map-control-bar-icon-wrap {
     display: none !important;
 }
 
-.map-console.picking-atlas .map-control-bar-main .console-atlas-chevron {
-    color: var(--console-blue);
+/* The atlas as a row under the navigation, with its eye */
+.console-atlas-details > .console-atlas-row {
+    margin: 0 -12px;
+    padding-left: 12px;
+    border-radius: 0;
+    background: transparent;
+    cursor: default;
+}
+
+.console-atlas-details > .console-atlas-row .console-row-title {
+    font-size: 15px;
 }
 
 .map-control-bar-head {
@@ -400,7 +440,7 @@
 }
 
 .console-tree-name {
-    flex: 1;
+    flex: 0 1 auto;
     min-width: 0;
     overflow: hidden;
     white-space: nowrap;
@@ -420,6 +460,224 @@
 
 .console-tree-branch {
     margin-left: 12px;
+}
+
+/* Data Sources (js/console/data-sources.js): a heading over collapsible groups,
+   each "Name (count) ↗"; a group holding a starred map is tinted */
+.console-sources {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.console-sources-heading {
+    display: flex;
+    white-space: nowrap;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px 6px;
+    color: var(--console-ink);
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+.console-sources-heading > .console-tree-count {
+    margin-left: auto;
+    font-weight: 400;
+}
+
+.console-sources > .console-tree-branch {
+    margin-left: 0;
+}
+
+.console-tree-summary > .console-tree-count {
+    flex-shrink: 0;
+}
+
+.console-tree-branch.is-starred > .console-tree-summary {
+    background: rgba(255, 191, 0, 0.08);
+}
+
+.console-tree-branch.is-starred > .console-tree-summary:hover {
+    background: rgba(255, 191, 0, 0.14);
+}
+
+/* Active Maps (js/console/active-maps.js) and its links */
+.console-active-maps {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 8px;
+}
+
+.console-active-links {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+    font-weight: 400;
+}
+
+.console-active-links[hidden],
+.console-active-links > [hidden] {
+    display: none;
+}
+
+/* The count sits before the links, not pushed to the end */
+.console-active-maps .console-sources-heading > .console-tree-count {
+    margin-left: -2px;
+    font-weight: 400;
+}
+
+.console-active-maps .console-sources-heading > .console-active-links {
+    margin-left: auto;
+}
+
+.console-active-label {
+    font-size: 11.5px;
+    color: var(--console-ink-3);
+}
+
+.console-active-links .console-link sl-icon {
+    color: var(--console-amber);
+}
+
+.console-active-sep {
+    color: var(--console-ink-3);
+}
+
+/* Filtered to a point on the Data Sources map (js/console/sources-map.js) */
+.console-sources .console-tree-item[hidden],
+.console-sources details[hidden] {
+    display: none;
+}
+
+.console-sources-heading.is-filtered > .console-tree-count {
+    color: var(--console-blue);
+}
+
+/* The map pointed at on the Data Sources map: thumbnail and name in bold white, across its top */
+.sources-map-label {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    right: 5px;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 6px 3px 3px;
+    border-radius: 6px;
+    background: rgba(13, 13, 13, 0.75);
+    pointer-events: none;
+}
+
+.sources-map-label[hidden] {
+    display: none;
+}
+
+.sources-map-label .console-tree-thumb {
+    width: 18px !important;
+    height: 18px !important;
+    border: 1px solid #fff;
+    border-radius: 4px !important;
+}
+
+.sources-map-label-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    text-shadow: 0 0 3px #000, 0 0 2px #000;
+}
+
+.console-tree-item.map-target {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--console-ink);
+}
+
+.map-console .sources-map-pin {
+    width: 14px;
+    height: 14px;
+    padding: 0;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: #ef4444;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+    cursor: pointer;
+}
+
+/* A map: thumbnail, title, its star, and its eye at the end */
+.map-console .console-tree-item {
+    min-height: 26px;
+}
+
+.console-tree-item .console-tree-thumb {
+    width: 20px !important;
+    height: 20px !important;
+    border-radius: 4px !important;
+}
+.map-console .console-tree-item .console-tree-title {
+    flex: 0 1 auto;
+}
+
+.map-console .console-tree-eye {
+    margin-left: auto;
+    width: 24px;
+    height: 22px;
+    font-size: 13px;
+    border-radius: 5px;
+}
+
+/* Starred maps (js/starred-layers.js) */
+.map-console .console-details-star.on {
+    color: var(--console-amber);
+}
+
+
+.console-tree-star {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--console-amber);
+}
+
+.console-tree-branch.is-starred > .console-tree-summary .console-tree-name,
+.console-tree-item.is-starred .console-tree-title {
+    color: var(--console-ink);
+    font-weight: 600;
+}
+
+.console-starred-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    padding: 4px 10px 4px 8px;
+    border: 1px solid var(--console-line-strong);
+    border-radius: var(--console-radius-sm);
+    background: rgba(17, 24, 39, 0.7);
+    color: var(--console-ink);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.console-starred-toggle input {
+    margin: 0;
+    accent-color: var(--console-amber);
+    cursor: pointer;
+}
+
+.console-starred-toggle sl-icon {
+    color: var(--console-amber);
+    font-size: 12px;
+}
+
+.console-starred-toggle:has(input:disabled) {
+    opacity: 0.5;
+    cursor: default;
 }
 
 .console-tree-link {
@@ -462,20 +720,6 @@
 .map-console .console-tree-item:hover {
     background: rgba(255, 255, 255, 0.06);
     color: var(--console-ink);
-}
-
-.console-tree-dot {
-    flex-shrink: 0;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    border: 1px solid var(--console-ink-3);
-    box-sizing: border-box;
-}
-
-.console-tree-item.on .console-tree-dot {
-    border-color: var(--console-amber);
-    background: var(--console-amber);
 }
 
 .console-tree-item.on {
@@ -2259,6 +2503,7 @@ body.console-find .marker-docked {
 
 .console-details-desc {
     margin: 10px 12px 0;
+    overflow-wrap: anywhere;
     font-size: 12.5px;
     line-height: 1.55;
     color: var(--console-ink-2);
@@ -2416,8 +2661,295 @@ body.console-find .marker-docked {
     background: transparent;
 }
 
-.console-details-desc {
+.console-details-desc a,
+.console-details-sources a {
+    color: var(--console-blue);
+    text-decoration: underline;
+}
+
+.console-details-more {
+    margin: 4px 12px 0;
+}
+
+.console-details-sources {
+    display: block;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+}
+
+/* Atlas mode: no search - only the atlases' tag chips, over the atlases */
+.map-console.picking-atlas .map-console-body > .map-search-control,
+.map-console.picking-atlas .map-console-body > .console-subsearch,
+.map-console.picking-atlas .console-filter-row {
+    display: none !important;
+}
+
+.map-console.picking-atlas .console-tag-slot {
+    padding-top: 8px;
+}
+
+/* Atlas mode (js/console/find-atlases.js): Atlas Data Sources, headed like Data Sources */
+.atlas-picker-head {
+    padding: 12px 8px 6px 12px;
+}
+
+.atlas-picker-head > .console-filter {
+    margin-left: 2px;
+}
+
+.console-find-content > .console-tagbar {
+    padding-bottom: 8px;
+}
+
+/* "← Goa › Atlas Details": the navigation's own type, as on a map's details */
+.map-console.picking-atlas .map-control-bar-head .map-control-bar-name {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0;
+    text-shadow: none;
+}
+
+.map-console.picking-atlas .console-atlas-back {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* Atlas mode (js/console/find-atlases.js): the atlas list beside the globe */
+.atlas-browser {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 8px;
+    align-items: start;
+    padding: 0 8px 8px;
+}
+
+/* An atlas in the tree: icon, name, the selected one's eye */
+.atlas-tree-item.map-hover,
+.map-console .atlas-tree-item.focused {
+    background: rgba(124, 180, 255, 0.12);
+    color: var(--console-ink);
+}
+
+.atlas-tree-item.current .console-tree-title {
+    color: var(--console-amber);
+    font-weight: 600;
+}
+
+.console-tree-summary > .console-tree-thumb {
+    width: 18px !important;
+    height: 18px !important;
+    border-radius: 4px !important;
+}
+
+.atlas-tree-root > .console-tree-summary .console-tree-name {
+    font-weight: 700;
+}
+
+.console-tree-item.focused {
+    background: rgba(124, 180, 255, 0.12);
+}
+
+.console-tree-item.map-hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* The globe (js/console/atlas-map.js): a small Mapbox GL globe in greys */
+.console-atlas-map {
+    position: sticky;
+    top: 0;
+    border: 1px solid var(--console-line);
+    border-radius: var(--console-radius-sm);
+    background: #000;
+    overflow: hidden;
+}
+
+.mini-map {
+    width: 100%;
+    aspect-ratio: 1;
+}
+
+.mini-map .mapboxgl-ctrl-logo {
+    transform: scale(0.7);
+    transform-origin: bottom left;
+}
+
+/* An atlas on the globe: a dot; the selected atlas - or one pointed at, here
+   or in the list - its icon and its name in bold white */
+.atlas-map-marker {
+    width: 0;
+    height: 0;
+}
+
+.map-console .atlas-map-pin {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform: translate(-50%, -50%);
+    display: grid;
+    place-items: center;
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border: 1px solid #0d0d0d;
+    border-radius: 50%;
+    background: var(--atlas-color);
+    color: #111;
+    font-size: 0;
+    font-weight: 700;
     cursor: pointer;
+}
+
+.atlas-map-pin img {
+    display: none;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.atlas-map-name {
+    display: none;
+    position: absolute;
+    left: 12px;
+    top: 0;
+    transform: translateY(-50%);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    text-shadow: 0 0 3px #000, 0 0 2px #000;
+    pointer-events: none;
+}
+
+.atlas-map-marker:is(.current, .hovered, .focused) {
+    z-index: 2;
+}
+
+.map-console .atlas-map-marker:is(.current, .hovered, .focused) .atlas-map-pin {
+    width: 18px;
+    height: 18px;
+    padding: 2px;
+    border: 1px solid #6b6b6b;
+    border-radius: 4px;
+    background: #fff;
+    font-size: 9px;
+}
+
+.atlas-map-marker:is(.current, .hovered, .focused) .atlas-map-pin img,
+.atlas-map-marker:is(.current, .hovered, .focused) .atlas-map-name {
+    display: block;
+}
+
+.map-console .atlas-map-marker.current .atlas-map-pin {
+    border: 2px solid var(--console-amber);
+}
+
+/* One pointed at stands in for the selected one's label meanwhile */
+.console-atlas-map:has(.atlas-map-marker.hovered) .atlas-map-marker.current:not(.hovered) .atlas-map-name {
+    display: none;
+}
+
+/* The atlas clicked: its name, with Select Atlas, along the globe's foot */
+.atlas-map-popup {
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 4px 4px 4px 8px;
+    border: 1px solid var(--console-line-strong);
+    border-radius: var(--console-radius-sm);
+    background: rgba(17, 24, 39, 0.94);
+}
+
+.atlas-map-popup[hidden] {
+    display: none;
+}
+
+.atlas-map-popup-name {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--console-ink);
+}
+
+.map-console .atlas-map-load {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--console-amber);
+    color: var(--console-amber-ink);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.map-console .atlas-map-load:disabled {
+    background: var(--console-raised);
+    color: var(--console-ink-2);
+    cursor: default;
+}
+
+/* A map's details: its bar is the console's navigation, so the atlas label,
+   the search field and its filters step aside until Back */
+.map-console:has(.console-find.showing-details) .map-control-bar-head,
+.map-console:has(.console-find.showing-details) .map-console-body > :not(.console-find) {
+    display: none !important;
+}
+
+.map-console .console-find.showing-details .console-details-bar {
+    min-height: 52px;
+    box-sizing: border-box;
+}
+
+.console-crumb {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.console-crumb-from {
+    flex: 0 0 auto;
+    max-width: 45%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--console-ink-2);
+    font-weight: 500;
+}
+
+.console-back:hover .console-crumb-from {
+    color: var(--console-blue);
+    text-decoration: underline;
+}
+
+.console-crumb-sep {
+    flex-shrink: 0;
+    color: var(--console-ink-3);
+}
+
+.console-crumb-current {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--console-ink);
+    font-weight: 700;
 }
 
 .console-details-desc.open {

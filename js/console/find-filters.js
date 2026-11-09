@@ -75,7 +75,17 @@ export class FindFilters {
     /** Atlas mode: only the in-view toggle applies. */
     setAtlasMode(on) {
         this.atlasMode = !!on;
-        this._active.node.hidden = this.atlasMode;
+        this._paintActiveChip();
+    }
+
+    /** A query searches every map, on the map or not: only the in-view toggle applies. */
+    setSearching(on) {
+        this.searching = !!on;
+        this._paintActiveChip();
+    }
+
+    _paintActiveChip() {
+        this._active.node.hidden = this.atlasMode || this.searching;
         this.sync();
     }
 
@@ -100,7 +110,7 @@ export class FindFilters {
     sync({ inactive = 0, outside = 0 } = {}) {
         const tags = this.mode === 'tags';
         const inView = !isIncludingOutside();
-        const left = (this.activeOnly && !this.atlasMode ? inactive : 0) + (inView ? outside : 0);
+        const left = (this.activeOnly && !this.atlasMode && !this.searching ? inactive : 0) + (inView ? outside : 0);
 
         this._tags.glyph.name = tags ? 'diagram-3-fill' : 'diagram-3';
         this._tags.node.classList.toggle('on', tags);

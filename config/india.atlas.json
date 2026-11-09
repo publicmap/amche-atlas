@@ -2152,7 +2152,7 @@
       "type": "tms",
       "id": "soi-osm",
       "url": "https://indianopenmaps.fly.dev/soi/osm/{z}/{x}/{y}.webp",
-      "attribution": "<a href='https://surveyofindia.gov.in/pages/copyright-policy'>© Survey of India</a>, <a href='https://onlinemaps.surveyofindia.gov.in/'>Open Series Maps 2011</a>, <a href='https://ramseraph.github.io/opendata/maps/SOI/'>Datameet Community</a>"
+      "attribution": "<a href='https://onlinemaps.surveyofindia.gov.in/'>© Survey of India</a>, <a href='https://ramseraph.github.io/opendata/maps/SOI/'>Datameet Community</a>"
     },
     {
       "tags": [

@@ -45,7 +45,16 @@ export class DescriptionCard {
     init() {
         // A link in the summary opens the link, not the editor.
         $('#desc-summary').on('click', 'a', (e) => e.stopImmediatePropagation());
-        $('#desc-summary').on('click', () => this.setOpen(true));
+        // Viewing a layer, the summary is only read; Edit makes it editable
+        $('#desc-summary').on('click', () => {
+            if (!$('body').hasClass('is-viewing')) this.setOpen(true);
+        });
+        $('#desc-summary').on('keydown', (e) => {
+            if ((e.key === 'Enter' || e.key === ' ') && !$('body').hasClass('is-viewing')) {
+                e.preventDefault();
+                this.setOpen(true);
+            }
+        });
         $('#desc-done').on('click', () => this.setOpen(false));
         $('#layer-description, #layer-attribution, #layer-license').on('input', () => this.refresh());
         $('#lh-license-badge').on('click', () => {

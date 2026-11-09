@@ -9,8 +9,32 @@
  * (MapMarkerManager.pinFeature).
  */
 import { row, icon, el, iconThumb } from './find-rows.js';
+import { zoomButton } from './find-scope.js';
 
 const stateManager = () => window.featureControl?._stateManager || null;
+
+function geometryBbox(geometry) {
+    const box = [Infinity, Infinity, -Infinity, -Infinity];
+    const walk = (coords) => {
+        if (!Array.isArray(coords)) return;
+        if (typeof coords[0] === 'number') {
+            box[0] = Math.min(box[0], coords[0]);
+            box[1] = Math.min(box[1], coords[1]);
+            box[2] = Math.max(box[2], coords[0]);
+            box[3] = Math.max(box[3], coords[1]);
+        } else coords.forEach(walk);
+    };
+    if (geometry?.type === 'GeometryCollection') geometry.geometries?.forEach(g => walk(g.coordinates));
+    else walk(geometry?.coordinates);
+    return box.every(Number.isFinite) ? box : null;
+}
+
+function zoomTarget(selection) {
+    const bbox = geometryBbox(selection?.feature?.geometry);
+    const lngLat = selection?.lngLat;
+    if (bbox) return { bbox };
+    return lngLat ? { lngLat: Array.isArray(lngLat) ? lngLat : [lngLat.lng, lngLat.lat] } : null;
+}
 
 function featureKey(selection) {
     const manager = stateManager();
@@ -53,10 +77,14 @@ export class FeatureSync {
             this.hover(selection, false);
             this._onPin?.(selection, label);
         });
+        const actions = el('span', 'console-row-actions');
+        const target = zoomTarget(selection);
+        if (target) actions.appendChild(zoomButton(target, `Zoom to ${label}`, { outside: false }));
+        actions.appendChild(pin);
         const node = row({
             thumb: iconThumb('bounding-box-circles'),
             title: label,
-            trailing: pin,
+            trailing: actions,
             className: 'console-feature-row',
             onClick: () => onSelect?.(item),
             onEnter: () => this.hover(selection, true),

@@ -45,6 +45,7 @@ import { installLayerSampler } from './layer-feature-samples.js';
 import { installStyleReferenceContext } from './style-reference-context.js';
 import { keepDrapedLayersBelow } from './maplibre-drape-order.js';
 import { installRouteBadgeImages } from './search/route-badge.js';
+import { guardFeatureQueries } from './safe-feature-query.js';
 
 export class MapInitializer {
     // Note: location-based atlas selection is owned by SplashScreenManager
@@ -900,6 +901,8 @@ export class MapInitializer {
 
         const map = new mapboxgl.Map(window.amche.MAPBOX_MAP_OPTIONS);
         if (window.amche.RENDERER === 'maplibre') keepDrapedLayersBelow(map);
+        // One bad DEM sample shouldn't end a click's or hover's feature query
+        guardFeatureQueries(map);
 
         // Make map accessible globally for debugging
         window.map = map;

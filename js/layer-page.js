@@ -73,6 +73,8 @@ export class LayerPage {
      */
     open(layer, { tab = 'view', feature = null } = {}) {
         this.active = true;
+        // Opened straight into editing (Edit in the map console): closing goes back there
+        this.openedForEdit = tab !== 'view';
         $('#edit-tab, #nav-actions, #layer-actions, #lh-remove').removeClass('hidden');
         this.header.render(layer, { feature });
         this._show(layer);
@@ -86,6 +88,7 @@ export class LayerPage {
         $('#layer-id').val(layer.id || '');
         $('#layer-description').val(layer.description || '');
         $('#layer-attribution').val(layer.attribution || '');
+        $('#layer-license').val(layer.license || '');
         this.creator.dataCard.setView(layer);
         this.description.setOpen(false);
         this.setStyleOpen(false);

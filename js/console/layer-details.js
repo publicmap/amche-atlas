@@ -2,8 +2,10 @@
  * Layer details - a page inside Find (js/console/find-panel.js) for one map:
  * what it is, whether it is on and how strongly, what it can do on the map,
  * its legend, the features of it in view, and where it sits in the stack.
- * It heads with the same row the map has in Find's results - the whole row
- * and its eye turn the map on or off - and opening it turns the map on.
+ * Its bar is the console's navigation while it is open (the atlas label and
+ * search step aside): back, and where it was opened from › this map. It heads
+ * with the same row the map has in Find's results - the whole row and its eye
+ * turn the map on or off - and opening it turns the map on unless asked not to.
  * It replaces the layer editor's read-only Overview; Edit still opens the full
  * editor (map-creator.html).
  *
@@ -20,6 +22,7 @@ import { LayerLegend } from '../layer-legend.js';
 import { ruleFilter } from '../rule-legend.js';
 import { LayerOrderManager } from '../layer-order-manager.js';
 import { LayerActions } from './layer-actions.js';
+import { isStarred, setStarred } from '../starred-layers.js';
 
 const FEATURE_LIMIT = 6;
 const DESC_FOLD = 220;
@@ -43,11 +46,13 @@ export class LayerDetails {
         return this._layer;
     }
 
-    open(layer, { backLabel = 'Back', activate = true } = {}) {
+    /** @param {{from?: string, activate?: boolean}} [options] - from: the view it was opened from, named in the breadcrumb */
+    open(layer, { from = '', activate = true } = {}) {
         this._release();
         this._layer = layer;
         if (activate && !isLayerActive(layer)) setLayerActive(layer, true);
-        this._backLabel = backLabel;
+        this._from = from;
+        this._backLabel = from ? `Back to ${from}` : 'Back';
         this._descOpen = false;
         this.el.hidden = false;
         this.render();
@@ -89,12 +94,17 @@ export class LayerDetails {
         const title = live.title || live.name || live.id;
         this.el.replaceChildren();
 
-        // The page's own bar: back to the results it was opened from, or close
+        // The console's navigation while the page is open: back, then where it
+        // was opened from › this map
         const bar = el('div', 'console-details-bar');
         const back = el('button', 'console-back');
         back.type = 'button';
-        back.title = this._backLabel;
-        back.append(icon('arrow-left'), el('span', '', this._backLabel));
+        back.title = `${this._backLabel} ( Esc )`;
+        back.setAttribute('aria-label', this._backLabel);
+        const crumb = el('span', 'console-crumb');
+        if (this._from) crumb.append(el('span', 'console-crumb-from', this._from), el('span', 'console-crumb-sep', '›'));
+        crumb.appendChild(el('span', 'console-crumb-current', title));
+        back.append(icon('arrow-left'), crumb);
         back.addEventListener('click', () => this._onBack?.());
         const close = el('button', 'console-btn console-details-close');
         close.type = 'button';
@@ -102,7 +112,7 @@ export class LayerDetails {
         close.setAttribute('aria-label', close.title);
         close.appendChild(icon('x-lg'));
         close.addEventListener('click', () => this._onBack?.());
-        bar.append(back, close);
+        bar.append(back, this._starButton(live), close);
         this.el.appendChild(bar);
 
         const path = [live._sourceAtlas && atlasName(live._sourceAtlas), ...(live.tags || [])].filter(Boolean).join(' › ');
@@ -219,6 +229,23 @@ export class LayerDetails {
         } catch (error) {
             return [];
         }
+    }
+
+    /** The map's star (js/starred-layers.js), as in the layer editor. */
+    _starButton(live) {
+        const defaults = window.browserControl?._getAtlasInitiallyCheckedIds?.(live._sourceAtlas || 'index') || [];
+        const starred = isStarred(live, { isDefault: !!live.initiallyChecked || defaults.includes(live._prefixedId) });
+        const button = el('button', 'console-btn console-details-star' + (starred ? ' on' : ''));
+        button.type = 'button';
+        button.title = starred ? 'Starred - click to unstar' : 'Star this map to find it again';
+        button.setAttribute('aria-label', button.title);
+        button.setAttribute('aria-pressed', String(starred));
+        button.appendChild(icon(starred ? 'star-fill' : 'star'));
+        button.addEventListener('click', () => {
+            setStarred(live, !starred);
+            this.render();
+        });
+        return button;
     }
 
     _about(live, on) {

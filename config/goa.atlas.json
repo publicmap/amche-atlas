@@ -3,7 +3,7 @@
   "headerImage": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/BeachFun.jpg/330px-BeachFun.jpg",
   "attribution": "<a href='https://chat.whatsapp.com/BbzANbnXuekARMMSyeo6Pf'>Amche.in community</a>",
   "areaOfInterest": "Goa, India",
-  "description": "Regional and Coastal Zone Plans, Construction Regulation Zones, Property Information (FORM 1 & 14), Panchayat and Ward Boundaries",
+  "description": "Regional and Coastal Zone Development Plans, Construction Regulation Zones, Property Information (FORM 1 & 14), Panchayat and Ward Boundaries",
   "version": "0.1.0",
   "url": "https://github.com/publicmap/amche-goa/blob/main/config/goa.atlas.json",
   "color": "#059669",
@@ -165,7 +165,7 @@
       "id": "aqi",
       "url": "https://backend.aqionline.in/api/devices?page=1&limit=50",
       "refresh": 300000,
-      "attribution": "<a href='https://aqionline.in'>AQI Online</a>, <a href='https://texmin.in/'>TEXMin</a>, Ministry of Information Technology",
+      "attribution": "<a href='https://aqionline.in'>aqionline.in</a>, <a href='https://texmin.in/'>TEXMin, Ministry of Information Technology</a>",
       "style": {
         "text-field": [
           "get",
@@ -420,7 +420,7 @@
       "url": "mapbox://planemad.2bqa1pq1",
       "sourceLayer": "goa-local-body-boundaries",
       "maxzoom": 10,
-      "attribution": "Goa Panchayat Boundaries, <a href='http://14.139.123.73:8080/geoserver/nbss_geoserver/wms?service=WMS&version=1.1.0&request=GetMap&layers=nbss_geoserver%3AGoa_Panchayat_Boundary&bbox=358120.81269999966%2C1647470.1993000004%2C428762.7175999997%2C1747300.0592&width=543&height=768&srs=EPSG%3A32643&styles=&format=application/openlayers'>ICAR-NBSS</a>",
+      "attribution": "<a href='https://bhoomigeoportal-nbsslup.in/IndianNationalSoilGrid/'>Soil and Land Use Survey, ICAR-NBSS, Ministry of Agriculture, Government of India</a>",
       "style": {
         "text-field": [
           "step",
@@ -770,7 +770,7 @@
       "description": "Plots have spot zoning changes for landuse and height. Data compiled from <a href='https://archive.org/details/gazetteofindia?tab=collection&query=39a&sin=TXT&and%5B%5D=subject%3A%22Goa+Gazette%22'>Govt. of Goa Gazettes</a> using pacel boundaries from <a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>",
       "type": "sheet",
       "url": "https://docs.google.com/spreadsheets/d/18L0ETYF3MXMyTlqMxaIHWMqeOOnnGLxB82yEpZTzpmI",
-      "attribution": "Goa Gazette Notifications compiled, <a href='https://docs.google.com/spreadsheets/d/18L0ETYF3MXMyTlqMxaIHWMqeOOnnGLxB82yEpZTzpmI'>Google Sheets</a>",
+      "attribution": "<a href='https://docs.google.com/spreadsheets/d/18L0ETYF3MXMyTlqMxaIHWMqeOOnnGLxB82yEpZTzpmI'>Gazette</a>, Government Of Goa",
       "style": {
         "circle-color": [
           "match",
@@ -980,7 +980,7 @@
       "description": "Land parcels approved for spot landuse zone conversion under <a href='https://thebetterindia.com/environment/section-39a-goa-land-use-explained-11151394'>Section 39A of the Goa TCP Act</a>. Data compiled from <a href='https://archive.org/details/gazetteofindia?tab=collection&query=39a&sin=TXT&and%5B%5D=subject%3A%22Goa+Gazette%22'>Govt. of Goa Gazettes</a> using pacel boundaries from <a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>",
       "type": "geojson",
       "url": "https://bharatlas.com/api/r2/community/nL7zNStsW3/39A.geojson",
-      "attribution": "<a href='https://archive.org/details/gazetteofindia?tab=collection&query=39a&sin=TXT&and%5B%5D=subject%3A%22Goa+Gazette%22'>Govt. of Goa Gazettes</a>, <a href='https://bharatlas.com/api/r2/community/nL7zNStsW3/39A.geojson'>bharatlas community</a>",
+      "attribution": "<a href='https://archive.org/details/gazetteofindia?tab=collection&query=39a&sin=TXT&and%5B%5D=subject%3A%22Goa+Gazette%22'>Gazette, Government Of Goa</a>, <a href='https://bharatlas.com/api/r2/community/nL7zNStsW3/39A.geojson'>Bharat Atlas</a>",
       "style": {
         "text-field": [
           "step",
@@ -1087,7 +1087,7 @@
       "sourceLayer": "Onemapgoa_GA_Cadastrals_Mar2026",
       "maxzoom": 15,
       "minzoom": 13,
-      "attribution": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>, <a href='https://onemapgoagis.goa.gov.in/map/'>OneMapGoa GIS</a>, <a href='https://datameet.org'>Datameet Community</a>",
+      "attribution": "<a href='https://dslr.goa.gov.in/f114new.aspx'>Directorate of Settlement & Land Records, Government Of Goa</a>, <a href='https://dslr.goa.gov.in/f114new.aspx'>Directorate of Settlement & Land Records, Government Of Goa</a>, <a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>, <a href='https://onemapgoagis.goa.gov.in/map/'>OneMapGoa GIS</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "style": {
         "text-padding": [
           "interpolate",
@@ -1225,7 +1225,7 @@
       "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=35aeccbc-5592-4e9a-a555-fc5b0572f99b",
       "sourceLayer": "vector",
       "maxzoom": 14,
-      "attribution": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>",
+      "attribution": "<a href='https://dslr.goa.gov.in/f114new.aspx'>Directorate of Settlement & Land Records, Government Of Goa</a>, <a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>",
       "style": {
         "fill-color": "Magenta",
         "line-color": "Magenta",
@@ -1249,7 +1249,7 @@
       "url": "https://api-main-432878571563.europe-west4.run.app/tiler/vector/{z}/{x}/{y}?map_id=7fbb05ee-40d6-4eaf-b4df-e969d41d1beb",
       "sourceLayer": "vector",
       "maxzoom": 14,
-      "attribution": "<a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>",
+      "attribution": "<a href='https://dslr.goa.gov.in/f114new.aspx'>Directorate of Settlement & Land Records, Government Of Goa</a>, <a href='https://bhunaksha.goa.gov.in/bhunaksha/'>Goa Bhunaksha</a>",
       "style": {
         "fill-color": "Orange",
         "line-color": "Orange",
@@ -1323,7 +1323,7 @@
       },
       "url": "https://gist.githubusercontent.com/planemad/17636414b540770a8e8d48889094c0e0/raw/287c68037d6312a9ae6c8158bb2bf286df129deb/esa-outline-raw.geojson",
       "description": "Villages falling under Eco-Sensitive Areas in the Draft Notification dt. 2026-07-27. Digitized from Gazette Maps for <a href='https://editor.allmaps.org/georeference?url=https%3A%2F%2Fiiif.archive.org%2Fiiif%2Fin.gazette.central.e.2026-07-27.274876%2Fmanifest.json&bg-preset=osm&bg-url=https%3A%2F%2Findianopenmaps.fly.dev%2Fsoi%2Fosm%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.webp&image=https%3A%2F%2Fiiif.archive.org%2Fimage%2Fiiif%2F3%2Fin.gazette.central.e.2026-07-27.274876%252F274876_jp2.zip%252F274876_jp2%252F274876_0159.jp2'>Goa and neighbouring areas</a>, ",
-      "attribution": "<a href='https://archive.org/details/in.gazette.central.e.2026-07-27.274876'>Extrordinary Gazette of India, 2026-07-27 No. 4166(E)</a>",
+      "attribution": "Ministry of Environment Forest and Climate Change, <a href='https://archive.org/details/in.gazette.central.e.2026-07-27.274876'>Extrordinary Gazette of India, 2026-07-27 No. 4166(E)</a>",
       "style": {
         "fill-color": [
           "coalesce",
@@ -2362,7 +2362,7 @@
           "rgba(255, 255, 255,0)"
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/99226'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/99226'>RTI</a>",
       "headerImage": "https://mapwarper.net/uploads/99226/thumb/Contour_Plan___Section.png",
       "bbox": "73.887982,15.3975793,73.8910762,15.4018527",
       "initiallyChecked": false
@@ -2397,7 +2397,7 @@
           "rgba(255, 255, 255,0)"
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/99229'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/99229'>RTI</a>",
       "headerImage": "https://mapwarper.net/uploads/99229/thumb/Site_Plan_with_Drainage_System.png",
       "bbox": "73.8875597,15.3975526,73.8906675,15.401894",
       "initiallyChecked": false
@@ -2496,7 +2496,7 @@
           0
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/98268'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/98268'>Ministry of Tourism, Government of India</a>",
       "headerImage": "https://mapwarper.net/uploads/98268/thumb/Screenshot_2025-10-21_at_6.04.27%E2%80%AFPM.png",
       "bbox": "73.8341072,15.5020322,73.8719055,15.5296044",
       "initiallyChecked": false
@@ -2529,7 +2529,7 @@
           0
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/98250'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/98250'>Ministry of Tourism, Government of India</a>",
       "headerImage": "https://mapwarper.net/uploads/98250/thumb/DPR_Annexures_Feb_2024.png",
       "bbox": "73.8248838,15.4937915,73.8712939,15.5425383",
       "initiallyChecked": false
@@ -2590,7 +2590,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/98680'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/98680'>Estado da Índia</a>, RTI",
       "headerImage": "https://mapwarper.net/uploads/98680/thumb/carta_mining.png",
       "bbox": "73.6444309,14.9127963,74.3573385,15.8364441",
       "initiallyChecked": false
@@ -2756,7 +2756,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/95676'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/95676'>Ministry of Environment, Forest and Climate Change</a>, RTI",
       "headerImage": "https://mapwarper.net/uploads/95676/thumb/Proposed_TR_Map__1_.png",
       "bbox": "73.9288025,15.2009539,74.4074284,15.7801554",
       "initiallyChecked": false
@@ -3142,7 +3142,7 @@
       "type": "tms",
       "id": "2021-regional-plan",
       "url": "https://mapwarper.net/mosaics/tile/2054/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://tcp.goa.gov.in/'>Regional Development Plan for Goa 2021, TCP Goa</a>, <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
+      "attribution": "<a href='https://tcp.goa.gov.in/'>Town and Country Planning Department, Government of Goa</a>, <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
       "style": {
         "raster-opacity": [
           "interpolate",
@@ -3189,7 +3189,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/107309'>MapWarper</a>",
+      "attribution": "<a href='https://tcp.goa.gov.in/'>Town and Country Planning Department, Government of Goa</a>, <a href='https://mapwarper.net/maps/107309'>RTI</a>",
       "headerImage": "https://mapwarper.net/uploads/107309/thumb/6116199095442542411.png",
       "bbox": "73.7986298,15.5741004,73.823407,15.5932236",
       "initiallyChecked": false
@@ -3205,7 +3205,7 @@
       "type": "tms",
       "id": "2011-outline-plan",
       "url": "https://mapwarper.net/mosaics/tile/2151/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://tcp.goa.gov.in/'>Outline Development Plan 2011, TCP Goa</a>, <a href='https://mapwarper.net/layers/2151#Show_tab'>Mapwarper</a>"
+      "attribution": "<a href='https://tcp.goa.gov.in/'>Town and Country Planning Department, Government of Goa</a>, <a href='https://mapwarper.net/layers/2151#Show_tab'>Mapwarper</a>"
     },
     {
       "tags": [
@@ -3217,7 +3217,7 @@
       "type": "tms",
       "id": "taluka-plan",
       "url": "https://mapwarper.net/maps/tile/87245/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://tcp.goa.gov.in/'>Regional Development Plan for Goa 2021, Goa Town &amp; Country Planning Department</a>, <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
+      "attribution": "<a href='https://tcp.goa.gov.in/'>Town and Country Planning Department, Government of Goa</a>, <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
       "headerImage": "https://mapwarper.net/uploads/87245/thumb/tiswadi-taluka_jsrtploe.png",
       "style": {
         "raster-contrast": 0.0,
@@ -3283,7 +3283,7 @@
           0.3
         ]
       },
-      "attribution": "<a href='https://mapwarper.net/maps/86484'>MapWarper</a>",
+      "attribution": "<a href='https://mapwarper.net/maps/86484'>Survey Of India</a>",
       "headerImage": "https://mapwarper.net/uploads/86484/thumb/4_Mapusa_SOI_Toposheet_1991.png",
       "bbox": "73.7389406,15.4920666,73.8849907,15.6355595",
       "initiallyChecked": false

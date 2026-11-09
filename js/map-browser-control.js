@@ -10,6 +10,7 @@ import { ZoomToParam } from './zoom-to-param.js';
 import { LayerStackStrip } from './layer-stack-strip.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { atlasPinsUrl } from './atlas-pins.js';
+import { rememberAtlas, restoreAtlas } from './atlas-memory.js';
 
 export class MapBrowserControl {
     constructor() {
@@ -906,7 +907,17 @@ export class MapBrowserControl {
             return;
         }
         const previousAtlasId = window.layerRegistry?.getCurrentAtlas() || 'index';
+        // The atlas being left is remembered as it is; one left before comes
+        // back as it was, its link's settings and all (js/atlas-memory.js)
+        if (newAtlasId !== previousAtlasId) {
+            rememberAtlas(previousAtlasId);
+            if (restoreAtlas(newAtlasId, window.mapConsole?.snapshot?.() ? { atlas: !!window.mapConsole.find?.atlasOpen } : null)) return;
+        }
         const newDefaults = new Set(this._getAtlasDefaultLayerIds(newAtlasId));
+        // An atlas without default maps of its own opens on its maps in the view
+        if (!this._getAtlasInitiallyCheckedIds(newAtlasId).length) {
+            this._atlasLayersInView(newAtlasId, viewBbox).forEach(id => newDefaults.add(id));
+        }
         const activeLayers = this._getActiveLayers();
         const previousReferencedIds = new Set(this._getAtlasLayerReferenceIds(previousAtlasId));
 
@@ -932,6 +943,21 @@ export class MapBrowserControl {
 
         this._handleUpdateAtlasParam(newAtlasId);
         if (newAtlasId !== previousAtlasId) this._loadAtlasPins(newAtlasId);
+    }
+
+    // The atlas's maps whose own bbox takes in `view` (the map's, when not given)
+    _atlasLayersInView(atlasId, view = null) {
+        let box = view;
+        if (!box && this._map) {
+            const bounds = this._map.getBounds();
+            box = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()];
+        }
+        if (!box) return [];
+        return this._getAtlasLayerReferenceIds(atlasId).filter(id => {
+            const layer = window.layerRegistry?.getLayer(id);
+            const raw = layer?.bbox || layer?.bounds;
+            return !!raw && this._layerOwnBboxInView(id, box);
+        });
     }
 
     _layerOwnBboxInView(layerId, view) {

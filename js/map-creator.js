@@ -340,7 +340,13 @@ export class MapCreator {
 
         $('#add-to-map-btn').on('click', () => this.addToMap());
         // Closing mid-edit cancels it: the original comes back and the panel stays open, in view mode.
-        $('#close-btn').on('click', () => (this.layerPage.active && this.edit.active ? this.layerPage.cancelEdit() : this.closeBrowser()));
+        // Mid-edit, × cancels back to viewing the layer - unless the editor was
+        // opened to edit, when it cancels and goes back to the map console
+        $('#close-btn').on('click', () => {
+            if (!(this.layerPage.active && this.edit.active)) return this.closeBrowser();
+            this.layerPage.cancelEdit();
+            if (this.layerPage.openedForEdit) this.closeBrowser();
+        });
         $('#remove-other-maps-btn').on('click', () => this.removeOtherMaps());
 
         $('.color-preview').on('click', function() {

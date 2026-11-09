@@ -1,7 +1,9 @@
 /**
  * The layer editor's header for an existing layer: its thumbnail, title and
- * badges, opacity, place in the stack, and the actions that work on the live
- * map - zoom, export, compare, isolate, mask and remove.
+ * badges, its star (js/starred-layers.js) and eye - on as the layer opens,
+ * off takes it off the map - opacity, place in the stack, and
+ * the actions that work on the live map - zoom, export, compare, isolate,
+ * mask and remove.
  *
  * Everything here acts on the map through the parent page (direct access to
  * its controls, or postMessage), so it works the same whether the editor is
@@ -14,6 +16,7 @@
 import { ZoomToParam } from './zoom-to-param.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { RasterAdjust } from './raster-adjust.js';
+import { isStarred, setStarred } from './starred-layers.js';
 
 export class LayerHeader {
     /**
@@ -64,6 +67,8 @@ export class LayerHeader {
         $('#lh-export-selected').toggle(!!feature);
 
         this._renderBadges(layer);
+        this._renderStar(layer);
+        this._renderVisibility(layer);
         this._updateOpacityUI(layer.opacity);
         this.raster.render(layer);
         this._updateCompareButton();
@@ -142,6 +147,51 @@ export class LayerHeader {
         } else {
             $('#lh-atlas-badge').hide();
         }
+    }
+
+    /** The eye: the layer opens on the map; off takes it off, as the console's eye does. */
+    _renderVisibility(layer) {
+        const control = window.parent?.browserControl;
+        if (!control) {
+            $('#lh-visible').hide();
+            return;
+        }
+        const id = layer._prefixedId || layer.id;
+        const base = (value) => control._baseLayerId?.(value) ?? value;
+        const isOn = () => [...control._getActiveLayers()].some(active => base(active) === base(id));
+        const paint = (on = isOn()) => {
+            $('#lh-visible').toggleClass('on', on).attr('aria-pressed', String(on))
+                .attr('title', on ? 'On the map - click to hide it' : 'Show this map')
+                .find('sl-icon').attr('name', on ? 'eye' : 'eye-slash');
+        };
+        $('#lh-visible').show().off('click').on('click', () => {
+            const on = !$('#lh-visible').hasClass('on');
+            control._handleLayerToggle(id, on);
+            paint(on);
+        });
+        // Opening a layer shows it, once per layer opened
+        if (this._shownFor !== id) {
+            this._shownFor = id;
+            if (!isOn()) control._handleLayerToggle(id, true);
+            paint(true);
+            return;
+        }
+        paint();
+    }
+
+    /** The star: kept for this viewer in this browser, shared with the map console. */
+    _renderStar(layer) {
+        const paint = () => {
+            const on = isStarred(layer);
+            $('#lh-star').toggleClass('on', on).attr('aria-pressed', String(on))
+                .attr('title', on ? 'Starred - click to unstar' : 'Star this map to find it again')
+                .find('sl-icon').attr('name', on ? 'star-fill' : 'star');
+        };
+        $('#lh-star').show().off('click').on('click', () => {
+            setStarred(layer, !isStarred(layer));
+            paint();
+        });
+        paint();
     }
 
     // The raw config URL for an atlas, preferring where an imported atlas was fetched from.

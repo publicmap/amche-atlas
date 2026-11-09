@@ -429,7 +429,6 @@
       "url": "https://indianopenmaps.com/not-so-open/environmental/approvals/goa/parivesh/{z}/{x}/{y}.pbf",
       "sourceLayer": "projects_30",
       "maxzoom": 17,
-      "initiallyChecked": true,
       "attribution": "<a href='https://parivesh.nic.in/'>Parivesh</a>, <a href='https://datameet.org'>Datameet Community</a>",
       "bbox": "73.68,14.89,74.34,15.8"
     },

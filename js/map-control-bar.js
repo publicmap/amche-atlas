@@ -31,6 +31,7 @@ import { placeLine } from './map-search-toggle.js';
 import { trackLog } from './gpx-log.js';
 import { MODE } from './map-orientation-modes.js';
 import { applyConsoleBrand } from './site-brand.js';
+import { takeConsoleState } from './atlas-memory.js';
 
 
 function button(className, iconName, title) {
@@ -82,10 +83,7 @@ export class MapControlBar {
         this._head = new ConsoleHead({
             onMenu: () => window.amche?.openNavMenu?.(),
             onAtlas: () => (this._mode === 'find' ? this.find.toggleAtlas() : this.setMode('find', { view: 'atlas', focus: false })),
-            onClose: () => this.setMode('explore', { keepQuery: true }),
-            onBack: () => {
-                if (this.find.atlasOpen) this.find.toggleAtlas();
-            }
+            onClose: () => this.setMode('explore', { keepQuery: true })
         });
         applyConsoleBrand(this._head.menu);
 
@@ -158,6 +156,14 @@ export class MapControlBar {
         document.addEventListener('keydown', this._onKeydown);
         this._map?.on?.('click', this._onMapClick);
         window.mapConsole = this;
+
+        // Reopened on a remembered atlas (js/atlas-memory.js): Find as it was
+        const returning = takeConsoleState();
+        if (returning) {
+            const back = () => this.restore(returning);
+            if (window.layersInitialized) setTimeout(back);
+            else window.addEventListener('layersInitialized', () => setTimeout(back, 300), { once: true });
+        }
     }
 
     /** Adds a sub-search option's link to the row under the search field. */
@@ -315,7 +321,7 @@ export class MapControlBar {
         const name = metadata ? (metadata.name || atlasId) : '';
 
         this._atlasName = name;
-        this._head.setAtlas({ id: atlasId, name, description: metadata?.description || '', attribution: metadata?.attribution || '', iconSrc: metadata?.icon || null, image: metadata?.headerImage || null });
+        this._head.setAtlas({ id: atlasId, name, description: metadata?.description || '', attribution: metadata?.attribution || '', area: metadata?.areaOfInterest || '', iconSrc: metadata?.icon || null, image: metadata?.headerImage || null });
         this._head.setPickerOpen(!!this.find?.atlasOpen);
         this._head.refreshOverview();
         this._syncHead();

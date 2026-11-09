@@ -4,7 +4,8 @@
  * search field, with a tab for each section that has anything in it
  * (js/console/find-sections.js) to scroll to it. In atlas mode, opened from
  * the console's atlas label, the list is every atlas instead
- * (js/console/find-atlases.js) and the search field's filters act on those.
+ * (js/console/find-atlases.js), browsed by the atlases' tags alone - the
+ * search field and its filters step aside.
  *
  * The search field narrows the list one of two ways (js/console/find-filters.js):
  * by default its filters keep the Map section to the maps on the map and every
@@ -20,7 +21,7 @@
 import { el, sectionLabel, linkButton, hint } from './find-rows.js';
 import { watchLoading } from './layer-loading.js';
 import { atlasesForSelector, atlasName, atlasLayers, layerRow, activeIds, isLayerActive, switchAtlas, clearPreview } from './find-browse.js';
-import { scoped, layerBbox, isIncludingOutside } from './find-scope.js';
+import { scoped, layerBbox } from './find-scope.js';
 import { atlasCards, updateAtlasCards } from './atlas-cards.js';
 import { renderAtlases } from './find-atlases.js';
 import { ResultsRenderer, mapResults, locationResults, routeResults, placeResults, liveLayer } from './find-results.js';
@@ -74,6 +75,7 @@ export class FindPanel {
             this._moveFrame = requestAnimationFrame(() => {
                 this._moveFrame = null;
                 updateAtlasCards(this._content);
+                this._atlasMap?.updateView();
             });
         };
         // The cards are redrawn once the switch lands, to move the eye
@@ -228,9 +230,9 @@ export class FindPanel {
     /** A map's details page, over the list it was opened from - in atlas mode, the atlas's. */
     showLayer(layer, { activate = true } = {}) {
         const atlas = atlasName(window.layerRegistry?.getCurrentAtlas() || 'index');
-        const backLabel = this._query && !this._atlasOpen ? `Back to results for “${this._query}”` : `Back to ${atlas}`;
+        const from = this._query && !this._atlasOpen ? `“${this._query}”` : atlas;
         clearPreview();
-        this.details.open(layer, { backLabel, activate });
+        this.details.open(layer, { from, activate });
         this.el.classList.add('showing-details');
     }
 
@@ -336,6 +338,7 @@ export class FindPanel {
         if (next === this._query) return;
         this.closeDetails();
         this._query = next;
+        this.filters.setSearching(!!next);
         this._expanded.clear();
         if (!next) this._sections = [];
         this._scrollTarget = 'top';
@@ -409,27 +412,30 @@ export class FindPanel {
      * map, and a redraw then would restart the hover and the scroll under it.
      */
     _renderAtlasMode() {
-        const key = [this._query, this._atlasTag, this.filters.mode, isIncludingOutside(), window.layerRegistry?.getCurrentAtlas()].join('|');
-        if (key === this._atlasKey) {
-            this.filters.sync({ outside: this._atlasHidden });
-            return;
-        }
+        const key = [this._atlasTag, this._atlasTagsOpen, window.layerRegistry?.getCurrentAtlas()].join('|');
+        if (key === this._atlasKey) return;
         this._atlasKey = key;
         const scrollTop = this._body.scrollTop;
         this._entries = [];
         this._content.replaceChildren();
         this._tagSlot.replaceChildren();
         this._sectionsBar.el.hidden = true;
-        const { hidden, tag } = renderAtlases(this._content, this._tagSlot, {
-            query: this._query,
-            browsingTags: this.filters.browsingTags,
+        // Every atlas, browsed by its tags alone: the search field and its
+        // filters step aside in atlas mode
+        const { tag, map } = renderAtlases(this._content, {
+            all: true,
+            tagsOpen: !!this._atlasTagsOpen,
             tag: this._atlasTag,
             onTag: this._onAtlasTag,
+            onToggleTags: () => {
+                this._atlasTagsOpen = !this._atlasTagsOpen;
+                if (!this._atlasTagsOpen) this._atlasTag = null;
+                this.render();
+            },
             onPick: this._tryAtlas
         });
         this._atlasTag = tag;
-        this._atlasHidden = hidden;
-        this.filters.sync({ outside: hidden });
+        this._atlasMap = map;
         this._restoreScroll(scrollTop);
         this.onEntriesChanged?.(this._entries);
     }
@@ -486,19 +492,16 @@ export class FindPanel {
         };
     }
 
-    /** A query: data links, atlases by name, then maps by name - on the map only while the eye is on. */
+    /** A query: data links, atlases by name, then maps by name - on the map or not. */
     _mapSearch(searched) {
         const { entries } = atlasesForSelector(this._query);
         const links = this._sections.filter(s => s.ariaLabel === 'Data link').flatMap(s => s.items || []).length;
         const byName = searched.groups.slice(searched.featureGroups);
-        const active = activeIds();
-        const candidates = this.filters.activeOnly ? byName.filter(group => isLayerActive(group.layer, active)) : byName;
-        const groups = this._tagFilter(candidates, group => group.layer);
-        const inactive = this.filters.activeOnly ? filterByTags(byName, this._tagPath, group => group.layer).length - groups.length : 0;
+        const groups = this._tagFilter(byName, group => group.layer);
         return {
             count: links + entries.length + groups.length,
             hidden: searched.hidden,
-            inactive,
+            inactive: 0,
             build: (c) => {
                 this._results.links(c, this._sections);
                 if (entries.length) {
