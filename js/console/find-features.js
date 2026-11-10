@@ -23,7 +23,7 @@ function label(selection) {
     const inspect = config?.inspect || {};
     const field = inspect.label || inspect.id || 'id';
     const props = selection.feature?.properties || {};
-    return String(props[field] ?? props.name ?? props.title ?? selection.feature?.id ?? 'Feature').trim();
+    return String(props[field] ?? props.name ?? props.title ?? '').trim();
 }
 
 function keyOf(selection) {

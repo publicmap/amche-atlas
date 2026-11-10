@@ -10,6 +10,7 @@
  * and one click takes the map there.
  */
 import { el, icon } from './find-rows.js';
+import { haversineDistanceMeters } from '../geo-distance-utils.js';
 
 const STORAGE_KEY = 'findIncludeOutside';
 const ZOOM_PADDING = 60;
@@ -159,8 +160,24 @@ export function zoomButton(target, title = 'Outside this view - zoom to it', { o
 }
 
 /**
- * Splits `items` into those in view and those outside; with the scope
- * including outside, all are shown in their own (ranked) order, the outside
+ * Whether a point known only by its distance from `from` ([lng, lat]) is
+ * surely in view: within the circle the view holds around its centre, less
+ * however far that centre has moved from `from`.
+ */
+export function distanceInView(from, meters, map = window.map) {
+    const view = viewBbox();
+    if (!map || !view || !Array.isArray(from) || !Number.isFinite(meters)) return true;
+    const center = map.getCenter();
+    const radius = Math.min(
+        haversineDistanceMeters(center, { lng: view[0], lat: center.lat }),
+        haversineDistanceMeters(center, { lng: center.lng, lat: view[3] })
+    );
+    return meters + haversineDistanceMeters(center, { lng: from[0], lat: from[1] }) <= radius;
+}
+
+/**
+ * Splits `items` into those in view and those outside - `where(item)` gives
+ * its bbox, its lngLat, or `inView` outright; with the scope including outside, all are shown in their own (ranked) order, the outside
  * ones marked, and `hidden` is 0.
  */
 export function scoped(items, where) {
@@ -169,7 +186,7 @@ export function scoped(items, where) {
     const outside = [];
     items.forEach(item => {
         const target = where(item);
-        const inView = !target || (target.bbox ? bboxInView(target.bbox, view) : pointInView(target.lngLat, view));
+        const inView = !target || (target.inView ?? (target.bbox ? bboxInView(target.bbox, view) : pointInView(target.lngLat, view)));
         (inView ? inside : outside).push(item);
     });
     return includeOutside || browseAll

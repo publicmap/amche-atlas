@@ -8,11 +8,15 @@
  * every map of the atlas taking in the view - its own extent, or, without
  * one, its atlas's - turned on beside what is on already; once they all are,
  * Hide All instead, leaving only the shared base maps.
+ *
+ * The links (ShowLinks) are also beside Find's "On the map" heading
+ * (js/console/find-panel.js).
  */
 import { el, icon, linkButton, hint } from './find-rows.js';
 import { atlasLayers } from './find-browse.js';
 import { parseBbox, viewBbox, bboxInView } from './find-scope.js';
 import { atlasExtent } from './atlas-outlines.js';
+import { isStarred } from '../starred-layers.js';
 
 const browser = () => window.browserControl;
 const baseId = (id) => browser()?._baseLayerId?.(id) ?? id;
@@ -62,6 +66,12 @@ function setDefaults(defaults) {
     });
 }
 
+/** The atlas's starred maps: its `initiallyChecked` ones unless the viewer changed the stars. */
+export function starredMaps(atlasId) {
+    const defaults = new Set((browser()?._getAtlasInitiallyCheckedIds?.(atlasId) || []).map(baseId));
+    return atlasLayers(atlasId).filter(layer => isStarred(layer, { isDefault: defaults.has(baseId(layer._prefixedId || layer.id)) }));
+}
+
 function showInView(atlasId) {
     const control = browser();
     if (!control) return;
@@ -72,6 +82,44 @@ function showInView(atlasId) {
     });
 }
 
+/** Show: Starred (x) | In Current View (y) - each link only while it would change what is on the map. */
+export class ShowLinks {
+    /** @param {{defaults?: (atlasId: string) => Array}} [options] - the atlas's default (starred) maps */
+    constructor({ defaults = starredMaps } = {}) {
+        this._getDefaults = () => defaults(this._atlasId);
+        this._defaults = linkButton('', () => setDefaults(this._getDefaults()), 'Only this atlas’s default (starred) maps, and the shared base maps');
+        this._inView = linkButton('', () => {
+            if (this._allShown) browser()?.hideAllLayers?.();
+            else showInView(this._atlasId);
+        }, '');
+        this.el = el('span', 'console-active-links');
+        this._sep = el('span', 'console-active-sep', '|');
+        this.el.append(el('span', 'console-active-label', 'Show'), this._defaults, this._sep, this._inView);
+    }
+
+    sync(atlasId) {
+        this._atlasId = atlasId;
+        if (!atlasId) return;
+        const defaults = this._getDefaults();
+        this._defaults.replaceChildren(el('span', '', 'Starred'), icon('star-fill'), el('span', '', `(${defaults.length})`));
+        const inView = mapsInView(atlasId);
+        const on = new Set(activeIds().map(baseId));
+        const base = new Set((browser()?._getAtlasInitiallyCheckedIds?.('index') || []).map(baseId));
+        const starred = new Set(defaults.map(layer => baseId(layer._prefixedId || layer.id)));
+        // Everything in view on already: the link takes them all off instead
+        this._allShown = inView.length > 0 && inView.every(layer => on.has(baseId(layer._prefixedId || layer.id)));
+        // Only the links that would change what is on the map
+        const starredShowing = [...starred].every(id => on.has(id)) && [...on].every(id => starred.has(id) || base.has(id));
+        const nothingToHide = [...on].every(id => base.has(id));
+        this._defaults.hidden = !starred.size || starredShowing;
+        this._inView.hidden = this._allShown ? nothingToHide : !inView.length;
+        this._sep.hidden = this._defaults.hidden || this._inView.hidden;
+        this.el.hidden = this._defaults.hidden && this._inView.hidden;
+        this._inView.textContent = this._allShown ? 'Hide All' : `In Current View (${inView.length})`;
+        this._inView.title = this._allShown ? 'Turn every map off, but the shared base maps' : 'Turn on every map of this atlas in the view';
+    }
+}
+
 export class ActiveMaps {
     /**
      * @param {{row: (layer) => HTMLElement, defaults: () => Array}} options - row: draws a
@@ -79,20 +127,12 @@ export class ActiveMaps {
      */
     constructor({ row, defaults }) {
         this._row = row;
-        this._getDefaults = defaults;
         this.el = el('section', 'console-active-maps');
         const heading = el('div', 'console-sources-heading');
         this._count = el('span', 'console-tree-count');
         this._list = el('div', 'console-tree-items');
-        this._defaults = linkButton('', () => setDefaults(this._getDefaults()), 'Only this atlas’s default (starred) maps, and the shared base maps');
-        this._inView = linkButton('', () => {
-            if (this._allShown) browser()?.hideAllLayers?.();
-            else showInView(this._atlasId);
-        }, '');
-        this._links = el('span', 'console-active-links');
-        this._sep = el('span', 'console-active-sep', '|');
-        this._links.append(el('span', 'console-active-label', 'Show'), this._defaults, this._sep, this._inView);
-        heading.append(icon('layers'), el('span', 'console-sources-title', 'Active Maps'), this._count, this._links);
+        this._links = new ShowLinks({ defaults: () => defaults() });
+        heading.append(icon('layers'), el('span', 'console-sources-title', 'Active Maps'), this._count, this._links.el);
         this.el.append(heading, this._list);
     }
 
@@ -115,22 +155,6 @@ export class ActiveMaps {
     }
 
     syncCounts() {
-        if (!this._atlasId) return;
-        this._defaults.replaceChildren(el('span', '', 'Starred'), icon('star-fill'), el('span', '', `(${this._getDefaults().length})`));
-        const inView = mapsInView(this._atlasId);
-        const on = new Set(activeIds().map(baseId));
-        const base = new Set((browser()?._getAtlasInitiallyCheckedIds?.('index') || []).map(baseId));
-        const starred = new Set(this._getDefaults().map(layer => baseId(layer._prefixedId || layer.id)));
-        // Everything in view on already: the link takes them all off instead
-        this._allShown = inView.length > 0 && inView.every(layer => on.has(baseId(layer._prefixedId || layer.id)));
-        // Only the links that would change what is on the map
-        const starredShowing = [...starred].every(id => on.has(id)) && [...on].every(id => starred.has(id) || base.has(id));
-        const nothingToHide = [...on].every(id => base.has(id));
-        this._defaults.hidden = !starred.size || starredShowing;
-        this._inView.hidden = this._allShown ? nothingToHide : !inView.length;
-        this._sep.hidden = this._defaults.hidden || this._inView.hidden;
-        this._links.hidden = this._defaults.hidden && this._inView.hidden;
-        this._inView.textContent = this._allShown ? 'Hide All' : `In Current View (${inView.length})`;
-        this._inView.title = this._allShown ? 'Turn every map off, but the shared base maps' : 'Turn on every map of this atlas in the view';
+        if (this._atlasId) this._links.sync(this._atlasId);
     }
 }

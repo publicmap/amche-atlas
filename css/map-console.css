@@ -524,13 +524,25 @@
 }
 
 /* The count sits before the links, not pushed to the end */
-.console-active-maps .console-sources-heading > .console-tree-count {
+.console-active-maps .console-sources-heading > .console-tree-count,
+.console-onmap-heading > .console-tree-count {
     margin-left: -2px;
     font-weight: 400;
 }
 
-.console-active-maps .console-sources-heading > .console-active-links {
+.console-active-maps .console-sources-heading > .console-active-links,
+.console-onmap-heading > .console-active-links {
     margin-left: auto;
+}
+
+/* Find's on-map list (js/console/find-panel.js): Clear all after the links */
+.console-onmap-heading > .console-onmap-actions {
+    margin-left: auto;
+    font-weight: 400;
+}
+
+.console-onmap-heading > .console-active-links:not([hidden]) + .console-onmap-actions {
+    margin-left: 10px;
 }
 
 .console-active-label {
@@ -1607,6 +1619,82 @@ mapbox-search-box [class$='--Container'] {
 .console-row-text {
     flex: 1;
     min-width: 0;
+}
+
+/* A map's features, routes or locations as name badges under its name
+   (js/console/layer-features.js): one line, the rest behind "…" */
+.console-result-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+    max-height: 22px;
+    overflow: hidden;
+}
+
+.console-result-badges.open {
+    max-height: none;
+}
+
+.console-result-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    height: 22px;
+    padding: 0 8px;
+    border: 1px solid var(--console-line);
+    border-radius: 11px;
+    background: var(--console-raised);
+    color: var(--console-ink-2);
+    font-size: 11px;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.console-result-badge > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.console-result-badge > sl-icon {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--console-ink-3);
+}
+
+.console-result-badge[hidden] {
+    display: none;
+}
+
+.console-result-badge.saved {
+    border-color: rgba(255, 191, 0, 0.45);
+    color: var(--console-ink);
+}
+
+.console-result-badge:hover,
+.console-result-badge:focus-visible {
+    border-color: rgba(124, 180, 255, 0.55);
+    background: var(--console-hover);
+    color: var(--console-ink);
+}
+
+.console-result-badge-more {
+    flex-shrink: 0;
+    color: var(--console-blue);
+    font-weight: 700;
+}
+
+.console-row.console-parent.open {
+    background: var(--console-hover);
+}
+
+.route-cards.console-nested {
+    padding-left: 54px;
 }
 
 .console-row-title {

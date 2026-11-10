@@ -137,16 +137,18 @@ export function layerRow(layer, { active = activeIds(), on, meta = null, outside
     const title = layer.title || layer.name || layer.id;
     const trailing = el('span', 'console-row-actions');
     trailing.append(layerZoomButton(layer, { outside }), layerEye(layer, on === undefined ? { active } : { active, on }));
-    return row({
+    // A row with results nested under it (js/console/layer-features.js) opens them instead
+    const node = row({
         thumb: thumb || layerThumb(layer),
         title,
         meta: meta ?? (plainText(layer.description) || (layer.tags || []).join(' › ')),
         trailing,
         className: [className, outside && 'outside'].filter(Boolean).join(' '),
-        onClick: () => openLayerInfo(layer),
+        onClick: () => (node.toggleFeatures ? node.toggleFeatures() : openLayerInfo(layer)),
         onEnter: onEnter || (() => previewLayer(layer)),
         onLeave: onLeave || clearPreview
     });
+    return node;
 }
 
 /** The atlas's maps resolved from its own layer references, in config order. */

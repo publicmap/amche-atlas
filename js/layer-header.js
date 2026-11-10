@@ -17,6 +17,7 @@ import { ZoomToParam } from './zoom-to-param.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { RasterAdjust } from './raster-adjust.js';
 import { isStarred, setStarred } from './starred-layers.js';
+import { renderFeatureCard } from './layer-feature-card.js';
 
 export class LayerHeader {
     /**
@@ -65,6 +66,7 @@ export class LayerHeader {
 
         $('#lh-zoom-feature').toggle(!!feature);
         $('#lh-export-selected').toggle(!!feature);
+        renderFeatureCard(this.layerId, feature);
 
         this._renderBadges(layer);
         this._renderStar(layer);

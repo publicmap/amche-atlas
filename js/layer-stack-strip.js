@@ -18,7 +18,8 @@
  * and show/hide), with the thumbnail showing whether the layer has features
  * in view. Its meta names the map's tags, or its atlas when that is not the
  * current one. Clicking a row opens its details page in Find
- * (js/console/layer-details.js); hovering isolates the layer through
+ * (js/console/layer-details.js) - or, for a map with features or locations
+ * nested under it (js/console/layer-features.js), lists them; hovering isolates the layer through
  * MapLayerControl's shared LayerIsolationManager; rows drag to reorder.
  */
 import { LayerThumbnail } from './layer-thumbnail.js';
@@ -119,7 +120,7 @@ export class LayerStackStrip {
         map?.on?.('dataloading', this._onDataLoading);
         map?.on?.('idle', this._onMapIdle);
         this._controlBar.setLoading(true);
-        this._controlBar.update(window.layersInitialized ? this._getVisibleLayers() : null);
+        this._controlBar.update(window.layersInitialized ? this._getVisibleLayers({ withLocations: true }) : null);
 
         this._map = map;
         this._mountBrowserProxy(browserButton, hostEl);
@@ -213,7 +214,7 @@ export class LayerStackStrip {
         const compareId = this._getComparedLayerId();
         this._compareBadge.sync(compareId);
 
-        const allLayers = this._getVisibleLayers();
+        const allLayers = this._getVisibleLayers({ withLocations: true });
         this._controlBar?.update(allLayers);
         const layers = allLayers.filter(l => l.id !== compareId && (this._showHidden || !this._noFeatureIds.has(l.id)));
         const hiddenCount = allLayers.filter(l => l.id !== compareId).length - layers.length;
@@ -225,8 +226,8 @@ export class LayerStackStrip {
         this._signature = signature;
 
         // Layer items sit alongside the fixed toggle, so replace only the ones
-        // this method owns.
-        this._el.querySelectorAll('[data-layer-item]').forEach(el => el.remove());
+        // this method owns, with the results Find nested under them.
+        this._el.querySelectorAll('[data-layer-item], [data-layer-nested]').forEach(el => el.remove());
 
         const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(layers);
         const inAtlas = this._currentAtlasIds();
@@ -242,6 +243,7 @@ export class LayerStackStrip {
             });
         });
 
+        this._controlBar?.find?.decorateOnMap();
         this._footer?.sync();
     }
 
@@ -292,15 +294,15 @@ export class LayerStackStrip {
      * entry carries the full resolved config the thumbnail draws from, so they
      * are merged with the group winning.
      */
-    _getVisibleLayers() {
+    _getVisibleLayers({ withLocations = false } = {}) {
         const groups = window.layerControl?._state?.groups || [];
         const urlManager = window.urlManager;
         if (!urlManager) return [];
 
         const visible = [];
         groups.forEach((group, index) => {
-            // Internal scratch layer for inspected features, not a browsable map
-            if (group.id === 'locations') return;
+            // The markers layer is listed as a row, its locations nested under it, but is not a map the footer acts on
+            if (group.id === 'locations' && !withLocations) return;
             if (!urlManager.isGroupActive(index)) return;
 
             const registryLayer = window.layerRegistry?.getLayer?.(group.id, null, true);
@@ -316,7 +318,7 @@ export class LayerStackStrip {
         if (!this._open) return false;
         const comparedId = this._getComparedLayerId();
         const next = new Set(
-            this._getVisibleLayers()
+            this._getVisibleLayers({ withLocations: true })
                 .filter(layer => layer.id !== comparedId && !stateManager.hasRenderedFeatures(layer))
                 .map(layer => layer.id)
         );
@@ -514,7 +516,7 @@ export class LayerStackStrip {
 
         // Layers filtered out of the strip keep their slots: only the rows on
         // screen are reordered among themselves.
-        const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(this._getVisibleLayers());
+        const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(this._getVisibleLayers({ withLocations: true }));
         const merge = (full, shown) => {
             const onScreen = new Set(shown);
             let next = 0;

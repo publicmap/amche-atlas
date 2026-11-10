@@ -89,6 +89,14 @@ export function layerThumb(layer, size = 32) {
     return thumb;
 }
 
+const GEOMETRY_ICONS = { Point: 'record-circle', LineString: 'bezier2', Polygon: 'pentagon' };
+
+/** A feature's icon by its geometry: point, line or area. */
+export function geometryIcon(geometry) {
+    const type = geometry?.type === 'GeometryCollection' ? geometry.geometries?.[0]?.type : geometry?.type;
+    return GEOMETRY_ICONS[String(type || '').replace(/^Multi/, '')] || 'bounding-box-circles';
+}
+
 export function iconThumb(name) {
     const thumb = el('span', 'console-thumb console-thumb-icon');
     thumb.appendChild(icon(name));

@@ -8,7 +8,7 @@
  * label editor with the result's label filled in
  * (MapMarkerManager.pinFeature).
  */
-import { row, icon, el, iconThumb } from './find-rows.js';
+import { row, icon, el, iconThumb, geometryIcon } from './find-rows.js';
 import { zoomButton } from './find-scope.js';
 
 const stateManager = () => window.featureControl?._stateManager || null;
@@ -82,7 +82,7 @@ export class FeatureSync {
         if (target) actions.appendChild(zoomButton(target, `Zoom to ${label}`, { outside: false }));
         actions.appendChild(pin);
         const node = row({
-            thumb: iconThumb('bounding-box-circles'),
+            thumb: iconThumb(geometryIcon(selection?.feature?.geometry)),
             title: label,
             trailing: actions,
             className: 'console-feature-row',

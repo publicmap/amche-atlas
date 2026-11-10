@@ -1,16 +1,18 @@
 /**
  * What Find (js/console/find-panel.js) lists for a query, view by view.
- * Results nest under what they belong to: a feature under its map, so a map
- * with matching features is listed even when only its features matched.
+ * Results nest under what they belong to (js/console/layer-features.js): a
+ * feature under its map and a saved location under the locations layer, so a
+ * map with matching features is listed even when only its features matched.
  * Maps with matching features lead,
  * then maps matching by name.
  *
  * Every list is scoped to the view (js/console/find-scope.js); what lies
  * outside is either left out and counted, or listed with a zoom button.
  */
-import { el, sectionLabel, row, iconThumb, chevron, moreRow, deleteButton } from './find-rows.js';
-import { layerRow, atlasName, activeIds } from './find-browse.js';
-import { scoped, layerBbox, routeBbox, zoomButton } from './find-scope.js';
+import { el, sectionLabel, row, iconThumb, chevron, moreRow, deleteButton, geometryIcon } from './find-rows.js';
+import { layerRow, atlasName, activeIds, openLayerInfo } from './find-browse.js';
+import { nestResults } from './layer-features.js';
+import { scoped, layerBbox, routeBbox, zoomButton, bboxInView, distanceInView } from './find-scope.js';
 import { byRank, matchRank } from './find-rank.js';
 import { createMarkerProvider } from '../search/providers/marker-provider.js';
 import { matchingRoutes } from './route-list.js';
@@ -20,7 +22,6 @@ import { routeBadges } from './location-routes.js';
 
 const markers = createMarkerProvider();
 const pins = () => window.featureControl?._markerManager?._locationPins;
-const FEATURES_PER_MAP = 5;
 const PREVIEW_COUNT = 5;
 const OWN_SECTIONS = new Set(['Atlases', 'Layers', 'Features', 'Your markers', 'Data link']);
 const ITEM_ICONS = { 'country': 'globe2', 'directions': 'signpost-split', 'mapbox-place': 'geo-alt' };
@@ -32,7 +33,7 @@ export function liveLayer(groupId) {
     return config || group ? { ...(config || {}), ...(group || {}) } : null;
 }
 
-function sameLayer(layer, groupId) {
+export function sameLayer(layer, groupId) {
     const ids = [layer.id, layer._prefixedId];
     return ids.includes(groupId) || (!!layer._sourceAtlas && ids.includes(`${layer._sourceAtlas}-${groupId}`));
 }
@@ -53,8 +54,15 @@ export function placeItems(sections) {
 }
 
 function placePoint(item) {
-    const coords = item.geometry?.coordinates;
+    const coords = item.geometry?.coordinates || item.center;
     return Array.isArray(coords) && coords.length >= 2 ? { lngLat: coords } : null;
+}
+
+// A Mapbox suggestion has no point, only its distance from where the search was made
+function placeWhere(item) {
+    const distance = item._raw?.distance;
+    if (!placePoint(item) && item._proximity && Number.isFinite(distance)) return { inView: distanceInView(item._proximity, distance) };
+    return placePoint(item);
 }
 
 /** Maps with matching features (each with its features), then maps matching by name. */
@@ -91,15 +99,28 @@ export function routeResults(term) {
     return scoped(routes, route => ({ bbox: routeBbox(route) }));
 }
 
-export function placeResults(sections) {
-    return scoped(placeItems(sections), placePoint);
+/**
+ * Places in view, and those outside it - listed or behind a "Show" row, as the
+ * in-view filter says. Of the countries matching, only the best leads, wherever it is.
+ */
+export function placeResults(sections, term = '') {
+    const all = placeItems(sections);
+    const isCountry = item => item._searchResultType === 'country';
+    const country = byRank(all.filter(isCountry), term, item => item.properties?.name).slice(0, 1);
+    const scope = scoped(all.filter(item => !isCountry(item)), placeWhere);
+    const shown = [...country, ...scope.shown];
+    const items = [...country, ...all.filter(item => !isCountry(item))];
+    if (!scope.hidden) return { ...scope, shown, items };
+    const inside = new Set(shown);
+    return { ...scope, shown, items, outside: new Set(items.filter(item => !inside.has(item))) };
 }
 
 /**
  * Renders into Find. `ctx` carries Find's own hooks: track(node, item) for
  * keyboard order, featureSync (js/console/feature-sync.js), expanded/toggle
- * for "Show more", selectFeature, selectLocation, openRouteStop, selectRoute,
- * selectPlace, isSelected(key) and stopFocus (the highlighted route stop).
+ * for "Show more", selectFeature, selectLocation, shareLocations, openRoute,
+ * openRouteStop, selectRoute, selectPlace, isSelected(key) and stopFocus (the
+ * highlighted route stop).
  */
 export class ResultsRenderer {
     constructor(ctx) {
@@ -111,79 +132,82 @@ export class ResultsRenderer {
         const section = el('section', 'console-section');
         section.appendChild(sectionLabel(label, el('span', '', source)));
         const active = activeIds();
-        this._limited(section, key, groups, ({ layer, features }) => {
-            const parent = layerRow(layer, { active, meta: atlasName(layer._sourceAtlas), outside: outside.has(layer),
-                className: features.length ? 'console-parent' : '' });
-            const nodes = [this.ctx.track(parent, { layer })];
-            const key = `features:${layer.id}`;
-            const open = this.ctx.expanded.has(key);
-            const shown = open ? features : features.slice(0, FEATURES_PER_MAP);
-            shown.forEach(item => {
-                const node = this.ctx.featureSync.featureRow(item, { onSelect: this.ctx.selectFeature });
-                node.classList.add('console-nested');
-                nodes.push(this.ctx.track(node, item));
-            });
-            if (features.length > shown.length) {
-                const more = moreRow(`${features.length - shown.length} more in ${layer.title || layer.id}`, () => this.ctx.toggle(key));
-                more.classList.add('console-nested');
-                nodes.push(more);
-            }
-            return nodes;
+        this._limited(section, key, groups, ({ layer, features, routes }) => {
+            const parent = this.ctx.track(layerRow(layer, { active, meta: atlasName(layer._sourceAtlas), outside: outside.has(layer) }), { layer });
+            return this.nest(parent, layer, features, { routes });
         });
         container.appendChild(section);
         return groups.length;
     }
 
-    /** Locations; one that is a stop on routes carries a badge per route. */
-    locations(container, { shown, outside }, { label = 'Locations', side = null } = {}) {
-        if (!shown.length) return 0;
-        const section = el('section', 'console-section');
-        section.appendChild(sectionLabel(label, side));
-        this._limited(section, 'locations', shown, item => {
-            const key = `location:${item.markerId}`;
-            const name = item.properties?.name || 'this location';
-            const actions = el('span', 'console-row-actions');
-            const badges = routeBadges(item.markerId, (route, index) => this.ctx.openRouteStop(route, index));
-            actions.append(
-                ...(badges ? [badges] : []),
-                zoomButton({ lngLat: item.markerLngLat }, outside.has(item) ? `${name} is outside this view - zoom to it` : `Zoom to ${name}`, { outside: outside.has(item) }),
-                deleteButton(`Delete ${name}`, () => window.featureControl?._markerManager?.deleteMarker(item.markerId))
-            );
-            const node = row({
-                thumb: iconThumb(badges ? 'signpost-split' : 'pin-map'),
-                title: item.properties?.name || '',
-                meta: item.properties?.place_name || '',
-                trailing: actions,
-                className: [outside.has(item) && 'outside', this.ctx.isSelected(key) && 'selected'].filter(Boolean).join(' '),
-                onClick: () => this.ctx.selectLocation(item, key),
-                onEnter: () => pins()?.highlight(item.markerId, true),
-                onLeave: () => pins()?.highlight(item.markerId, false)
+    /** A map row's results nested under it: features, a routes layer's routes, or the locations layer's locations. */
+    nest(parent, layer, items, { routes = false } = {}) {
+        if (routes) {
+            return nestResults(parent, {
+                key: layer.id, items, ctx: this.ctx,
+                rowOf: route => this.routeCard(route),
+                pick: route => this.ctx.openRoute(route),
+                nameOf: route => routeTitle(route, matchingRoutes()),
+                iconOf: () => 'signpost-split',
+                wrap: 'route-cards',
+                footer: this.ctx.shareLocations ? [{ text: 'Share these routes', onClick: this.ctx.shareLocations }] : []
             });
-            return [this.ctx.track(node, item)];
+        }
+        if (layer.id === 'locations') {
+            return nestResults(parent, {
+                key: layer.id, items, ctx: this.ctx,
+                rowOf: item => this.locationRow(item),
+                pick: item => this.ctx.selectLocation(item, `location:${item.markerId}`),
+                hover: (item, on) => pins()?.highlight(item.markerId, on),
+                iconOf: () => 'pin-map',
+                footer: this.ctx.shareLocations ? [{ text: 'Share these locations', onClick: this.ctx.shareLocations }] : []
+            });
+        }
+        return nestResults(parent, {
+            key: layer.id, items, ctx: this.ctx,
+            rowOf: item => this.ctx.featureSync.featureRow(item, { onSelect: this.ctx.selectFeature }),
+            pick: this.ctx.selectFeature,
+            hover: (item, on) => this.ctx.featureSync.hover(item.mapFeature, on),
+            iconOf: item => geometryIcon(item.mapFeature?.feature?.geometry),
+            footer: [{ text: `About ${layer.title || layer.id}`, onClick: () => openLayerInfo(layer) }]
         });
-        container.appendChild(section);
-        return shown.length;
     }
 
-    routes(container, { shown, outside }, { label = 'Routes', side = null } = {}) {
-        if (!shown.length) return 0;
-        const section = el('section', 'console-section');
-        section.appendChild(sectionLabel(label, side));
-        const cards = el('div', 'route-cards');
-        this._limited(cards, 'routes', shown, route => {
-            const key = `route-card:${route.id}`;
-            const card = routeCard(route, { open: this.ctx.expanded.has(key), onToggle: () => this.ctx.toggle(key) });
-            if (this.ctx.stopFocus?.routeId === route.id) requestAnimationFrame(() => card.querySelector('.route-stop.highlighted')?.scrollIntoView({ block: 'nearest' }));
-            if (outside.has(route)) {
-                card.classList.add('outside');
-                card.querySelector('.route-card-chevron')?.before(zoomButton({ bbox: routeBbox(route) }, 'This route is outside this view - zoom to it'));
-            }
-            this.ctx.track(card.querySelector('.route-card-head'), route);
-            return [card];
+    /** A saved location; one that is a stop on routes carries a badge per route. */
+    locationRow(item, outside = false) {
+        const key = `location:${item.markerId}`;
+        const name = item.properties?.name || 'this location';
+        const actions = el('span', 'console-row-actions');
+        const badges = routeBadges(item.markerId, (route, index) => this.ctx.openRouteStop(route, index));
+        actions.append(
+            ...(badges ? [badges] : []),
+            zoomButton({ lngLat: item.markerLngLat }, outside ? `${name} is outside this view - zoom to it` : `Zoom to ${name}`, { outside }),
+            deleteButton(`Delete ${name}`, () => window.featureControl?._markerManager?.deleteMarker(item.markerId))
+        );
+        return row({
+            thumb: iconThumb(badges ? 'signpost-split' : 'pin-map'),
+            title: item.properties?.name || '',
+            meta: item.properties?.place_name || '',
+            trailing: actions,
+            className: [outside && 'outside', this.ctx.isSelected(key) && 'selected'].filter(Boolean).join(' '),
+            onClick: () => this.ctx.selectLocation(item, key),
+            onEnter: () => pins()?.highlight(item.markerId, true),
+            onLeave: () => pins()?.highlight(item.markerId, false)
         });
-        section.appendChild(cards);
-        container.appendChild(section);
-        return shown.length;
+    }
+
+    /** A route's card; outside the view it carries a zoom button. */
+    routeCard(route) {
+        const key = `route-card:${route.id}`;
+        const card = routeCard(route, { open: this.ctx.expanded.has(key), onToggle: () => this.ctx.toggle(key) });
+        if (this.ctx.stopFocus?.routeId === route.id) requestAnimationFrame(() => card.querySelector('.route-stop.highlighted')?.scrollIntoView({ block: 'nearest' }));
+        const box = routeBbox(route);
+        if (box && !bboxInView(box)) {
+            card.classList.add('outside');
+            card.querySelector('.route-card-chevron')?.before(zoomButton({ bbox: box }, 'This route is outside this view - zoom to it'));
+        }
+        this.ctx.track(card.querySelector('.route-card-head'), route);
+        return card;
     }
 
     // A pasted data link: one row that opens it in the layer editor
@@ -205,11 +229,13 @@ export class ResultsRenderer {
         return items.length;
     }
 
-    places(container, { shown, outside }) {
-        if (!shown.length) return 0;
+    places(container, { shown, outside, hidden, items }) {
+        if (!items.length) return 0;
+        const revealed = hidden && this.ctx.expanded.has('places-outside');
+        const list = revealed ? items : shown;
         const section = el('section', 'console-section');
         section.appendChild(sectionLabel('Places', el('span', '', 'Mapbox · OpenStreetMap')));
-        this._limited(section, 'places', shown, item => {
+        this._limited(section, 'places', list, item => {
             const isPlot = !!item.properties?._isCadastralParquet;
             const point = placePoint(item);
             const node = row({
@@ -224,8 +250,12 @@ export class ResultsRenderer {
             });
             return [this.ctx.track(node, item)];
         });
+        if (hidden) {
+            section.appendChild(moreRow(revealed ? 'Only results in map view' : `Show ${hidden} result${hidden === 1 ? '' : 's'} outside map view`,
+                () => this.ctx.toggle('places-outside')));
+        }
         container.appendChild(section);
-        return shown.length;
+        return items.length;
     }
 
     _limited(section, key, items, build) {

@@ -1074,6 +1074,33 @@
             border-bottom: 1px solid var(--c-line);
         }
 
+        #feature-card {
+            --console-ink: var(--c-ink);
+            --console-ink-3: var(--c-ink-3);
+            --console-line: var(--c-line);
+            --console-blue: var(--c-blue);
+            padding: 10px 12px;
+            border: 1px solid var(--c-line);
+            border-radius: 10px;
+            background: var(--c-raised);
+        }
+
+        .feature-card-kicker {
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--c-ink-3);
+        }
+
+        .feature-card-title {
+            margin: 2px 0 6px;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--c-ink);
+            word-break: break-word;
+        }
+
         .section-box {
             margin-bottom: 18px;
             padding-bottom: 14px;
@@ -1843,6 +1870,9 @@
                 </div>
                 </div>
             </div>
+
+            <!-- The feature the editor was opened on (js/layer-feature-card.js) -->
+            <div id="feature-card" class="section-box" style="display:none;"></div>
 
             <!-- Notes from the layer: the form follows -->
             <div id="edit-tab">

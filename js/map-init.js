@@ -46,6 +46,7 @@ import { installStyleReferenceContext } from './style-reference-context.js';
 import { keepDrapedLayersBelow } from './maplibre-drape-order.js';
 import { installRouteBadgeImages } from './search/route-badge.js';
 import { guardFeatureQueries } from './safe-feature-query.js';
+import { watchCameraTarget } from './camera-target.js';
 
 export class MapInitializer {
     // Note: location-based atlas selection is owned by SplashScreenManager
@@ -1228,12 +1229,12 @@ export class MapInitializer {
 
             // Update attribution with location name on map movement
             let reverseGeocodeTimeout;
-            const updateAttributionLocation = async () => {
+            let reverseGeocodeRequest = 0;
+            const updateAttributionLocation = async (center = map.getCenter(), zoom = map.getZoom()) => {
                 if (isNominatimBackedOff()) return;
+                const request = ++reverseGeocodeRequest;
 
                 try {
-                    const center = map.getCenter();
-                    const zoom = map.getZoom();
                     const latRounded = Math.round(center.lat * 100000) / 100000;
                     const lngRounded = Math.round(center.lng * 100000) / 100000;
                     const nominatimZoom = Math.max(0, Math.min(18, Math.round(zoom)));
@@ -1245,6 +1246,8 @@ export class MapInitializer {
 
                     if (response.ok) {
                         const data = await response.json();
+                        // A later lookup (the map moved on) has the say
+                        if (request !== reverseGeocodeRequest) return;
                         if (data.display_name && window.attributionControl) {
                             window.attributionControl.setLocation(data.display_name, data.address || null, data.osm_type
                                 ? { osmType: data.osm_type, osmId: String(data.osm_id), name: data.name || null, category: data.category || null, type: data.type || null, lat: parseFloat(data.lat), lon: parseFloat(data.lon) }
@@ -1259,11 +1262,20 @@ export class MapInitializer {
                 }
             };
 
+            // A flight's destination is known as it takes off: look it up then, and
+            // again on landing only if the user steered it somewhere else.
+            const cameraTarget = watchCameraTarget(map, (target, eventData) => {
+                if (eventData?._isSearchPreview) return;
+                clearTimeout(reverseGeocodeTimeout);
+                updateAttributionLocation(target.center, target.zoom);
+            });
+
             map.on('moveend', (e) => {
                 // Search suggestion hover/typing previews (map-search-control.js) tag
                 // their fitBounds calls with this so they don't spam the reverse-geocode
                 // call below on every hovered result.
                 if (e && e._isSearchPreview) return;
+                if (cameraTarget.landed()) return;
 
                 clearTimeout(reverseGeocodeTimeout);
                 reverseGeocodeTimeout = setTimeout(updateAttributionLocation, 1000);

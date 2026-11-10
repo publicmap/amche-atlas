@@ -7,7 +7,8 @@ function createSessionToken() {
     return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`
 }
 
-function toSuggestionItem(raw) {
+// `distance` (metres) is from `proximity`: suggestions carry no coordinates of their own
+function toSuggestionItem(raw, proximity) {
     return {
         properties: {
             name: raw.name,
@@ -15,6 +16,7 @@ function toSuggestionItem(raw) {
         },
         icon: '📍',
         _searchResultType: 'mapbox-place',
+        _proximity: proximity ? proximity.split(',').map(Number) : null,
         _raw: raw
     }
 }
@@ -84,7 +86,7 @@ export function createMapboxPlaceProvider({ accessToken, language = 'en' } = {})
                 .then(res => res.json())
                 .then(data => {
                     if (pendingQuery !== query) return
-                    onResult((data.suggestions || []).map(toSuggestionItem))
+                    onResult((data.suggestions || []).map(raw => toSuggestionItem(raw, proximity)))
                 })
                 .catch(err => {
                     if (err.name !== 'AbortError') console.error('[mapbox-place]', err)
