@@ -1,4 +1,6 @@
 import { ExportFrame } from './export-frame.js';
+import { loadLayoutTemplate, PX_PER_MM } from './export-layout.js';
+import { renderLegendGroups } from './export-legend.js';
 import { InspectionHandlerLoader } from './inspection-handler-loader.js';
 import { trackEvent } from './analytics.js';
 import { collectSourceFeatures, prefetchGeoJSONSources } from './source-feature-collector.js';
@@ -17,11 +19,8 @@ export class MapExportControl {
         this._isExporting = false;
         this._exportCancelled = false;
         this._title = '';
-        this._description = '';
-        this._titleCustomized = false;
-        this._descriptionCustomized = false;
         this._moveendHandler = null;
-        this._footerTemplateCache = null;
+        this._frameMoveHandlers = null;
         this._headerImageDataUrlCache = new Map();
         this._exportSettings = null;
         this._isPanelOpen = false;
@@ -51,11 +50,28 @@ export class MapExportControl {
         this._createIframe();
 
         this._moveendHandler = () => {
-            if (this._isPanelOpen && !this._isExporting && !this._titleCustomized) {
+            if (this._isPanelOpen && !this._isExporting && !this._frame.layout.isCustomized('title')) {
                 this._updateTitleFromLocation();
             }
         };
         map.on('moveend', this._moveendHandler);
+
+        // Panning or zooming the map under the frame hides the panel until the
+        // map settles, so the whole frame is in view while it is adjusted.
+        this._frameMoveHandlers = {
+            movestart: (e) => {
+                if (e.originalEvent && this._isFramingActive()) this._onFrameInteractionStart();
+            },
+            moveend: () => {
+                if (!this._isFramingActive()) return;
+                this._onFrameInteractionEnd();
+                this._refreshLayout();
+            },
+            click: () => {
+                if (this._isFramingActive()) this._frame.layout.select(null);
+            }
+        };
+        Object.entries(this._frameMoveHandlers).forEach(([type, handler]) => map.on(type, handler));
 
         setTimeout(() => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -72,6 +88,10 @@ export class MapExportControl {
             this._map.off('moveend', this._moveendHandler);
             this._moveendHandler = null;
         }
+        if (this._map && this._frameMoveHandlers) {
+            Object.entries(this._frameMoveHandlers).forEach(([type, handler]) => this._map.off(type, handler));
+            this._frameMoveHandlers = null;
+        }
         if (this._frame) {
             this._frame.remove();
         }
@@ -85,25 +105,100 @@ export class MapExportControl {
         this._map = null;
     }
 
-    _onFrameChange(aspectRatio) {
-        if (this._iframe && this._iframe.contentWindow) {
-            this._iframe.contentWindow.postMessage({
-                type: 'frame-aspect-changed',
-                aspectRatio: aspectRatio
-            }, '*');
-        }
+    _isFramingActive() {
+        return this._isPanelOpen && !this._isExporting && !!this._frame?.isActive();
     }
 
     _onFrameInteractionStart() {
-        if (this._iframe) {
-            this._iframe.style.opacity = '0.4';
-        }
+        clearTimeout(this._panelRevealTimer);
+        if (!this._iframe || this._isExporting) return;
+        this._iframe.style.opacity = '0';
+        this._iframe.style.pointerEvents = 'none';
     }
 
     _onFrameInteractionEnd() {
-        if (this._iframe) {
-            this._iframe.style.opacity = '1';
+        clearTimeout(this._panelRevealTimer);
+        this._panelRevealTimer = setTimeout(() => {
+            if (!this._iframe) return;
+            this._iframe.style.opacity = '';
+            this._iframe.style.pointerEvents = '';
+        }, 600);
+    }
+
+    _onLayoutTextChange(name, text) {
+        if (name === 'title') this._title = text;
+    }
+
+    // The selected page element's editor lives in the panel
+    _onLayoutSelectionChange(item, state) {
+        this._iframe?.contentWindow?.postMessage({ type: 'layout-selected', item, state }, '*');
+    }
+
+    // The panel lists a legend group per map, each with its eye
+    _onLayoutLegendChange(entries) {
+        this._iframe?.contentWindow?.postMessage({ type: 'layout-legend', entries }, '*');
+    }
+
+    // The part of the map the frame fits in, in map-container pixels: clear of
+    // the panel and of the map tools rail in the top-right corner.
+    _frameRegion(mapRect) {
+        const region = { left: 0, top: 0, right: mapRect.width, bottom: mapRect.height };
+        const rail = this._map?.getContainer().querySelector('.mapboxgl-ctrl-top-right');
+        const railRect = rail?.getBoundingClientRect();
+        if (railRect?.width && railRect.width < mapRect.width / 4) {
+            region.right = Math.min(region.right, railRect.left - mapRect.left);
         }
+        if (this._isPanelOpen && this._iframe?.style.display !== 'none') {
+            const panel = this._iframe.getBoundingClientRect();
+            if (this._panelPlacement === 'bottom') region.bottom = Math.min(region.bottom, panel.top - mapRect.top);
+            else region.left = Math.max(region.left, panel.right - mapRect.left);
+        }
+        return region;
+    }
+
+    _shareUrl() {
+        return window.urlManager?.getShareableURL?.() || window.location.href;
+    }
+
+    // Live values on the page preview, after url-manager's own debounce so the
+    // QR code and info line carry the current link.
+    _refreshLayout() {
+        clearTimeout(this._layoutRefreshTimer);
+        this._layoutRefreshTimer = setTimeout(() => {
+            if (!this._frame?.isActive() || this._isExporting) return;
+            const shareUrl = this._shareUrl();
+            this._frame.layout.refresh({
+                map: this._map,
+                scaleText: this._scaleText(),
+                bearing: this._map.getBearing(),
+                infoText: this._infoText(shareUrl),
+                shareUrl,
+                qrMm: this._qrSizeMm(shareUrl)
+            });
+        }, 350);
+    }
+
+    // Ground distance of the page's 30mm scale bar
+    _scaleText() {
+        const bounds = this._frame.getBounds();
+        const lat = bounds.getCenter().lat;
+        const across = new mapboxgl.LngLat(bounds.getWest(), lat).distanceTo(new mapboxgl.LngLat(bounds.getEast(), lat));
+        const meters = across * 30 / this._frame.layout.page.widthMm;
+        return meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${Math.round(meters)} m`;
+    }
+
+    _qrSizeMm(shareUrl) {
+        const length = shareUrl.length;
+        const complexity = length > 800 ? 3 : length > 600 ? 2.5 : length > 400 ? 2 : length > 200 ? 1.5 : 1;
+        const widthMm = this._frame.layout.page.widthMm;
+        return Math.max(25, Math.min(widthMm * (0.12 + (complexity - 1) * 0.06), 80));
+    }
+
+    _infoText(shareUrl) {
+        const timestamp = new Date().toLocaleString('en-GB', {
+            day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+        return `Exported ${timestamp} | ${this._formatUrlForDisplay(shareUrl)}`;
     }
 
     _createIframe() {
@@ -114,21 +209,17 @@ export class MapExportControl {
         this._iframe.className = 'map-export-iframe';
         this._iframeSrcLoaded = false;
 
-        // Left-side panel matching the layer editor's side panel: flush
-        // under the header, full height, same width breakpoints and dark
-        // chrome (#1f2937 + #374151 borders) rather than a floating card.
+        // A card in the console's place (css/map-console.css tokens): top-left
+        // on wide screens, a bottom sheet on narrow ones (_updateIframeLayout).
         this._iframe.style.cssText = `
             position: fixed;
-            left: 0;
-            width: 40%;
-            border: none;
-            border-right: 1px solid #374151;
-            border-bottom: 1px solid #374151;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255, 255, 255, 0.26);
+            box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
             z-index: 999;
             display: none;
-            background: #1f2937;
+            background: #111827;
             overflow: hidden;
+            transition: opacity 0.18s ease;
         `;
         document.body.appendChild(this._iframe);
 
@@ -169,23 +260,25 @@ export class MapExportControl {
                 this._clearContext();
             } else if (type === 'export-start') {
                 this._handleExport(config);
-            } else if (type === 'title-changed') {
-                this._title = config.title;
-                this._titleCustomized = config.customized;
-            } else if (type === 'description-changed') {
-                this._description = config.description;
-                this._descriptionCustomized = config.customized;
+            } else if (type === 'export-size') {
+                this._panelContentHeight = event.data.height;
+                this._updateIframeLayout();
             } else if (type === 'frame-show') {
                 if (this._iframe.style.display !== 'none') {
-                    this._frame.show();
-                    this._frame.setAspectRatio(config.aspectRatio || 1.414);
+                    this._frame.layout.setVisible(config.visible);
+                    this._frame.setLayoutShown(config.showLayout !== false);
+                    this._frame.setPage(config.widthMm, config.heightMm);
+                    if (!this._frame.isActive()) this._frame.show();
+                    this._refreshLayout();
                 }
             } else if (type === 'frame-hide') {
                 this._frame.hide();
-            } else if (type === 'frame-aspect') {
-                if (this._iframe.style.display !== 'none') {
-                    this._frame.setAspectRatio(config.aspectRatio);
-                }
+            } else if (type === 'layout-visibility') {
+                this._frame.layout.setVisible(config);
+            } else if (type === 'layout-select') {
+                this._frame.layout.select(event.data.item);
+            } else if (type === 'layout-update') {
+                this._frame.layout.update(event.data.item, event.data.changes);
             } else if (type === 'export-cancel') {
                 this._exportCancelled = true;
             } else if (type === 'processing-overlay-show') {
@@ -222,21 +315,26 @@ export class MapExportControl {
         });
     }
 
-    // Same breakpoint and top offset as map-browser-control.js's overlay, so
-    // the two left-side panels line up under the header identically.
+    // An iframe is a replaced element and won't size to its content, so the
+    // panel reports its content height ('export-size') and the card takes
+    // that, up to the viewport (or half of it as a bottom sheet).
     _updateIframeLayout() {
         if (!this._iframe) return;
-        const header = document.querySelector('.header-nav');
-        const headerHeight = header ? header.offsetHeight : 0;
-        // An iframe is a replaced element, so top+bottom alone won't stretch
-        // it the way it would a div - height has to be set explicitly.
-        this._iframe.style.top = `${headerHeight}px`;
-        // vh first, then dvh: browsers without dvh keep the vh value, while
-        // mobile browsers with a dynamic toolbar shrink to the visible area so
-        // the panel's sticky footer stays reachable.
-        this._iframe.style.height = `calc(100vh - ${headerHeight}px)`;
-        this._iframe.style.height = `calc(100dvh - ${headerHeight}px)`;
-        this._iframe.style.width = window.matchMedia('(min-width: 768px)').matches ? '40%' : '75%';
+        const narrow = !(window.matchMedia?.('(min-width: 768px)').matches ?? true);
+        const gap = 12;
+        const viewport = window.visualViewport?.height || window.innerHeight;
+        const content = this._panelContentHeight || 520;
+        this._panelPlacement = narrow ? 'bottom' : 'left';
+        Object.assign(this._iframe.style, narrow ? {
+            left: '0', right: '0', top: 'auto', bottom: '0', width: '100%',
+            height: `${Math.min(content + 2, Math.round(viewport * 0.5))}px`,
+            borderRadius: '12px 12px 0 0'
+        } : {
+            left: `${gap}px`, right: 'auto', top: `${gap}px`, bottom: 'auto', width: '360px',
+            height: `${Math.min(content + 2, viewport - 2 * gap)}px`,
+            borderRadius: '12px'
+        });
+        if (this._frame?.isActive?.()) this._frame.fit();
     }
 
     _toggle() {
@@ -283,6 +381,8 @@ export class MapExportControl {
         this.preload();
         this._iframe.style.display = 'block';
         this._isPanelOpen = true;
+        document.body.classList.add('map-export-open');
+        this._updateIframeLayout();
         this._setContext(context);
 
         const urlSettings = this._parseExportURL();
@@ -308,8 +408,11 @@ export class MapExportControl {
 
     _hide() {
         this._iframe.style.display = 'none';
+        this._iframe.style.opacity = '';
+        this._iframe.style.pointerEvents = '';
         this._frame.hide();
         this._isPanelOpen = false;
+        document.body.classList.remove('map-export-open');
         this._setContext(null);
 
         if (window.urlManager) {
@@ -333,13 +436,14 @@ export class MapExportControl {
         if (!this._context) {
             if (hadContext) {
                 this._title = '';
-                this._titleCustomized = false;
+                this._frame?.layout?.setText('title', '', { force: true });
                 this._titleStale = true;
             }
             return;
         }
 
         this._title = this._context.title || this._context.layerId;
+        this._frame?.layout?.setText('title', this._title, { force: true });
         this._isolateContextLayer();
         this._postContextCount(this._context);
     }
@@ -440,7 +544,7 @@ export class MapExportControl {
         try {
             let center;
 
-            if (this._frame && this._frame._el && this._frame._el.classList.contains('active')) {
+            if (this._frame?.isActive()) {
                 const frameRect = this._frame._el.getBoundingClientRect();
                 if (frameRect.width > 0 && frameRect.height > 0) {
                     const mapRect = this._map.getContainer().getBoundingClientRect();
@@ -457,14 +561,9 @@ export class MapExportControl {
             const mapZoom = this._map.getZoom();
             const address = await this._reverseGeocode(center.lat, center.lng, mapZoom);
 
-            this._title = address ? `Map of ${address}` : 'Map';
-
-            if (this._iframe && this._iframe.contentWindow) {
-                this._iframe.contentWindow.postMessage({
-                    type: 'title-update',
-                    title: this._title
-                }, '*');
-            }
+            if (this._frame.layout.isCustomized('title')) return;
+            this._title = address ? `Map of ${address.replace(/<br\s*\/?>/gi, ', ')}` : 'Map';
+            this._frame.layout.setText('title', this._title);
         } catch (e) {
             console.warn('Failed to update title from location', e);
             this._title = 'Map';
@@ -653,7 +752,7 @@ export class MapExportControl {
 
     /**
      * Renders the exact same map+footer raster as _exportPNG/_exportJPEG (via
-     * _addFooterToRaster) and drops it into a single full-bleed page image,
+     * _addLayoutToRaster) and drops it into a single full-bleed page image,
      * so the PDF layout (title, legend, QR, scale bar, north arrow) is
      * pixel-identical to the image exports instead of a separately
      * hand-drawn jsPDF footer.
@@ -695,7 +794,6 @@ export class MapExportControl {
         }
 
         const frameBounds = this._frame.getBounds();
-        const frameCenter = frameBounds.getCenter();
 
         this._frame.hide();
 
@@ -724,7 +822,7 @@ export class MapExportControl {
                     }
 
                     this._sendProgress(60, 'Adding footer');
-                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config, markersDataUrl);
+                    dataUrl = await this._addLayoutToRaster(dataUrl, actualPixelWidth, actualPixelHeight, config, markersDataUrl);
 
                     this._sendProgress(85, 'Building PDF');
                     const doc = new jsPDF({
@@ -1074,7 +1172,6 @@ export class MapExportControl {
         const targetHeight = Math.round((heightMm * dpi) / 25.4);
 
         const frameBounds = this._frame.getBounds();
-        const frameCenter = frameBounds.getCenter();
 
         const container = this._map.getContainer();
         const originalWidth = container.style.width;
@@ -1113,7 +1210,7 @@ export class MapExportControl {
                     }
 
                     this._sendProgress(60, 'Adding footer');
-                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config, markersDataUrl);
+                    dataUrl = await this._addLayoutToRaster(dataUrl, actualPixelWidth, actualPixelHeight, config, markersDataUrl);
 
                     const blob = await fetch(dataUrl).then(r => r.blob());
 
@@ -1172,7 +1269,6 @@ export class MapExportControl {
         const targetHeight = Math.round((heightMm * dpi) / 25.4);
 
         const frameBounds = this._frame.getBounds();
-        const frameCenter = frameBounds.getCenter();
 
         const container = this._map.getContainer();
         const originalWidth = container.style.width;
@@ -1211,7 +1307,7 @@ export class MapExportControl {
                     }
 
                     this._sendProgress(60, 'Adding footer');
-                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config, markersDataUrl);
+                    dataUrl = await this._addLayoutToRaster(dataUrl, actualPixelWidth, actualPixelHeight, config, markersDataUrl);
 
                     this._sendProgress(70, 'Converting to JPEG');
                     const tempImg = new Image();
@@ -1298,7 +1394,6 @@ export class MapExportControl {
         const targetHeight = Math.round((heightMm * dpi) / 25.4);
 
         const frameBounds = this._frame.getBounds();
-        const frameCenter = frameBounds.getCenter();
 
         const container = this._map.getContainer();
         const originalWidth = container.style.width;
@@ -1352,7 +1447,7 @@ export class MapExportControl {
                     }
 
                     this._sendProgress(60, 'Adding footer');
-                    dataUrl = await this._addFooterToRaster(dataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, config, markersDataUrl);
+                    dataUrl = await this._addLayoutToRaster(dataUrl, actualPixelWidth, actualPixelHeight, config, markersDataUrl);
 
                     this._sendProgress(75, 'Building vector overlay');
                     const scaleFactor = actualPixelWidth / targetWidth;
@@ -1990,10 +2085,10 @@ export class MapExportControl {
 
         this._sendProgress(52, 'Adding footer');
 
-        // Markers are excluded here: this raster becomes a georeferenced DXF
-        // background image, not a presentation graphic, so it shouldn't carry
-        // non-georeferenced marker overlays.
-        imageDataUrl = await this._addFooterToRaster(imageDataUrl, actualPixelWidth, actualPixelHeight, frameCenter, originalBearing, dpi, { includeMarkers: false });
+        // Markers and the page's elements are excluded here: this raster
+        // becomes a georeferenced DXF background image, not a presentation
+        // graphic, so it shouldn't carry non-georeferenced overlays.
+        imageDataUrl = await this._addLayoutToRaster(imageDataUrl, actualPixelWidth, actualPixelHeight, { ...config, includeMarkers: false, includeLayout: false });
 
         this._sendProgress(55, 'Extracting vector features');
 
@@ -2082,7 +2177,7 @@ export class MapExportControl {
      * dimensions. `map.getCanvas()` only rasterizes the WebGL map itself —
      * markers are DOM elements overlaid on top of it — so this is composited
      * separately on top of that snapshot (see _exportPDF/_exportPNG/_exportJPEG
-     * and _addFooterToRaster).
+     * and _addLayoutToRaster).
      *
      * Must be called while the map container is still resized to the export
      * frame's target dimensions (i.e. before the calling export function
@@ -2259,7 +2354,7 @@ export class MapExportControl {
     /**
      * Flattens the marker overlay (see _captureMarkersOverlay) onto a base map
      * raster — used by _exportPDF, which embeds its map image directly via
-     * jsPDF rather than going through _addFooterToRaster's html2canvas
+     * jsPDF rather than going through _addLayoutToRaster's html2canvas
      * composite.
      */
     async _mergeMarkersOntoRaster(baseDataUrl, markersDataUrl, width, height) {
@@ -2274,39 +2369,6 @@ export class MapExportControl {
         ctx.drawImage(baseImg, 0, 0, width, height);
         ctx.drawImage(overlayImg, 0, 0, width, height);
         return canvas.toDataURL('image/png');
-    }
-
-    async _loadFooterTemplate() {
-        if (this._footerTemplateCache) {
-            return this._footerTemplateCache;
-        }
-
-        try {
-            const response = await fetch('map-export-layout.html');
-            if (!response.ok) {
-                throw new Error('Failed to load template');
-            }
-            const html = await response.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-
-            const template = doc.getElementById('export-footer-template');
-            if (!template) {
-                throw new Error('Footer template not found');
-            }
-
-            const styles = doc.querySelector('style');
-
-            this._footerTemplateCache = {
-                footer: template,
-                styles: styles
-            };
-
-            return this._footerTemplateCache;
-        } catch (e) {
-            console.error('Failed to load footer template:', e);
-            return null;
-        }
     }
 
     _formatUrlForDisplay(url) {
@@ -2375,393 +2437,19 @@ export class MapExportControl {
         }
     }
 
-    async _addFooterToRaster(mapImageDataUrl, width, height, center, bearing, dpi = 96, config = {}, markersDataUrl = null) {
-        const __profileStart = performance.now();
-        let __lastMark = __profileStart;
-        const __step = (label) => {
-            const now = performance.now();
-            console.log(`[Export][timing] ${label}: +${(now - __lastMark).toFixed(0)}ms (total ${(now - __profileStart).toFixed(0)}ms)`);
-            __lastMark = now;
-        };
+    /**
+     * Draws the page's elements (js/export-layout.js) over the captured map,
+     * at their places in the frame. The page is laid out at its real size in
+     * mm in an isolated document, so html2canvas computes a tiny standalone
+     * page rather than the whole app, then scaled to the raster's pixels.
+     */
+    async _addLayoutToRaster(mapImageDataUrl, width, height, config = {}, markersDataUrl = null) {
         try {
-            const html2canvas = (await import('html2canvas')).default;
-            __step('import html2canvas');
-
-            let shareUrl = window.location.href;
-            if (window.urlManager) {
-                shareUrl = window.urlManager.getShareableURL();
-            }
-
-            const urlLength = shareUrl.length;
-            let qrComplexity = 1;
-            if (urlLength > 200) qrComplexity = 1.5;
-            if (urlLength > 400) qrComplexity = 2.0;
-            if (urlLength > 600) qrComplexity = 2.5;
-            if (urlLength > 800) qrComplexity = 3.0;
-
-            const pageWidthPx = width;
-            const qrDisplaySizeRatio = 0.12 + (qrComplexity - 1) * 0.06;
-            const qrDisplaySize = Math.round(pageWidthPx * qrDisplaySizeRatio);
-
-            const minDisplaySize = Math.round((25 * dpi) / 25.4);
-            const maxDisplaySize = Math.round((80 * dpi) / 25.4);
-            const qrSize = Math.max(minDisplaySize, Math.min(qrDisplaySize, maxDisplaySize));
-
-            const qrGenerationSize = Math.max(qrSize * 8, Math.round(2000 * qrComplexity));
-
-            const footerHeightRatio = 0.05;
-            const footerHeight = Math.round(height * footerHeightRatio);
-
-            const footerPadding = Math.round(footerHeight * 0.15);
-            const textGap = Math.round(footerHeight * 0.08);
-
-            const titleFontSize = Math.round(footerHeight * 0.25);
-            const descFontSize = Math.round(footerHeight * 0.18);
-            const urlFontSize = Math.round(footerHeight * 0.13);
-
-            const qrDataUrl = config.includeQRCode !== false
-                ? await this._getQRCodeDataUrl(shareUrl, qrGenerationSize)
-                : null;
-            __step(`QR code generation (size ${qrGenerationSize}px, urlLength ${urlLength})`);
-
-            const loadImage = (src) => new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => resolve(img);
-                img.onerror = reject;
-                img.src = src;
-                if (img.complete) resolve(img);
-            });
-
-            const mapImg = await loadImage(mapImageDataUrl);
-            __step('map image decode');
-
-            let markersImg = null;
-            if (markersDataUrl) {
-                markersImg = await loadImage(markersDataUrl);
-                __step('markers overlay image decode');
-            }
-
-            const template = await this._loadFooterTemplate();
-            __step('load footer template');
-            if (!template) {
-                console.warn('Could not load footer template, using plain map');
-                return mapImageDataUrl;
-            }
-
-            const footerBox = template.footer.cloneNode(true);
-            footerBox.style.cssText = 'position: absolute !important; bottom: 0 !important; left: 0 !important; right: 0 !important;';
-
-            const qrEl = footerBox.querySelector('[data-export-qr]');
-            if (qrEl && qrDataUrl) {
-                qrEl.style.width = `${qrSize}px`;
-                qrEl.style.height = `${qrSize}px`;
-                qrEl.style.minWidth = `${qrSize}px`;
-                qrEl.style.minHeight = `${qrSize}px`;
-                qrEl.innerHTML = '';
-                const qrImg = document.createElement('img');
-                qrImg.src = qrDataUrl;
-                qrImg.style.width = '100%';
-                qrImg.style.height = '100%';
-                qrImg.style.display = 'block';
-                qrEl.appendChild(qrImg);
-            }
-
-            if (config.includeQRCode === false && qrEl) {
-                qrEl.closest('.qr-box')?.remove();
-            }
-
-            const legendBox = footerBox.querySelector('.legend-box');
-            if (config.includeLegend === false && legendBox) {
-                legendBox.remove();
-            }
-
-            if (config.includeQRCode === false && config.includeLegend === false) {
-                footerBox.querySelector('.metadata-right')?.remove();
-            }
-
-            const titleEl = footerBox.querySelector('[data-export-title]');
-            if (titleEl) {
-                if (this._title) {
-                    titleEl.textContent = this._title.replace(/<br\s*\/?>/gi, ' ');
-                } else {
-                    titleEl.remove();
-                }
-            }
-
-            const date = new Date();
-            const timestamp = date.toLocaleString('en-GB', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-
-            const descEl = footerBox.querySelector('[data-export-description]');
-            if (descEl) {
-                if (this._description) {
-                    descEl.textContent = this._description;
-                } else {
-                    descEl.remove();
-                }
-            }
-
-            const infoEl = footerBox.querySelector('[data-export-info]');
-            if (infoEl) {
-                const formattedUrl = this._formatUrlForDisplay(shareUrl);
-                infoEl.textContent = `Exported ${timestamp} | ${formattedUrl}`;
-            }
-
-            const scaleEl = footerBox.querySelector('[data-export-scale-label]');
-            if (scaleEl) {
-                const center = this._map.getCenter();
-                const zoom = this._map.getZoom();
-                const metersPerPixel = 40075016.686 * Math.abs(Math.cos(center.lat * Math.PI / 180)) / Math.pow(2, zoom + 8);
-
-                // Scale bar is 30mm wide in the template
-                const scaleBarWidthMm = 30;
-                const pixelsPerMm = dpi / 25.4;
-                const scaleBarWidthPx = scaleBarWidthMm * pixelsPerMm;
-                const scaleMeters = Math.round(metersPerPixel * scaleBarWidthPx);
-
-                let scaleText;
-                if (scaleMeters >= 1000) {
-                    scaleText = `${(scaleMeters / 1000).toFixed(1)} km`;
-                } else {
-                    scaleText = `${scaleMeters} m`;
-                }
-                scaleEl.textContent = scaleText;
-            }
-
-            const northArrowEl = footerBox.querySelector('[data-export-north-arrow]');
-            if (northArrowEl && bearing !== 0) {
-                const container = northArrowEl.querySelector('.north-arrow-container');
-                if (container) {
-                    container.style.transform = `rotate(${-bearing}deg)`;
-                }
-            }
-
-            const layerThumbnailsEl = footerBox.querySelector('[data-export-layer-thumbnails]');
-            if (layerThumbnailsEl && window.stateManager && config.includeLegend !== false) {
-                try {
-                    console.log('[Export] Generating layer thumbnails...');
-
-                    // Dynamic imports to avoid initialization issues
-                    const { LayerThumbnail } = await import('./layer-thumbnail.js');
-                    const { MapUtils } = await import('./map-utils.js');
-
-                    const activeLayersMap = window.stateManager.getActiveLayers();
-                    const bounds = this._map.getBounds();
-                    const boundsArray = [
-                        bounds.getWest(),
-                        bounds.getSouth(),
-                        bounds.getEast(),
-                        bounds.getNorth()
-                    ];
-
-                    const imageToDataURL = async (url, useProxy = false) => {
-                        const __imgStart = performance.now();
-                        return new Promise((resolve) => {
-                            const img = new Image();
-                            img.crossOrigin = 'anonymous';
-
-                            const PROXY_URL = 'https://amche-atlas-production.up.railway.app/proxy';
-                            const actualUrl = useProxy ? `${PROXY_URL}?url=${encodeURIComponent(url)}` : url;
-
-                            const timeout = setTimeout(() => {
-                                console.warn(`[Export] Image load timeout: ${actualUrl}`);
-                                resolve(null);
-                            }, 6000);
-
-                            img.onload = () => {
-                                clearTimeout(timeout);
-                                try {
-                                    const canvas = document.createElement('canvas');
-                                    canvas.width = img.width;
-                                    canvas.height = img.height;
-                                    const ctx = canvas.getContext('2d');
-                                    ctx.drawImage(img, 0, 0);
-                                    const dataURL = canvas.toDataURL('image/png');
-                                    console.log(`[Export][timing] headerImage ${useProxy ? '(via proxy) ' : ''}${url.substring(0, 60)}...: ${(performance.now() - __imgStart).toFixed(0)}ms`);
-                                    resolve(dataURL);
-                                } catch (e) {
-                                    console.warn(`[Export] Failed to convert image to canvas: ${actualUrl}`, e);
-                                    resolve(null);
-                                }
-                            };
-
-                            img.onerror = async (e) => {
-                                clearTimeout(timeout);
-                                if (!useProxy) {
-                                    console.log(`[Export] Direct load failed, trying proxy server: ${url}`);
-                                    const proxiedResult = await imageToDataURL(url, true);
-                                    resolve(proxiedResult);
-                                } else {
-                                    console.warn(`[Export] Failed to load image even via proxy: ${url}`, e);
-                                    resolve(null);
-                                }
-                            };
-
-                            img.src = actualUrl;
-                        });
-                    };
-
-                    // Resolve every layer's config (including any remote headerImage
-                    // fetch + CORS-proxy fallback) concurrently. This used to be a
-                    // sequential for-loop with an await per layer, so a handful of
-                    // third-party thumbnails that fail CORS (e.g. mapwarper.net
-                    // uploads) would serialize into a near-minute stall.
-                    const resolvedLayers = await Promise.all(
-                        Array.from(activeLayersMap.entries()).map(async ([layerId, layerData]) => {
-                            try {
-                                const layerConfig = { ...layerData.config };
-
-                                if (window.layerRegistry) {
-                                    const registryLayer = window.layerRegistry.getLayer(layerConfig.id);
-                                    if (registryLayer && registryLayer.tags) {
-                                        if (!layerConfig.tags) {
-                                            layerConfig.tags = registryLayer.tags;
-                                        } else if (Array.isArray(layerConfig.tags) && Array.isArray(registryLayer.tags)) {
-                                            layerConfig.tags = [...new Set([...layerConfig.tags, ...registryLayer.tags])];
-                                        }
-                                    }
-                                }
-
-                                if (layerConfig.headerImage && (layerConfig.headerImage.startsWith('http://') || layerConfig.headerImage.startsWith('https://'))) {
-                                    const cacheKey = layerConfig.headerImage;
-                                    let dataURLPromise = this._headerImageDataUrlCache.get(cacheKey);
-                                    if (!dataURLPromise) {
-                                        dataURLPromise = imageToDataURL(cacheKey);
-                                        this._headerImageDataUrlCache.set(cacheKey, dataURLPromise);
-                                    } else {
-                                        console.log(`[Export] Reusing cached headerImage conversion: ${cacheKey.substring(0, 60)}...`);
-                                    }
-                                    const dataURL = await dataURLPromise;
-                                    if (dataURL) {
-                                        layerConfig.headerImage = dataURL;
-                                    } else {
-                                        console.warn(`[Export] Removing headerImage due to CORS/loading failure: ${layerConfig.headerImage}`);
-                                        delete layerConfig.headerImage;
-                                    }
-                                }
-
-                                return { layerId, config: layerConfig };
-                            } catch (thumbError) {
-                                console.warn(`[Export] Failed to prepare thumbnail for layer ${layerId}:`, thumbError);
-                                return null;
-                            }
-                        })
-                    );
-                    __step(`resolve ${resolvedLayers.length} layer configs/headerImages`);
-
-                    let thumbnailCount = 0;
-                    for (const resolved of resolvedLayers) {
-                        if (!resolved) continue;
-
-                        try {
-                            const { layerId, config } = resolved;
-
-                            const row = document.createElement('div');
-                            row.className = 'layer-thumbnail-row';
-
-                            const thumbnail = LayerThumbnail.generate(config, 38, {
-                                isInView: MapUtils.isLayerInView(config, boundsArray)
-                            });
-                            thumbnail.className = 'layer-thumbnail-item';
-                            thumbnail.style.pointerEvents = 'none';
-                            thumbnail.style.cursor = 'default';
-
-                            // Remove any event listeners by cloning
-                            const cleanThumbnail = thumbnail.cloneNode(true);
-                            row.appendChild(cleanThumbnail);
-
-                            const textContainer = document.createElement('div');
-                            textContainer.className = 'layer-thumbnail-text';
-
-                            const title = document.createElement('div');
-                            title.className = 'layer-thumbnail-title';
-                            title.textContent = config.title || config.id;
-                            textContainer.appendChild(title);
-
-                            if (config.attribution) {
-                                const attribution = document.createElement('div');
-                                attribution.className = 'layer-thumbnail-attribution';
-                                attribution.innerHTML = config.attribution;
-                                textContainer.appendChild(attribution);
-                            }
-
-                            row.appendChild(textContainer);
-
-                            layerThumbnailsEl.appendChild(row);
-                            thumbnailCount++;
-                        } catch (thumbError) {
-                            console.warn(`[Export] Failed to generate thumbnail for layer ${resolved.layerId}:`, thumbError);
-                        }
-                    }
-                    console.log(`[Export] Generated ${thumbnailCount} layer thumbnails`);
-                    __step(`build ${thumbnailCount} thumbnail DOM rows`);
-                } catch (e) {
-                    console.error('[Export] Failed to generate layer thumbnails:', e);
-                }
-            }
-
-            // Render only the footer into an isolated same-origin iframe so html2canvas
-            // clones/style-computes a tiny standalone document instead of the entire
-            // live app (Shoelace shadow DOM, Mapbox GL controls, jQuery, Tailwind CDN
-            // styles), which is what made the whole-document html2canvas call slow.
-            const iframe = document.createElement('iframe');
-            iframe.style.cssText = `position:fixed; left:-9999px; top:0; width:${width}px; height:${height}px; border:none;`;
-            document.body.appendChild(iframe);
-
-            let compositeCanvas;
-            try {
-                const idoc = iframe.contentDocument;
-                idoc.open();
-                idoc.write('<!DOCTYPE html><html><head></head><body style="margin:0;padding:0;"></body></html>');
-                idoc.close();
-
-                const fontLinkEl = idoc.createElement('link');
-                fontLinkEl.rel = 'stylesheet';
-                fontLinkEl.href = 'https://fonts.googleapis.com/css2?family=Open+Sans:wght@600&display=swap';
-                idoc.head.appendChild(fontLinkEl);
-
-                const styleEl = idoc.createElement('style');
-                styleEl.textContent = template.styles.textContent;
-                idoc.head.appendChild(styleEl);
-
-                const wrapper = idoc.createElement('div');
-                wrapper.style.cssText = `position:relative; width:${width}px; height:${height}px;`;
-                idoc.body.appendChild(wrapper);
-
-                const importedFooter = idoc.importNode(footerBox, true);
-                importedFooter.style.cssText = 'position: absolute !important; bottom: 0 !important; left: 0 !important; right: 0 !important;';
-                wrapper.appendChild(importedFooter);
-                __step('build isolated footer iframe');
-
-                if (idoc.fonts && idoc.fonts.ready) {
-                    await Promise.race([
-                        idoc.fonts.ready,
-                        new Promise(resolve => setTimeout(resolve, 1000))
-                    ]);
-                }
-                await new Promise(resolve => iframe.contentWindow.requestAnimationFrame(resolve));
-                await new Promise(resolve => iframe.contentWindow.requestAnimationFrame(resolve));
-                __step('footer fonts + rAF settle');
-
-                compositeCanvas = await html2canvas(wrapper, {
-                    backgroundColor: null,
-                    scale: 1,
-                    logging: false,
-                    useCORS: true,
-                    allowTaint: true,
-                    foreignObjectRendering: false,
-                    width: width,
-                    height: height
-                });
-                __step(`html2canvas footer composite (${width}x${height}px, isolated document)`);
-            } finally {
-                document.body.removeChild(iframe);
-            }
+            const [mapImg, markersImg, overlay] = await Promise.all([
+                this._loadImageElement(mapImageDataUrl),
+                markersDataUrl ? this._loadImageElement(markersDataUrl) : null,
+                config.includeLayout === false ? null : this._renderLayoutOverlay(width, height, config)
+            ]);
 
             const outputCanvas = document.createElement('canvas');
             outputCanvas.width = width;
@@ -2770,23 +2458,102 @@ export class MapExportControl {
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, width, height);
             ctx.drawImage(mapImg, 0, 0, width, height);
-            if (markersImg) {
-                ctx.drawImage(markersImg, 0, 0, width, height);
-            }
-            ctx.drawImage(compositeCanvas, 0, 0, width, height);
-            __step('final canvas composite');
-
-            const result = outputCanvas.toDataURL('image/png');
-            __step('outputCanvas.toDataURL');
-            console.log(`[Export][timing] TOTAL _addFooterToRaster: ${(performance.now() - __profileStart).toFixed(0)}ms`);
-
-            return result;
+            if (markersImg) ctx.drawImage(markersImg, 0, 0, width, height);
+            if (overlay) ctx.drawImage(overlay, 0, 0, width, height);
+            return outputCanvas.toDataURL('image/png');
         } catch (e) {
-            console.warn('Failed to add footer to raster, using plain map', e);
+            console.warn('Failed to add the page layout to the raster, using plain map', e);
             return mapImageDataUrl;
         }
     }
 
+    async _renderLayoutOverlay(width, height, config) {
+        const layout = this._frame?.layout;
+        if (!layout) return null;
+        await layout.mount(this._frame._el);
+
+        const widthMm = config.width || layout.page.widthMm;
+        const heightMm = config.height || layout.page.heightMm;
+        const cssWidth = widthMm * PX_PER_MM;
+        const cssHeight = heightMm * PX_PER_MM;
+        const [{ css }, html2canvas] = await Promise.all([
+            loadLayoutTemplate(),
+            import('html2canvas').then(m => m.default)
+        ]);
+
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = `position:fixed; left:-99999px; top:0; width:${cssWidth}px; height:${cssHeight}px; border:none;`;
+        document.body.appendChild(iframe);
+        try {
+            const idoc = iframe.contentDocument;
+            idoc.open();
+            idoc.write('<!DOCTYPE html><html><head></head><body style="margin:0;padding:0;background:transparent;"></body></html>');
+            idoc.close();
+            const font = idoc.createElement('link');
+            font.rel = 'stylesheet';
+            font.href = 'https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap';
+            const style = idoc.createElement('style');
+            style.textContent = css;
+            idoc.head.append(font, style);
+
+            const page = layout.exportClone(idoc);
+            page.style.width = `${widthMm}mm`;
+            page.style.height = `${heightMm}mm`;
+            if (config.includeQRCode === false) page.querySelector('[data-export-item="qr"]')?.remove();
+            if (config.includeLegend === false) page.querySelectorAll('[data-export-item^="layer:"]').forEach(group => group.remove());
+            if (!page.querySelector('[data-export-item]')) return null;
+
+            const shareUrl = this._shareUrl();
+            const info = page.querySelector('[data-export-item="info"]');
+            if (info) info.textContent = this._infoText(shareUrl);
+
+            const qrBox = page.querySelector('[data-export-qr]');
+            if (qrBox) {
+                const qrMm = this._qrSizeMm(shareUrl);
+                const qrPx = Math.round(qrMm * (config.dpi || 96) / 25.4);
+                const img = idoc.createElement('img');
+                img.src = await this._getQRCodeDataUrl(shareUrl, Math.max(qrPx * 4, 1024));
+                qrBox.style.width = qrBox.style.height = `${qrMm}mm`;
+                qrBox.appendChild(img);
+            }
+
+            const groups = [...page.querySelectorAll('[data-export-item^="layer:"]')];
+            if (groups.length) {
+                const rendered = await renderLegendGroups(idoc, {
+                    map: this._map,
+                    forExport: true,
+                    imageCache: this._headerImageDataUrlCache,
+                    overrides: layout.legend.overrides()
+                });
+                const contents = new Map(rendered.map(({ entry, content }) => [`layer:${entry.id}`, content]));
+                groups.forEach(group => {
+                    const content = contents.get(group.dataset.exportItem);
+                    if (content) group.replaceChildren(content);
+                    else group.remove();
+                });
+            }
+
+            idoc.body.appendChild(page);
+            if (idoc.fonts?.ready) {
+                await Promise.race([idoc.fonts.ready, new Promise(resolve => setTimeout(resolve, 1000))]);
+            }
+            await new Promise(resolve => iframe.contentWindow.requestAnimationFrame(resolve));
+            await new Promise(resolve => iframe.contentWindow.requestAnimationFrame(resolve));
+
+            return await html2canvas(page, {
+                backgroundColor: null,
+                scale: width / cssWidth,
+                logging: false,
+                useCORS: true,
+                allowTaint: true,
+                foreignObjectRendering: false,
+                width: cssWidth,
+                height: cssHeight
+            });
+        } finally {
+            iframe.remove();
+        }
+    }
 
     _generateWorldFile(imageDimensions, transformer, center, pixelWidth, pixelHeight) {
         const pixelSizeX = imageDimensions.width / pixelWidth;

@@ -46,10 +46,7 @@ export async function exportRasterLayerView({ format, layerId, exportControl, ma
         width: (container.clientWidth * MM_PER_INCH) / CSS_DPI,
         height: (container.clientHeight * MM_PER_INCH) / CSS_DPI,
         dpi: CSS_DPI,
-        title: '',
-        description: '',
-        includeQRCode: false,
-        includeLegend: false,
+        includeLayout: false,
         includeMarkers: false
     };
     if (format === 'jpeg') config.jpegQuality = 1;

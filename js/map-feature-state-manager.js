@@ -1517,7 +1517,7 @@ export class MapFeatureStateManager extends EventTarget {
 
         // Fallback: Geometry hash with layer prefix for consistency
         const layerId = feature.layer?.metadata?.groupId || 'unknown';
-        const geomStr = JSON.stringify(feature.geometry);
+        const geomStr = JSON.stringify(feature.geometry ?? feature.properties ?? null);
         return `feature-${layerId}-${this._hashCode(geomStr)}`;
     }
 

@@ -28,7 +28,7 @@ function label(selection) {
 
 function keyOf(selection) {
     const manager = stateManager();
-    const id = manager?._getFeatureId?.(selection.feature) ?? JSON.stringify(selection.feature?.properties || {});
+    const id = selection.isRasterInspection ? selection.featureId : manager?._getFeatureId?.(selection.feature) ?? JSON.stringify(selection.feature?.properties || {});
     return `${selection.layerId}|${id}`;
 }
 

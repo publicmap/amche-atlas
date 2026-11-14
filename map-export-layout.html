@@ -4,124 +4,112 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Map Export Layout Template</title>
-    <style>
-        /* Map Export Layout Template Styles */
-        /* This template is used for designing the footer layout for all export formats (PDF, PNG, JPEG, GeoTIFF) */
-        /* Dimensions are in mm (millimeters) for PDF compatibility */
-        
-        body {
-            margin: 0;
-            padding: 20px;
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap">
+    <!-- The page's elements, used both by the on-map preview and the export (js/export-layout.js).
+         Sizes are in mm/pt on a page laid out at its real size, so they print at these sizes. -->
+    <style id="export-layout-style">
+        .export-layout {
+            position: relative;
             font-family: 'Open Sans', sans-serif;
-            background: #f5f5f5;
-        }
-        
-        .pdf-page {
-            width: 210mm; /* A4 width */
-            height: 297mm; /* A4 height */
-            background: white;
-            margin: 0 auto;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            position: relative;
-            padding: 0;
-        }
-        
-        .map-area {
-            width: 100%;
-            height: 100%; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            position: relative;
-        }
-        
-        .footer-box {
-            position: absolute;
-            bottom: 4mm;
-            left: 4mm;
-            right: 4mm;
-            pointer-events: none;
-            display: flex;
-            gap: 3mm;
-            align-items: flex-end;
-        }
-
-        .metadata-left {
-            background: white;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 2mm;
-            flex: 1;
-            min-width: 0;
-        }
-
-        .metadata-right {
-            display: flex;
-            flex-direction: column;
-            gap: 3mm;
-            align-items: stretch;
-        }
-
-        .qr-box {
-            background: white;
-            padding: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .legend-box {
-            background: white;
-            padding: 6px;
-            display: flex;
-            flex-direction: column;
-            gap: 2mm;
-        }
-
-        .legend-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 3mm;
-            padding-bottom: 1.5mm;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .legend-title {
-            font-size: 9pt;
-            font-weight: 700;
             color: #1a1a1a;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            line-height: 1.3;
         }
 
-        .cartographic-group {
+        .export-layout .export-item {
+            position: absolute;
+            box-sizing: border-box;
+            background: white;
+            padding: 2mm 3mm;
+        }
+
+        .export-layout .export-item[hidden] {
+            display: none;
+        }
+
+        .export-layout .text-title {
+            max-width: 60%;
+            font-size: 14pt;
+            font-weight: 700;
+            line-height: 1.25;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+        }
+
+        .export-layout .text-description {
+            max-width: 45%;
+            font-size: 8pt;
+            line-height: 1.45;
+            color: #333;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+        }
+
+        .export-layout .text-export-info {
+            max-width: 55%;
+            padding: 1.2mm 2mm;
+            font-size: 5.5pt;
+            line-height: 1.45;
+            color: #666;
+            overflow-wrap: anywhere;
+        }
+
+        .export-layout .qr-box {
+            padding: 1.5mm;
+        }
+
+        .export-layout .qr-code {
+            display: block;
+            width: 25mm;
+            height: 25mm;
+        }
+
+        .export-layout .qr-code img,
+        .export-layout .qr-code sl-qr-code {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Scale bar and north arrow */
+        .export-layout .scale-box {
             display: flex;
             align-items: center;
             gap: 3mm;
+            padding: 1.5mm 2.5mm;
         }
 
-        .layer-thumbnails {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5mm;
-            max-width: 50mm;
+        /* A legend group per map (js/export-legend.js): name, attribution, legend */
+        .export-layout .legend-group {
+            width: max-content;
+            max-width: 55mm;
+            padding: 2mm 2.5mm;
         }
 
-        .layer-thumbnail-row {
+        .export-layout .legend-group-head {
             display: flex;
             align-items: flex-start;
             gap: 2mm;
         }
 
-        .layer-thumbnail-item {
+        .export-layout .legend-group-text {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6mm;
+            min-width: 0;
+            overflow-wrap: break-word;
+        }
+
+        .export-layout .layer-thumbnail-item {
             width: 10mm;
             height: 10mm;
             border-radius: 2px;
             overflow: hidden;
             flex-shrink: 0;
+            pointer-events: none;
         }
 
-        .layer-thumbnail-text {
+        .export-layout .layer-thumbnail-text {
             flex: 1;
             display: flex;
             flex-direction: column;
@@ -131,84 +119,140 @@
             overflow-wrap: break-word;
         }
 
-        .layer-thumbnail-title {
+        .export-layout .layer-thumbnail-title {
             font-size: 7pt;
-            color: #1a1a1a;
             font-weight: 600;
             line-height: 1.6;
             max-height: 6mm;
-            word-wrap: break-word;
             padding-bottom: 1px;
         }
 
-        .layer-thumbnail-attribution {
+        .export-layout .layer-thumbnail-attribution {
             font-size: 5pt;
             color: #666;
-            font-weight: 400;
             line-height: 1.5;
             font-style: italic;
-            word-wrap: break-word;
             padding-bottom: 1px;
         }
 
-        .layer-thumbnail-attribution a {
+        .export-layout .layer-thumbnail-attribution a {
             color: #666;
             text-decoration: none;
             font-weight: 700;
         }
 
-        .qr-code {
-            width: 20mm;
-            height: 20mm;
-            display: flex;
+        /* A map's detailed legend (js/layer-legend.js, styled for the dark app) under its row */
+        .export-layout .layer-legend-detail {
+            margin-top: 0.8mm;
+        }
+
+        .export-layout .layer-legend-detail * {
+            color: #333 !important;
+        }
+
+        .export-layout .layer-legend-detail > div {
+            max-height: none !important;
+            overflow: visible !important;
+            padding: 0 !important;
+        }
+
+        .export-layout .layer-legend-detail > div > div {
+            gap: 1.5mm !important;
+            padding: 0.3mm 0 !important;
+        }
+
+        .export-layout .layer-legend-detail span,
+        .export-layout .layer-legend-detail .legend-rule-title {
+            font-size: 6pt !important;
+            font-weight: 400 !important;
+            line-height: 1.3 !important;
+        }
+
+        .export-layout .layer-legend-detail .legend-rule-subtitle {
+            display: none !important;
+        }
+
+        .export-layout .layer-legend-detail svg {
+            width: 5mm !important;
+            height: 5mm !important;
+        }
+
+        .export-layout .layer-legend-detail .legend-categorical span:first-child {
+            width: 3.5mm !important;
+            height: 3.5mm !important;
+        }
+
+        .export-layout .layer-legend-detail img {
+            display: block;
+            width: auto !important;
+            max-width: 100% !important;
+            max-height: 40mm;
+        }
+
+        .export-layout .layer-legend-detail .legend-rules > div > :first-child {
+            width: 4.5mm !important;
+            height: 4.5mm !important;
+            flex-shrink: 0;
+        }
+
+        /* Rule symbols (js/rules-view.js), on paper rather than the app's dark rows */
+        .export-layout .layer-legend-detail .rv-symbol {
+            position: relative;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 8px;
-            color: #666;
+            box-sizing: border-box;
+            overflow: hidden;
+            border-radius: 2px;
+            background: #f3f4f6;
+            box-shadow: inset 0 0 0 1px #d1d5db;
         }
 
-        .text-title {
-            font-size: 12pt;
-            font-weight: 700;
-            line-height: 1.3;
-            color: #1a1a1a;
-            margin: 0 0 1.5mm 0;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
+        .export-layout .layer-legend-detail .rv-area,
+        .export-layout .layer-legend-detail .rv-hatch {
+            position: absolute;
+            inset: 0;
+            margin: auto;
         }
 
-        .text-description {
-            font-size: 7pt;
-            line-height: 1.4;
-            color: #333;
-            margin: 0;
+        .export-layout .layer-legend-detail .rv-stroke {
+            width: 80%;
+            border-radius: 1px;
         }
 
-        .text-export-info {
-            font-size: 6pt;
-            color: #666;
-            line-height: 1.5;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            margin: 0;
+        .export-layout .layer-legend-detail .rv-dot {
+            max-width: 3.5mm;
+            max-height: 3.5mm;
+            border-radius: 50%;
+            box-sizing: border-box;
         }
-        
-        .scale-bar {
+
+        .export-layout .layer-legend-detail .rv-text {
+            font-size: 5.5pt !important;
+            font-weight: 700 !important;
+        }
+
+        .export-layout .layer-legend-detail .rv-text-corner {
+            display: none;
+        }
+
+        .export-layout .scale-bar {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 0.5mm;
         }
 
-        .scale-bar-visual {
+        .export-layout .scale-bar-visual {
             width: 30mm;
             height: 4mm;
             position: relative;
             border: 2px solid #1a1a1a;
             border-top: none;
+            box-sizing: border-box;
         }
 
-        .scale-bar-visual::after {
+        .export-layout .scale-bar-visual::after {
             content: '';
             position: absolute;
             top: 0;
@@ -219,27 +263,20 @@
             background: #1a1a1a;
         }
 
-        .scale-bar-labels {
+        .export-layout .scale-bar-labels {
             width: 30mm;
             display: flex;
             justify-content: space-between;
             font-size: 7pt;
-            color: #1a1a1a;
             font-weight: 600;
         }
 
-        .north-arrow {
+        .export-layout .north-arrow {
             width: 10mm;
             height: 10mm;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
         }
 
-        .north-arrow-container {
-            position: relative;
+        .export-layout .north-arrow-container {
             width: 100%;
             height: 100%;
             display: flex;
@@ -249,194 +286,109 @@
             transform-origin: center center;
         }
 
-        .north-label {
+        .export-layout .north-label {
             font-size: 7pt;
             font-weight: 700;
-            color: #1a1a1a;
             margin-bottom: 0.5mm;
             line-height: 1;
         }
 
-        .arrow-shape {
+        .export-layout .arrow-shape {
             width: 0;
             height: 0;
             border-left: 2mm solid transparent;
             border-right: 2mm solid transparent;
             border-bottom: 6mm solid #1a1a1a;
         }
-        
+    </style>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .pdf-page {
+            width: 297mm;
+            height: 210mm;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
         .info-panel {
-            margin-top: 20px;
+            max-width: 297mm;
+            margin: 20px auto 0;
             padding: 20px;
             background: white;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-sizing: border-box;
         }
-        
-        .info-panel h2 {
-            margin-top: 0;
-            color: #333;
-        }
-        
-        .info-panel p {
-            color: #666;
-            line-height: 1.6;
-        }
-        
+
         .info-panel code {
             background: #f5f5f5;
             padding: 2px 6px;
             border-radius: 3px;
-            font-family: 'Monaco', 'Menlo', monospace;
-            font-size: 0.9em;
         }
     </style>
-    <script defer type="module" src="js/analytics.js"></script>
 </head>
 <body>
-    <div class="pdf-page">
-        <div class="map-area">
-            <!-- Map content area -->
+    <div class="pdf-page export-layout" id="export-layout-template">
+        <div class="export-item text-title" data-export-item="title" style="left: 2%; top: 3%;">Map Title Goes Here</div>
+        <div class="export-item text-description" data-export-item="description" style="left: 2%; top: 13%;">Map description goes here</div>
+        <div class="export-item text-export-info" data-export-item="info" style="left: 2%; bottom: 3%;">Exported 15 January 2024, 15:45 | https://amche.in/?layers=mapbox-streets</div>
+
+        <div class="export-item qr-box" data-export-item="qr" style="right: 2%; top: 3%;">
+            <div class="qr-code" data-export-qr></div>
         </div>
-        
-        <div class="footer-box" id="export-footer-template">
-            <!-- Left: Text Metadata -->
-            <div class="metadata-left">
-                <div class="text-title" data-export-title>Map Title Goes Here</div>
-                <div class="text-description" data-export-description>Map description goes here</div>
-                <div class="text-export-info" data-export-info>Exported 15 January 2024, 15:45 | https://example.com/ ?terrain=1.5 & selected=goa-plots:8029467;goa-local-body:253;india-state:10 & layers=mapbox-streets, goa-plots, goa-local-body, goa-2021-regional-plan, india-state, mapbox-satellite #15.85/15.59787/73.812073</div>
+
+        <div class="export-item scale-box" data-export-item="scale" style="right: 2%; bottom: 3%;">
+            <div class="north-arrow" data-export-north-arrow>
+                <div class="north-arrow-container">
+                    <div class="north-label">N</div>
+                    <div class="arrow-shape"></div>
+                </div>
             </div>
-
-            <!-- Right: QR Code and Legend -->
-            <div class="metadata-right">
-                <!-- QR Code Box -->
-                <div class="qr-box">
-                    <div class="qr-code" data-export-qr>QR</div>
+            <div class="scale-bar">
+                <div class="scale-bar-visual"></div>
+                <div class="scale-bar-labels">
+                    <span>0</span>
+                    <span data-export-scale-label>1 km</span>
                 </div>
+            </div>
+        </div>
 
-                <!-- Legend Box -->
-                <div class="legend-box">
-                    <!-- Legend Header with Title, North Arrow, and Scale Bar -->
-                    <div class="legend-header">
-                        <div class="legend-title">Legend</div>
-                        <div class="cartographic-group">
-                            <div class="north-arrow" data-export-north-arrow>
-                                <div class="north-arrow-container">
-                                    <div class="north-label">N</div>
-                                    <div class="arrow-shape"></div>
-                                </div>
-                            </div>
-                            <div class="scale-bar">
-                                <div class="scale-bar-visual"></div>
-                                <div class="scale-bar-labels">
-                                    <span>0</span>
-                                    <span data-export-scale-label>1 km</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Layer Thumbnails -->
-                    <div class="layer-thumbnails" data-export-layer-thumbnails>
-                        <!--
-                        Layer thumbnails will be dynamically inserted here by map-export-control.js
-                        using LayerThumbnail.generate(layer, size, options) from js/layer-thumbnail.js
-
-                        Example code to populate:
-                        activeLayers.forEach(layer => {
-                            const row = document.createElement('div');
-                            row.className = 'layer-thumbnail-row';
-
-                            const thumbnail = LayerThumbnail.generate(layer, 38, {
-                                isInView: MapUtils.isLayerInView(layer, currentBounds)
-                            });
-                            thumbnail.className = 'layer-thumbnail-item';
-                            row.appendChild(thumbnail);
-
-                            const title = document.createElement('div');
-                            title.className = 'layer-thumbnail-title';
-                            title.textContent = layer.title || layer.id;
-                            row.appendChild(title);
-
-                            container.appendChild(row);
-                        });
-                        -->
+        <div class="export-item legend-group" data-export-item="layer:example" style="right: 2%; top: 40%;">
+            <div class="legend-group-body">
+                <div class="legend-group-head">
+                    <div class="legend-group-text">
+                        <div class="layer-thumbnail-title">Example map</div>
+                        <div class="layer-thumbnail-attribution">Its attribution</div>
                     </div>
                 </div>
+                <div class="layer-legend-detail">its legend</div>
             </div>
         </div>
     </div>
-    
+
     <div class="info-panel">
         <h2>Map Export Layout Template</h2>
-        <p><strong>⚠️ This is a live template!</strong> The export system loads this HTML file and uses its structure and styling for all map exports (PDF, PNG, JPEG, GeoTIFF). You can customize the export appearance by editing the CSS in this file.</p>
-
-        <h3>How to Customize</h3>
-        <p>Simply edit the CSS styles in the <code>&lt;style&gt;</code> section above. Changes will be reflected in all future exports. The template uses data attributes to populate content:</p>
+        <p>This is a live template. <code>js/export-layout.js</code> loads the <code>#export-layout-template</code> elements and the
+            <code>#export-layout-style</code> styles, places them over the export frame on the map, and draws the same elements onto
+            every print export (PDF, PNG, JPEG, SVG) and the DXF raster. Edit the styles here to change how they look.</p>
         <ul>
-            <li><code>data-export-qr</code> - QR code container (auto-sizes based on URL length, contains full unmodified URL)</li>
-            <li><code>data-export-title</code> - Map title (single line with ellipsis)</li>
-            <li><code>data-export-description</code> - Map description</li>
-            <li><code>data-export-info</code> - Formatted export info: timestamp | base URL | params (selection layer completely filtered out including geojson, URL decoded, separated by &) | hash. Text wraps as needed to show full URL.</li>
-            <li><code>data-export-scale-label</code> - Scale bar distance label (right end, e.g., "1 km"). Left end shows "0" by default.</li>
-            <li><code>data-export-north-arrow</code> - North arrow (rotates with map bearing)</li>
-            <li><code>data-export-layer-thumbnails</code> - Container for active layer thumbnails (dynamically populated using <code>LayerThumbnail.generate()</code> from <code>js/layer-thumbnail.js</code>)</li>
-        </ul>
-
-        <h3>Layer Thumbnails</h3>
-        <p>The layer thumbnails are automatically generated from the active map layers using the <code>LayerThumbnail</code> class. Each row shows:</p>
-        <ul>
-            <li>10mm × 10mm visual preview of the layer style (circles, lines, polygons, or raster patterns)</li>
-            <li>Layer title text (6pt, up to 2 lines with ellipsis)</li>
-            <li>Layer type badge (Vector, GeoJSON, CSV, Raster, Style)</li>
-            <li>Out-of-view indicator if layer data is not visible at current map extent</li>
-        </ul>
-        <p>Thumbnails are arranged vertically in rows with 1.5mm gap between rows, 2mm gap between thumbnail and title (max width: 50mm).</p>
-        <p><strong>Implementation:</strong> The export control script (<code>js/map-export-control.js</code>) iterates through active layers, creates a row container, generates a thumbnail using <code>LayerThumbnail.generate(layer, 38, options)</code>, adds the layer title, and appends to the container with <code>data-export-layer-thumbnails</code> attribute.</p>
-
-        <h3>Layout Structure</h3>
-        <p>This template shows the layout structure for all map export formats (PDF, PNG, JPEG, GeoTIFF). The layout creates a unified, compact metadata section at the bottom of the map:</p>
-        <ul>
-            <li><strong>Bottom Left Section:</strong> Text metadata (title, attribution, export info) stacked vertically in white box</li>
-            <li><strong>Bottom Right Top:</strong> QR code in its own white box</li>
-            <li><strong>Bottom Right Bottom:</strong> Legend box containing:
-                <ul>
-                    <li>Legend header with "LEGEND" title and north arrow side by side</li>
-                    <li>Scale bar with label and visual representation</li>
-                    <li>Active layer thumbnails arranged in rows</li>
-                </ul>
-            </li>
-        </ul>
-        <p><strong>Key Measurements:</strong></p>
-        <ul>
-            <li>Bottom margin: <code>4mm</code> from edges</li>
-            <li>Gap between sections: <code>3mm</code></li>
-            <li>Gap within sections: <code>2-4mm</code></li>
-            <li>Box padding: <code>6-10px</code> (reduced for compact layout)</li>
-            <li>Element backgrounds: <code>white</code></li>
-            <li>Title font: <code>12pt bold, single line with ellipsis</code>, dark gray (#1a1a1a)</li>
-            <li>Attribution font: <code>7pt</code>, medium gray (#333)</li>
-            <li>Export info font: <code>6pt</code>, light gray (#666)</li>
-            <li>Legend title font: <code>9pt bold uppercase</code>, dark gray (#1a1a1a)</li>
-            <li>QR code size: <code>20mm × 20mm</code> (auto-sized)</li>
-            <li>Scale bar: <code>30mm wide × 4mm tall</code> with borders, center divider, and labels at both ends (0 and distance)</li>
-            <li>North arrow: <code>10mm × 10mm</code>, simple upward-pointing triangle</li>
-            <li>Layer thumbnails: <code>10mm × 10mm</code> each with layer title, arranged vertically with <code>1.5mm gap</code>, max container width <code>50mm</code></li>
-        </ul>
-        <p><strong>Design Principles:</strong></p>
-        <ul>
-            <li>Three-section layout: text metadata (left), QR code (top right), legend (bottom right)</li>
-            <li>Clean white backgrounds for all elements</li>
-            <li>Single-line title with ellipsis prevents awkward line breaks</li>
-            <li>Strong typographic hierarchy (title → attribution → metadata → legend)</li>
-            <li>Professional black-on-white color scheme for universal readability</li>
-            <li>Legend box organizes cartographic elements (north arrow, scale bar) with active layers</li>
-            <li>Layer thumbnails provide visual reference for active map layers</li>
-            <li>Improved scale bar with clear visual representation (borders and center divider)</li>
-            <li>Compact north arrow integrated into legend header</li>
-            <li>QR code isolated for better scannability</li>
+            <li><code>data-export-item</code> - one element of the page: <code>title</code>, <code>description</code>, <code>info</code>,
+                <code>qr</code>, <code>scale</code>, and a <code>layer:&lt;id&gt;</code> legend group per active map. Each is shown or hidden from the Export panel and dragged into place on the map;
+                its position is kept as a percentage from the nearest page corner, so it lands in the same place at any page size.</li>
+            <li><code>title</code> / <code>description</code> - edited in place on the map.</li>
+            <li><code>info</code> - export time and the map's link.</li>
+            <li><code>data-export-qr</code> - QR code of the map's link, sized by the link's length.</li>
+            <li><code>data-export-north-arrow</code> - rotates with the map's bearing.</li>
+            <li><code>data-export-scale-label</code> - ground distance of the 30mm scale bar on the page.</li>
+            <li><code>.legend-group</code> - a map's name, attribution and detailed legend, built by <code>js/export-legend.js</code>
+                (the example here is replaced); groups not yet moved are arranged in a column down the right of the page.</li>
         </ul>
     </div>
 </body>
 </html>
-

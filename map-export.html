@@ -5,101 +5,214 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Export Map</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.css" />
     <script type="module"
         src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace-autoloader.js"></script>
     <style>
+        /* The map console's tokens (css/map-console.css), so the panel reads as the console */
+        :root {
+            --console-surface: #111827;
+            --console-raised: #1a2332;
+            --console-hover: #243044;
+            --console-line: rgba(255, 255, 255, 0.11);
+            --console-line-strong: rgba(255, 255, 255, 0.26);
+            --console-ink: #f3f4f6;
+            --console-ink-2: rgba(243, 244, 246, 0.68);
+            --console-ink-3: rgba(243, 244, 246, 0.44);
+            --console-amber: #ffbf00;
+            --console-amber-ink: #1a1405;
+            --console-amber-soft: rgba(255, 191, 0, 0.14);
+            --console-blue: #7cb4ff;
+            --console-radius-sm: 8px;
+            color-scheme: dark;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
         body {
             margin: 0;
             padding: 0;
+            height: 100%;
             overflow: hidden;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            width: 100vw;
-            max-width: 100%;
-            background: #1f2937;
-            color: #f3f4f6;
+            background: var(--console-surface);
+            color: var(--console-ink);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 13px;
+        }
+
+        button,
+        select,
+        input,
+        textarea {
+            font: inherit;
+            color: inherit;
+        }
+
+        button:focus-visible,
+        select:focus-visible,
+        input:focus-visible {
+            outline: 2px solid var(--console-blue);
+            outline-offset: -2px;
+        }
+
+        sl-icon {
+            flex-shrink: 0;
         }
 
         .export-container {
-            max-width: 500px;
-            margin: 0 auto;
             height: 100vh;
-            /* dvh keeps the footer above a mobile browser's dynamic toolbar */
             height: 100dvh;
             display: flex;
             flex-direction: column;
         }
 
-        .export-header {
-            background: #111827;
-            padding: 16px;
-            border-bottom: 1px solid #374151;
+        /* ---------- Header bar ---------- */
+
+        .export-head {
             flex-shrink: 0;
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            gap: 9px;
+            padding: 6px 6px 6px 14px;
+            min-height: 50px;
+            background: var(--console-raised);
+            border-bottom: 1px solid var(--console-line);
         }
+
+        .export-head > sl-icon {
+            font-size: 20px;
+        }
+
+        .export-head h1 {
+            flex: 1;
+            min-width: 0;
+            margin: 0;
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .icon-btn {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: 0;
+            border-radius: var(--console-radius-sm);
+            background: transparent;
+            color: var(--console-ink-2);
+            cursor: pointer;
+        }
+
+        .icon-btn:hover {
+            background: var(--console-hover);
+            color: var(--console-ink);
+        }
+
+        .icon-btn sl-icon {
+            font-size: 18px;
+        }
+
+        /* ---------- Body ---------- */
 
         .export-content {
             flex: 1 1 0;
             min-height: 0;
             overflow-y: auto;
-            padding: 16px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--console-line-strong) transparent;
         }
 
-        .export-footer {
-            position: sticky;
-            bottom: 0;
-            flex-shrink: 0;
-            background: #111827;
-            padding: 16px;
-            border-top: 1px solid #374151;
-            box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.35);
+        .export-content-inner {
+            padding: 10px 0 12px;
         }
 
-        .form-label {
-            display: block;
-            font-weight: 600;
-            font-size: 14px;
-            margin-bottom: 8px;
-            color: #d1d5db;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .radio-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .radio-label {
+        .section-label {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 8px;
+            padding: 14px 12px 6px;
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--console-ink-3);
+        }
+
+        .section {
+            padding: 0 12px;
+        }
+
+        .hint {
+            margin: 8px 12px 0;
+            font-size: 12px;
+            line-height: 1.45;
+            color: var(--console-ink-3);
+        }
+
+        .hint sl-icon {
+            vertical-align: -2px;
+            margin-right: 2px;
+        }
+
+        /* Tabs, as Find's section tabs */
+        .use-for-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 0 12px 10px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            border-bottom: 1px solid var(--console-line);
+        }
+
+        .use-for-tab {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            height: 28px;
+            padding: 0 10px;
+            border: 1px solid var(--console-line);
+            border-radius: 999px;
+            background: transparent;
+            color: var(--console-ink-2);
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
             cursor: pointer;
-            padding: 8px;
-            border-radius: 6px;
-            transition: background 0.2s;
         }
 
-        .radio-label:hover {
-            background: #374151;
+        .use-for-tab sl-icon {
+            font-size: 13px;
         }
 
-        .radio-label input[type="radio"] {
-            cursor: pointer;
+        .use-for-tab:hover {
+            background: var(--console-raised);
+            color: var(--console-ink);
         }
 
+        .use-for-tab.active {
+            border-color: var(--console-amber);
+            background: var(--console-amber-soft);
+            color: var(--console-ink);
+        }
+
+        /* Formats */
         .format-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-            gap: 8px;
-            margin-bottom: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+            gap: 6px;
         }
 
         .format-button {
@@ -107,24 +220,26 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 12px 8px;
-            background: #374151;
-            border: 2px solid #4b5563;
-            border-radius: 8px;
+            gap: 4px;
+            min-height: 58px;
+            padding: 8px 4px;
+            border: 1px solid var(--console-line);
+            border-radius: var(--console-radius-sm);
+            background: transparent;
+            color: var(--console-ink-2);
             cursor: pointer;
-            transition: all 0.2s;
             text-align: center;
-            min-height: 70px;
         }
 
         .format-button:hover {
-            background: #4b5563;
-            border-color: #6b7280;
+            background: var(--console-raised);
+            color: var(--console-ink);
         }
 
         .format-button.selected {
-            background: #1e40af;
-            border-color: #3b82f6;
+            border-color: var(--console-amber);
+            background: var(--console-amber-soft);
+            color: var(--console-ink);
         }
 
         .format-button input[type="radio"] {
@@ -132,117 +247,47 @@
         }
 
         .format-icon {
-            font-size: 28px;
-            margin-bottom: 6px;
+            font-size: 22px;
         }
 
         .format-label {
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 600;
-            color: #d1d5db;
-        }
-
-        .format-description-box {
-            padding: 8px 0;
-            background: transparent;
-            border-top: 1px solid #4b5563;
-            margin-top: 4px;
-            padding-top: 8px;
-        }
-
-        .export-btn {
-            width: 100%;
-            padding: 12px;
-            background: #10b981;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            transition: background 0.2s;
-        }
-
-        .export-btn:hover {
-            background: #059669;
-        }
-
-        .export-btn:disabled {
-            background: #6b7280;
-            cursor: not-allowed;
-        }
-
-        .close-btn {
-            background: transparent;
-            border: none;
-            color: white;
-            font-size: 24px;
-            cursor: pointer;
-            padding: 0;
-            line-height: 1;
-            opacity: 0.7;
-            transition: opacity 0.2s;
-        }
-
-        .close-btn:hover {
-            opacity: 1;
-        }
-
-        sl-select::part(combobox) {
-            background: #374151;
-            border-color: #4b5563;
-            color: white;
-        }
-
-        sl-select::part(display-input) {
-            color: white;
-        }
-
-        sl-select::part(listbox) {
-            background: #374151;
-            border-color: #4b5563;
-        }
-
-        sl-option::part(base) {
-            color: white;
-        }
-
-        sl-option::part(base):hover {
-            background: #4b5563;
-        }
-
-        .scrollbar-thin::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .scrollbar-thin::-webkit-scrollbar-track {
-            background: #1f2937;
-        }
-
-        .scrollbar-thin::-webkit-scrollbar-thumb {
-            background: #4b5563;
-            border-radius: 4px;
-        }
-
-        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-            background: #6b7280;
         }
 
         .format-description {
+            margin-top: 8px;
             font-size: 12px;
-            color: #9ca3af;
-            margin-top: 4px;
-            font-style: italic;
+            line-height: 1.4;
+            color: var(--console-ink-3);
         }
 
-        .advanced-options {
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid #374151;
+        /* Fields */
+        .field-grid {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            align-items: end;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        .field > span {
+            font-size: 11.5px;
+            color: var(--console-ink-3);
+        }
+
+        .form-group {
+            margin-bottom: 10px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
         }
 
         input[type="text"],
@@ -250,216 +295,352 @@
         textarea,
         select {
             width: 100%;
-            background: #374151;
-            border: 1px solid #4b5563;
-            border-radius: 6px;
-            padding: 8px;
-            color: white;
-            font-size: 14px;
-        }
-
-        input[type="text"]:focus,
-        input[type="number"]:focus,
-        textarea:focus,
-        select:focus {
-            outline: none;
-            border-color: #3b82f6;
+            height: 34px;
+            padding: 0 10px;
+            border: 1px solid var(--console-line-strong);
+            border-radius: var(--console-radius-sm);
+            background: rgba(17, 24, 39, 0.7);
+            font-size: 13px;
         }
 
         textarea {
+            height: auto;
+            min-height: 90px;
+            padding: 8px 10px;
             resize: vertical;
-            min-height: 60px;
+            font-family: ui-monospace, Menlo, monospace;
+            font-size: 11.5px;
         }
 
-        .checkbox-label {
+        input:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--console-blue);
+        }
+
+        .dims {
             display: flex;
+            gap: 6px;
             align-items: center;
-            gap: 8px;
-            cursor: pointer;
+            color: var(--console-ink-3);
         }
 
-        .checkbox-label input[type="checkbox"] {
-            cursor: pointer;
+        /* Two- or three-way choice as one pill */
+        .segmented {
+            display: inline-flex;
+            padding: 2px;
+            border: 1px solid var(--console-line-strong);
+            border-radius: var(--console-radius-sm);
         }
 
-        .export-btn.processing {
-            background: #f59e0b !important;
-            cursor: pointer !important;
-            opacity: 1 !important;
-        }
-
-        .export-btn.processing:hover {
-            background: #d97706 !important;
-        }
-
-        .export-btn.processing sl-icon {
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            from {
-                transform: rotate(0deg);
-            }
-
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .customize-features-btn {
-            background: transparent;
-            border: 1px solid #4b5563;
-            color: #9ca3af;
-            cursor: pointer;
-            padding: 4px 8px;
-            font-size: 12px;
-            border-radius: 4px;
-            margin-left: 8px;
-            transition: all 0.2s;
-        }
-
-        .customize-features-btn:hover {
-            background: #374151;
-            color: #d1d5db;
-            border-color: #6b7280;
-        }
-
-        .feature-list-container {
-            margin-top: 12px;
-            padding: 12px;
-            background: #374151;
+        .segmented label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            min-width: 34px;
+            height: 28px;
+            padding: 0 8px;
             border-radius: 6px;
-            border: 1px solid #4b5563;
-        }
-
-        .feature-list-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #4b5563;
-        }
-
-        .feature-list-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: #d1d5db;
-        }
-
-        .feature-list-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .feature-list-action-btn {
-            background: transparent;
-            border: 1px solid #4b5563;
-            color: #9ca3af;
-            cursor: pointer;
-            padding: 4px 8px;
-            font-size: 11px;
-            border-radius: 4px;
-            transition: all 0.2s;
-        }
-
-        .feature-list-action-btn:hover {
-            background: #4b5563;
-            color: #d1d5db;
-            border-color: #6b7280;
-        }
-
-        .feature-list-items {
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        .feature-list-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px;
-            border-radius: 4px;
-            transition: background 0.2s;
-        }
-
-        .feature-list-item:hover {
-            background: #4b5563;
-        }
-
-        .feature-list-item input[type="checkbox"] {
-            cursor: pointer;
-        }
-
-        .feature-list-item-label {
+            color: var(--console-ink-2);
             font-size: 12px;
-            color: #d1d5db;
-            flex: 1;
-        }
-
-        .feature-list-item-layer {
-            font-size: 11px;
-            color: #9ca3af;
-            font-style: italic;
-        }
-
-        .use-for-tabs {
-            display: flex;
-            gap: 2px;
-            border-bottom: 1px solid #374151;
-            margin-bottom: 16px;
-        }
-
-        .use-for-tab {
-            flex: 1;
-            background: transparent;
-            border: none;
-            border-bottom: 2px solid transparent;
-            margin-bottom: -1px;
-            padding: 8px 4px;
-            color: #9ca3af;
-            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            transition: color 0.2s, border-color 0.2s, background 0.2s;
+            white-space: nowrap;
         }
 
-        .use-for-tab:hover {
-            color: #e5e7eb;
-            background: #273244;
+        .segmented label:hover {
+            color: var(--console-ink);
         }
 
-        .use-for-tab.active {
-            color: #fff;
-            border-bottom-color: #3b82f6;
+        .segmented input {
+            display: none;
         }
 
-        .use-for-tab:focus-visible {
-            outline: 2px solid #3b82f6;
-            outline-offset: -2px;
+        .segmented label:has(input:checked) {
+            background: var(--console-amber-soft);
+            color: var(--console-ink);
+            box-shadow: inset 0 0 0 1px var(--console-amber);
         }
 
+        .segmented sl-icon {
+            font-size: 15px;
+        }
+
+        .segmented.wide {
+            display: flex;
+        }
+
+        .segmented.wide label {
+            flex: 1;
+        }
+
+        /* On the page: a row per element - its name selects it, its eye shows or hides it */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            min-height: 34px;
+            border-radius: var(--console-radius-sm);
+            color: var(--console-ink-3);
+        }
+
+        .toggle-row:hover {
+            background: var(--console-raised);
+        }
+
+        .toggle-row:has(.eye input:checked) {
+            color: var(--console-ink);
+        }
+
+        .toggle-row.is-selected {
+            background: var(--console-amber-soft);
+            box-shadow: inset 0 0 0 1px var(--console-amber);
+        }
+
+        .row-select {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            height: 34px;
+            padding: 0 8px;
+            border: 0;
+            background: transparent;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .row-select .toggle-name {
+            flex: 1;
+            min-width: 0;
+            font-weight: 500;
+        }
+
+        .row-select .row-chevron {
+            color: var(--console-ink-3);
+            font-size: 12px;
+        }
+
+        .toggle-row sl-icon {
+            font-size: 15px;
+        }
+
+        .eye {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            border-radius: var(--console-radius-sm);
+            cursor: pointer;
+            color: var(--console-ink-3);
+        }
+
+        .eye:hover {
+            background: var(--console-hover);
+        }
+
+        .eye input {
+            display: none;
+        }
+
+        .eye .eye-on,
+        .eye:has(input:checked) .eye-off {
+            display: none;
+        }
+
+        .eye:has(input:checked) .eye-on {
+            display: inline-block;
+            color: var(--console-amber);
+        }
+
+        /* The selected element's editor */
+        .editor-head {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 6px 4px 4px;
+        }
+
+        .editor-head .editor-name {
+            flex: 1;
+            min-width: 0;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .editor-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 34px;
+            margin-bottom: 6px;
+        }
+
+        .editor-row > span:first-child {
+            width: 84px;
+            flex-shrink: 0;
+            font-size: 12px;
+            color: var(--console-ink-3);
+        }
+
+        .editor-row input[type="range"] {
+            flex: 1;
+            accent-color: var(--console-amber);
+        }
+
+        .editor-row output {
+            width: 38px;
+            text-align: right;
+            font-size: 12px;
+            color: var(--console-ink-2);
+            font-variant-numeric: tabular-nums;
+        }
+
+        input[type="color"] {
+            width: 34px;
+            height: 28px;
+            padding: 2px;
+            border: 1px solid var(--console-line-strong);
+            border-radius: 6px;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        #editor-text {
+            min-height: 60px;
+            font-family: inherit;
+            font-size: 13px;
+        }
+
+        .anchor-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 22px);
+            gap: 3px;
+            padding: 3px;
+            border: 1px solid var(--console-line-strong);
+            border-radius: 6px;
+        }
+
+        .anchor-grid button {
+            width: 22px;
+            height: 16px;
+            padding: 0;
+            border: 0;
+            border-radius: 3px;
+            background: var(--console-raised);
+            cursor: pointer;
+        }
+
+        .anchor-grid button:hover {
+            background: var(--console-hover);
+        }
+
+        .anchor-grid button.active {
+            background: var(--console-amber);
+        }
+
+        .offsets {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+
+        .offsets label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--console-ink-3);
+        }
+
+        .offsets input {
+            height: 28px;
+        }
+
+        .editor-note {
+            font-size: 11.5px;
+            color: var(--console-ink-3);
+        }
+
+        .detail-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            height: 24px;
+            padding: 0 7px;
+            border: 1px solid var(--console-line);
+            border-radius: 999px;
+            background: transparent;
+            color: var(--console-ink-3);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .detail-toggle.active {
+            border-color: var(--console-amber);
+            background: var(--console-amber-soft);
+            color: var(--console-ink);
+        }
+
+        .detail-toggle:disabled {
+            visibility: hidden;
+        }
+
+        .check-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 30px;
+            cursor: pointer;
+        }
+
+        .check-row input {
+            accent-color: var(--console-amber);
+            width: 15px;
+            height: 15px;
+            margin: 0;
+        }
+
+        .link-btn {
+            padding: 2px 4px;
+            border: 0;
+            background: none;
+            color: var(--console-blue);
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .link-btn:hover {
+            text-decoration: underline;
+        }
+
+        /* Exporting one layer or route */
         .context-banner {
             display: flex;
             align-items: flex-start;
             gap: 10px;
-            padding: 10px 12px;
-            margin-bottom: 16px;
-            background: #111827;
-            border: 1px solid #374151;
-            border-left: 4px solid var(--context-color, #3b82f6);
-            border-radius: 6px;
+            margin: 0 12px 10px;
+            padding: 10px;
+            border: 1px solid var(--console-line);
+            border-left: 3px solid var(--context-color, var(--console-blue));
+            border-radius: var(--console-radius-sm);
+            background: var(--console-raised);
         }
 
         .context-swatch {
-            flex-shrink: 0;
             width: 28px;
             height: 28px;
             border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--context-color, #3b82f6);
+            flex-shrink: 0;
+            background: var(--context-color, var(--console-blue));
             color: #fff;
             font-size: 15px;
         }
@@ -470,38 +651,121 @@
         }
 
         .context-title {
-            font-size: 14px;
             font-weight: 600;
-            color: #f3f4f6;
             overflow-wrap: anywhere;
         }
 
         .context-subtitle {
-            font-size: 12px;
-            color: #9ca3af;
             margin-top: 2px;
-            overflow-wrap: anywhere;
-        }
-
-        .context-whole-map {
-            display: inline-block;
-            margin-top: 6px;
-            padding: 0;
-            background: none;
-            border: none;
-            color: #60a5fa;
             font-size: 12px;
-            cursor: pointer;
-            text-decoration: underline;
-        }
-
-        .context-whole-map:hover {
-            color: #93c5fd;
+            color: var(--console-ink-3);
+            overflow-wrap: anywhere;
         }
 
         .context-scope {
             font-size: 13px;
-            color: #d1d5db;
+            color: var(--console-ink-2);
+        }
+
+        /* Features to export */
+        .feature-list-container {
+            margin-top: 8px;
+            border: 1px solid var(--console-line);
+            border-radius: var(--console-radius-sm);
+            overflow: hidden;
+        }
+
+        .feature-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--console-line);
+            background: var(--console-raised);
+        }
+
+        .feature-list-title {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .feature-list-items {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+
+        .feature-list-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 6px;
+            border-radius: 6px;
+        }
+
+        .feature-list-item:hover {
+            background: var(--console-raised);
+        }
+
+        .feature-list-item input {
+            accent-color: var(--console-amber);
+        }
+
+        .feature-list-item-label {
+            flex: 1;
+            min-width: 0;
+            font-size: 12px;
+        }
+
+        .feature-list-item-layer {
+            font-size: 11px;
+            color: var(--console-ink-3);
+        }
+
+        /* ---------- Footer ---------- */
+
+        .export-footer {
+            flex-shrink: 0;
+            padding: 10px 12px 12px;
+            border-top: 1px solid var(--console-line);
+        }
+
+        .export-btn {
+            width: 100%;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 0;
+            border-radius: var(--console-radius-sm);
+            background: var(--console-amber);
+            color: var(--console-amber-ink);
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .export-btn:hover {
+            filter: brightness(1.08);
+        }
+
+        .export-btn sl-icon {
+            font-size: 16px;
+        }
+
+        .export-btn.processing {
+            background: var(--console-hover);
+            color: var(--console-ink);
+        }
+
+        .export-btn.processing sl-icon {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
         }
     </style>
     <script defer type="module" src="js/analytics.js"></script>
@@ -509,476 +773,445 @@
 
 <body>
     <div class="export-container">
-        <!-- Header -->
-        <div class="export-header">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <sl-icon name="download" style="font-size: 20px;"></sl-icon>
-                <h1 id="export-heading" style="font-size: 18px; font-weight: 600; margin: 0;">Export Map</h1>
-            </div>
-            <button class="close-btn" id="close-btn">×</button>
-        </div>
+        <header class="export-head" id="export-head">
+            <sl-icon name="download"></sl-icon>
+            <h1 id="export-heading">Export map</h1>
+            <button type="button" class="icon-btn" id="close-btn" title="Close (Esc)"><sl-icon name="x-lg"></sl-icon></button>
+        </header>
 
-        <!-- Content -->
-        <div class="export-content scrollbar-thin">
-            <!-- What is being exported, when the panel was opened for one layer or route -->
-            <div class="context-banner" id="context-banner" style="display: none;">
-                <div class="context-swatch"><sl-icon id="context-icon" name="layers"></sl-icon></div>
-                <div class="context-text">
-                    <div class="context-title">Exporting: <span id="context-title"></span></div>
-                    <div class="context-subtitle" id="context-subtitle"></div>
-                    <button type="button" class="context-whole-map" id="context-whole-map">Export whole map instead</button>
-                </div>
-                <button type="button" class="close-btn" id="context-clear" title="Export the whole map instead" style="font-size: 20px;">×</button>
-            </div>
-
-            <!-- Export Type -->
-            <div class="use-for-tabs" id="use-for-tabs" role="tablist" aria-label="Export type">
-                <button type="button" class="use-for-tab active" role="tab" data-use-for="print" aria-selected="true" title="Images and PDF"><u>P</u>rint</button>
-                <button type="button" class="use-for-tab" role="tab" data-use-for="web" aria-selected="false" title="HTML and embed code"><u>W</u>eb</button>
-                <button type="button" class="use-for-tab" role="tab" data-use-for="gis" aria-selected="false" title="GeoJSON, KML, GeoTIFF, GeoCSV"><u>G</u>IS</button>
-                <button type="button" class="use-for-tab" role="tab" data-use-for="cad" aria-selected="false" title="DXF"><u>C</u>AD</button>
-            </div>
-
-            <!-- Format Options (dynamically populated) -->
-            <div class="form-group" id="format-options-container">
-                <!-- Will be populated by JavaScript -->
-            </div>
-
-            <!-- Advanced Options -->
-            <div id="advanced-options" style="display: none;">
-                <!-- Page Settings for Print/Web -->
-                <div id="page-settings" style="display: none;">
-                    <div class="form-group">
-                        <label class="form-label">Page Size</label>
-                        <select id="page-size">
-                            <option value="A4">A4 (297 × 210 mm)</option>
-                            <option value="A3">A3 (420 × 297 mm)</option>
-                            <option value="A2">A2 (594 × 420 mm)</option>
-                            <option value="A1">A1 (841 × 594 mm)</option>
-                            <option value="A0">A0 (1189 × 841 mm)</option>
-                            <option value="Letter">Letter (279 × 216 mm)</option>
-                            <option value="Legal">Legal (356 × 216 mm)</option>
-                            <option value="Custom">Custom</option>
-                        </select>
+        <div class="export-content">
+            <div class="export-content-inner" id="export-content-inner">
+                <!-- What is being exported, when the panel was opened for one layer or route -->
+                <div class="context-banner" id="context-banner" style="display: none;">
+                    <div class="context-swatch"><sl-icon id="context-icon" name="layers"></sl-icon></div>
+                    <div class="context-text">
+                        <div class="context-title"><span id="context-title"></span></div>
+                        <div class="context-subtitle" id="context-subtitle"></div>
+                        <button type="button" class="link-btn" id="context-whole-map" style="padding-left: 0;">Export the whole map instead</button>
                     </div>
-
-                    <div class="form-group" id="custom-dimensions" style="display: none;">
-                        <label class="form-label">Custom Dimensions (mm)</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="number" id="custom-width" placeholder="Width" min="100" max="2000" step="1"
-                                style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
-                            <span>×</span>
-                            <input type="number" id="custom-height" placeholder="Height" min="100" max="2000" step="1"
-                                style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Orientation</label>
-                        <div class="radio-group" style="flex-direction: row; gap: 16px;">
-                            <label class="radio-label">
-                                <input type="radio" name="orientation" value="landscape" checked>
-                                <span>Landscape</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="orientation" value="portrait">
-                                <span>Portrait</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">DPI</label>
-                        <select id="dpi-select">
-                            <option value="72">72 dpi (Screen)</option>
-                            <option value="96" selected>96 dpi (Web)</option>
-                            <option value="150">150 dpi (Good)</option>
-                            <option value="300">300 dpi (Print)</option>
-                        </select>
-                    </div>
+                    <button type="button" class="icon-btn" id="context-clear" title="Export the whole map instead" style="width: 28px; height: 28px;"><sl-icon name="x-lg"></sl-icon></button>
                 </div>
 
-                <!-- Title and Description -->
-                <div id="metadata-settings" style="display: none;">
-                    <div class="form-group">
-                        <label class="form-label">Title</label>
-                        <textarea id="map-title" placeholder="Map title..."></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Description</label>
-                        <textarea id="map-description" placeholder="Map description..."></textarea>
-                    </div>
+                <div class="use-for-tabs" id="use-for-tabs" role="tablist" aria-label="Export type">
+                    <button type="button" class="use-for-tab active" role="tab" data-use-for="print" aria-selected="true" title="Images and PDF (P)"><sl-icon name="printer"></sl-icon>Print</button>
+                    <button type="button" class="use-for-tab" role="tab" data-use-for="web" aria-selected="false" title="HTML and embed code (W)"><sl-icon name="globe2"></sl-icon>Web</button>
+                    <button type="button" class="use-for-tab" role="tab" data-use-for="gis" aria-selected="false" title="GeoJSON, KML, GeoTIFF, GeoCSV (G)"><sl-icon name="geo-alt"></sl-icon>GIS</button>
+                    <button type="button" class="use-for-tab" role="tab" data-use-for="cad" aria-selected="false" title="DXF (C)"><sl-icon name="rulers"></sl-icon>CAD</button>
                 </div>
 
-                <!-- Print Overlay Settings (PDF, PNG, JPEG) -->
-                <div id="print-overlay-settings" style="display: none;">
-                    <div class="form-group">
-                        <label class="form-label">Include in export</label>
-                        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="include-qr" checked>
-                                <span>QR Code</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="include-legend" checked>
-                                <span>Legend</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="include-markers" checked>
-                                <span>Markers</span>
-                            </label>
-                        </div>
-                        <div class="format-description">Markers keeps any pins and balloons you've placed on the map,
-                            including manually-offset positions and expanded feature details</div>
-                    </div>
-                </div>
+                <div id="format-options-container"></div>
 
-                <!-- Vector Options (GeoJSON/KML/DXF) -->
-                <div id="vector-settings" style="display: none;">
-                    <div class="form-group context-scope" id="context-scope" style="display: none;"></div>
-                    <div class="form-group" id="selected-only-settings">
-                        <div style="display: flex; align-items: center;">
-                            <label class="checkbox-label" style="margin: 0;">
-                                <input type="checkbox" id="export-selected-only" checked>
-                                <span>Export only selected features</span>
-                            </label>
-                            <button class="customize-features-btn" id="customize-features-btn" style="display: none;">
-                                Modify selection
-                            </button>
-                        </div>
-                        <div class="format-description">If no features are selected, the full source data of every
-                            active layer is exported, not just what is in the current map view</div>
-
-                        <!-- Feature Selection List -->
-                        <div class="feature-list-container" id="feature-list-container" style="display: none;">
-                            <div class="feature-list-header">
-                                <div class="feature-list-title" id="feature-list-count">0 features selected</div>
-                                <div class="feature-list-actions">
-                                    <button class="feature-list-action-btn" id="select-all-features-btn" style="display: none;">Select All</button>
-                                    <button class="feature-list-action-btn" id="select-none-features-btn" style="display: none;">Select None</button>
+                <div id="advanced-options" style="display: none;">
+                    <!-- Page, for print and the DXF raster -->
+                    <div id="page-settings" style="display: none;">
+                        <div class="section-label">Page</div>
+                        <div class="section">
+                            <div class="form-group field-grid">
+                                <label class="field">
+                                    <span>Size</span>
+                                    <select id="page-size">
+                                        <option value="A4">A4 (297 × 210 mm)</option>
+                                        <option value="A3">A3 (420 × 297 mm)</option>
+                                        <option value="A2">A2 (594 × 420 mm)</option>
+                                        <option value="A1">A1 (841 × 594 mm)</option>
+                                        <option value="A0">A0 (1189 × 841 mm)</option>
+                                        <option value="Letter">Letter (279 × 216 mm)</option>
+                                        <option value="Legal">Legal (356 × 216 mm)</option>
+                                        <option value="Custom">Custom</option>
+                                    </select>
+                                </label>
+                                <div class="segmented" id="orientation-group" role="radiogroup" aria-label="Orientation">
+                                    <label title="Landscape"><input type="radio" name="orientation" value="landscape" checked><sl-icon name="file-earmark-richtext" style="transform: rotate(90deg);"></sl-icon></label>
+                                    <label title="Portrait"><input type="radio" name="orientation" value="portrait"><sl-icon name="file-earmark-richtext"></sl-icon></label>
                                 </div>
                             </div>
-                            <div class="feature-list-items scrollbar-thin" id="feature-list-items">
-                                <!-- Features will be populated here -->
+
+                            <div class="form-group" id="custom-dimensions" style="display: none;">
+                                <div class="dims">
+                                    <input type="number" id="custom-width" placeholder="Width" min="50" max="2000" step="1" aria-label="Width (mm)">
+                                    <span>×</span>
+                                    <input type="number" id="custom-height" placeholder="Height" min="50" max="2000" step="1" aria-label="Height (mm)">
+                                    <span>mm</span>
+                                </div>
+                            </div>
+
+                            <label class="field form-group">
+                                <span>Resolution</span>
+                                <select id="dpi-select">
+                                    <option value="72">72 dpi · screen</option>
+                                    <option value="96" selected>96 dpi · web</option>
+                                    <option value="150">150 dpi · good</option>
+                                    <option value="300">300 dpi · print</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- The page's elements, placed and edited on the map -->
+                    <div id="print-overlay-settings" style="display: none;">
+                        <div class="section-label">On the page</div>
+                        <div class="section" id="layout-list">
+                            <div class="toggle-row" data-item="title">
+                                <button type="button" class="row-select" data-item="title" title="Edit the title"><sl-icon name="type-h1"></sl-icon><span class="toggle-name">Title</span><sl-icon class="row-chevron" name="chevron-right"></sl-icon></button>
+                                <label class="eye" title="Show or hide on the page"><input type="checkbox" class="layout-toggle" id="include-title" data-item="title" checked><sl-icon class="eye-on" name="eye"></sl-icon><sl-icon class="eye-off" name="eye-slash"></sl-icon></label>
+                            </div>
+                            <div class="toggle-row" data-item="description">
+                                <button type="button" class="row-select" data-item="description" title="Edit the description"><sl-icon name="text-paragraph"></sl-icon><span class="toggle-name">Description</span><sl-icon class="row-chevron" name="chevron-right"></sl-icon></button>
+                                <label class="eye" title="Show or hide on the page"><input type="checkbox" class="layout-toggle" id="include-description" data-item="description" checked><sl-icon class="eye-on" name="eye"></sl-icon><sl-icon class="eye-off" name="eye-slash"></sl-icon></label>
+                            </div>
+                            <div class="toggle-row" data-item="scale">
+                                <button type="button" class="row-select" data-item="scale" title="Edit the scale bar and north arrow"><sl-icon name="rulers"></sl-icon><span class="toggle-name">Scale &amp; north</span><sl-icon class="row-chevron" name="chevron-right"></sl-icon></button>
+                                <label class="eye" title="Show or hide on the page"><input type="checkbox" class="layout-toggle" id="include-scale" data-item="scale" checked><sl-icon class="eye-on" name="eye"></sl-icon><sl-icon class="eye-off" name="eye-slash"></sl-icon></label>
+                            </div>
+                            <div class="toggle-row" data-item="qr">
+                                <button type="button" class="row-select" data-item="qr" title="Edit the qr code"><sl-icon name="qr-code"></sl-icon><span class="toggle-name">QR code</span><sl-icon class="row-chevron" name="chevron-right"></sl-icon></button>
+                                <label class="eye" title="Show or hide on the page"><input type="checkbox" class="layout-toggle" id="include-qr" data-item="qr" checked><sl-icon class="eye-on" name="eye"></sl-icon><sl-icon class="eye-off" name="eye-slash"></sl-icon></label>
+                            </div>
+                            <div class="toggle-row" data-item="info">
+                                <button type="button" class="row-select" data-item="info" title="Edit the date &amp; link"><sl-icon name="link-45deg"></sl-icon><span class="toggle-name">Date &amp; link</span><sl-icon class="row-chevron" name="chevron-right"></sl-icon></button>
+                                <label class="eye" title="Show or hide on the page"><input type="checkbox" class="layout-toggle" id="include-info" data-item="info" checked><sl-icon class="eye-on" name="eye"></sl-icon><sl-icon class="eye-off" name="eye-slash"></sl-icon></label>
+                            </div>
+                            <div class="toggle-row" title="Pins and balloons placed on the map, as they are">
+                                <span class="row-select" style="cursor: default;"><sl-icon name="geo-alt"></sl-icon><span class="toggle-name">Markers</span></span>
+                                <label class="eye" title="Show or hide on the page"><input type="checkbox" id="include-markers" checked><sl-icon class="eye-on" name="eye"></sl-icon><sl-icon class="eye-off" name="eye-slash"></sl-icon></label>
+                            </div>
+                        </div>
+
+                        <div id="layout-legend-wrap" hidden>
+                            <div class="section-label">
+                                <span>Legends</span>
+                                <button type="button" class="link-btn" id="legend-all" style="text-transform: none; letter-spacing: 0;">Hide all</button>
+                            </div>
+                            <div class="section" id="layout-legend"></div>
+                        </div>
+
+                        <div id="layout-editor" hidden>
+                            <div class="editor-head">
+                                <button type="button" class="icon-btn" id="editor-back" title="Back to the page's elements (Esc)" style="width: 30px; height: 30px;"><sl-icon name="arrow-left"></sl-icon></button>
+                                <span class="editor-name" id="editor-name">Title</span>
+                                <label class="eye" title="Show or hide on the page"><input type="checkbox" id="editor-visible"><sl-icon class="eye-on" name="eye"></sl-icon><sl-icon class="eye-off" name="eye-slash"></sl-icon></label>
+                            </div>
+                            <div class="section">
+                                <label class="field form-group" id="editor-text-field">
+                                    <span>Text</span>
+                                    <textarea id="editor-text" rows="2"></textarea>
+                                </label>
+                                <div class="editor-row" id="editor-color-row">
+                                    <span>Text color</span>
+                                    <input type="color" id="editor-color" aria-label="Text color">
+                                </div>
+                                <div class="editor-row">
+                                    <span>Background</span>
+                                    <input type="color" id="editor-bg" aria-label="Background color">
+                                    <input type="range" id="editor-opacity" min="0" max="100" step="5" aria-label="Background opacity">
+                                    <output id="editor-opacity-value">100%</output>
+                                </div>
+                                <div class="editor-row" style="align-items: flex-start;">
+                                    <span style="padding-top: 6px;">Position</span>
+                                    <div class="anchor-grid" id="editor-anchor" role="group" aria-label="Snap to">
+                                        <button type="button" data-anchor="top-left" title="Top left"></button>
+                                        <button type="button" data-anchor="top-center" title="Top"></button>
+                                        <button type="button" data-anchor="top-right" title="Top right"></button>
+                                        <button type="button" data-anchor="center-left" title="Left"></button>
+                                        <button type="button" data-anchor="center-center" title="Centre"></button>
+                                        <button type="button" data-anchor="center-right" title="Right"></button>
+                                        <button type="button" data-anchor="bottom-left" title="Bottom left"></button>
+                                        <button type="button" data-anchor="bottom-center" title="Bottom"></button>
+                                        <button type="button" data-anchor="bottom-right" title="Bottom right"></button>
+                                    </div>
+                                    <div class="offsets">
+                                        <label><span id="editor-x-label" style="width: 44px;">Left</span><input type="number" id="editor-x" min="0" max="95" step="0.5"><span>%</span></label>
+                                        <label><span id="editor-y-label" style="width: 44px;">Top</span><input type="number" id="editor-y" min="0" max="95" step="0.5"><span>%</span></label>
+                                    </div>
+                                </div>
+                                <div class="editor-note" id="editor-follows"></div>
+                                <button type="button" class="link-btn" id="editor-arrange" hidden style="padding-left: 0;">Put back in the legend column</button>
+                                <div class="editor-row" id="editor-detail-row" hidden style="margin-top: 6px;">
+                                    <span>Legend</span>
+                                    <button type="button" class="detail-toggle" id="editor-detail"><sl-icon name="list-nested"></sl-icon>Detailed legend</button>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="hint" id="layout-hint"><sl-icon name="arrows-move"></sl-icon> Pan and zoom the map to frame it. Click an element on the page to edit it, drag it to move it; click a selected title or description again to type on the page.</p>
+                    </div>
+
+                    <!-- Vector Options (GeoJSON/KML/CSV/DXF) -->
+                    <div id="vector-settings" style="display: none;">
+                        <div class="section-label">Features</div>
+                        <div class="section">
+                            <div class="context-scope" id="context-scope" style="display: none;"></div>
+                            <div id="selected-only-settings">
+                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <label class="check-row">
+                                        <input type="checkbox" id="export-selected-only" checked>
+                                        <span>Only selected features</span>
+                                    </label>
+                                    <button type="button" class="link-btn" id="customize-features-btn" style="display: none;">Choose…</button>
+                                </div>
+                                <div class="format-description" style="margin-top: 2px;">With none selected, the full source data of every active layer is exported, not just what is in view</div>
+
+                                <div class="feature-list-container" id="feature-list-container" style="display: none;">
+                                    <div class="feature-list-header">
+                                        <div class="feature-list-title" id="feature-list-count">0 features selected</div>
+                                        <div>
+                                            <button type="button" class="link-btn" id="select-all-features-btn" style="display: none;">All</button>
+                                            <button type="button" class="link-btn" id="select-none-features-btn" style="display: none;">None</button>
+                                        </div>
+                                    </div>
+                                    <div class="feature-list-items" id="feature-list-items"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- DXF Options -->
-                <div id="dxf-settings" style="display: none;">
-                    <div class="form-group">
-                        <label class="form-label">Coordinate System</label>
-                        <div class="radio-group">
-                            <label class="radio-label">
-                                <input type="radio" name="dxf-coords" value="local" checked>
-                                <span>Local (meters from center)</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="dxf-coords" value="wgs84">
-                                <span>WGS84 (lat/lon)</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="dxf-coords" value="utm">
-                                <span>UTM (auto-detect zone)</span>
+                    <!-- DXF Options -->
+                    <div id="dxf-settings" style="display: none;">
+                        <div class="section-label">Coordinates</div>
+                        <div class="section">
+                            <div class="segmented wide form-group" role="radiogroup" aria-label="Coordinate system">
+                                <label title="Meters from the centre"><input type="radio" name="dxf-coords" value="local" checked>Local</label>
+                                <label title="Latitude and longitude"><input type="radio" name="dxf-coords" value="wgs84">WGS84</label>
+                                <label title="UTM, zone detected"><input type="radio" name="dxf-coords" value="utm">UTM</label>
+                            </div>
+                            <label class="check-row">
+                                <input type="checkbox" id="dxf-include-raster" checked>
+                                <span>Include map imagery as raster</span>
                             </label>
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="dxf-include-raster" checked>
-                            <span>Include map imagery as raster</span>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- CSV Options -->
-                <div id="csv-settings" style="display: none;">
-                    <div class="form-group">
-                        <label class="form-label">Geometry Field</label>
-                        <div class="radio-group">
-                            <label class="radio-label">
-                                <input type="radio" name="csv-geom" value="xy" checked>
-                                <span>X/Y Points</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="csv-geom" value="wkt">
-                                <span>WKT Geometries</span>
-                            </label>
-                            <label class="radio-label" id="csv-geom-sheet" style="display: none;">
-                                <input type="radio" name="csv-geom" value="sheet">
-                                <span>Route sheet: a waypoints and a routes CSV, to paste into a Google Sheet</span>
-                            </label>
+                    <!-- CSV Options -->
+                    <div id="csv-settings" style="display: none;">
+                        <div class="section-label">Geometry</div>
+                        <div class="section">
+                            <div class="segmented wide" role="radiogroup" aria-label="Geometry field">
+                                <label title="X/Y points"><input type="radio" name="csv-geom" value="xy" checked>X/Y points</label>
+                                <label title="WKT geometries"><input type="radio" name="csv-geom" value="wkt">WKT</label>
+                                <label id="csv-geom-sheet" style="display: none;" title="A waypoints and a routes CSV, to paste into a Google Sheet"><input type="radio" name="csv-geom" value="sheet">Route sheet</label>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Style JSON Options -->
-                <div id="style-json-settings" style="display: none;">
-                    <div class="form-group">
-                        <label class="form-label">Style Spec</label>
-                        <div class="radio-group">
-                            <label class="radio-label">
-                                <input type="radio" name="style-spec" value="maplibre" checked>
-                                <span>MapLibre</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="style-spec" value="mapbox">
-                                <span>Mapbox</span>
+                    <!-- Style JSON Options -->
+                    <div id="style-json-settings" style="display: none;">
+                        <div class="section-label">Style spec</div>
+                        <div class="section">
+                            <div class="segmented wide form-group" role="radiogroup" aria-label="Style spec">
+                                <label><input type="radio" name="style-spec" value="maplibre" checked>MapLibre</label>
+                                <label><input type="radio" name="style-spec" value="mapbox">Mapbox</label>
+                            </div>
+                            <label class="field" id="mapbox-token-group" style="display: none;">
+                                <span>Mapbox access token</span>
+                                <input type="text" id="mapbox-token" placeholder="pk.eyJ1...">
                             </label>
                         </div>
                     </div>
 
-                    <div class="form-group" id="mapbox-token-group" style="display: none;">
-                        <label class="form-label">Mapbox Access Token</label>
-                        <input type="text" id="mapbox-token" placeholder="pk.eyJ1...">
-                    </div>
-                </div>
-
-                <!-- Iframe Options -->
-                <div id="iframe-settings" style="display: none;">
-                    <div class="form-group">
-                        <label class="form-label">Iframe Size</label>
-                        <select id="iframe-size">
-                            <option value="responsive">Responsive (100%)</option>
-                            <option value="small">Small (600 × 400)</option>
-                            <option value="medium" selected>Medium (800 × 600)</option>
-                            <option value="large">Large (1200 × 800)</option>
-                            <option value="custom">Custom</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group" id="iframe-custom-size" style="display: none;">
-                        <label class="form-label">Custom Size (px)</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="number" id="iframe-width" placeholder="Width" min="300" max="2000" step="1"
-                                style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
-                            <span>×</span>
-                            <input type="number" id="iframe-height" placeholder="Height" min="200" max="2000" step="1"
-                                style="flex: 1; padding: 8px; background: #374151; border: 1px solid #4b5563; border-radius: 4px; color: #f3f4f6;">
+                    <!-- Iframe Options -->
+                    <div id="iframe-settings" style="display: none;">
+                        <div class="section-label">Embed</div>
+                        <div class="section">
+                            <label class="field form-group">
+                                <span>Size</span>
+                                <select id="iframe-size">
+                                    <option value="responsive">Responsive (100%)</option>
+                                    <option value="small">Small (600 × 400)</option>
+                                    <option value="medium" selected>Medium (800 × 600)</option>
+                                    <option value="large">Large (1200 × 800)</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </label>
+                            <div class="form-group" id="iframe-custom-size" style="display: none;">
+                                <div class="dims">
+                                    <input type="number" id="iframe-width" placeholder="Width" min="300" max="2000" step="1" aria-label="Width (px)">
+                                    <span>×</span>
+                                    <input type="number" id="iframe-height" placeholder="Height" min="200" max="2000" step="1" aria-label="Height (px)">
+                                    <span>px</span>
+                                </div>
+                            </div>
+                            <label class="field">
+                                <span>Embed code</span>
+                                <textarea id="iframe-code" readonly></textarea>
+                            </label>
                         </div>
                     </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Generated Embed Code</label>
-                        <textarea id="iframe-code" readonly
-                            style="font-family: monospace; font-size: 12px; min-height: 100px;"></textarea>
-                    </div>
                 </div>
-
             </div>
         </div>
 
-        <!-- Footer -->
-        <div class="export-footer">
-            <button class="export-btn" id="export-btn">
-                <sl-icon name="download" style="font-size: 16px;"></sl-icon>
+        <footer class="export-footer" id="export-footer">
+            <button type="button" class="export-btn" id="export-btn">
+                <sl-icon name="download"></sl-icon>
                 <span>Download</span>
             </button>
-        </div>
+        </footer>
     </div>
 
     <script type="module">
-        // State
         let currentUseFor = 'print';
         let currentFormat = 'jpeg';
-        let exportData = null;
         let isExporting = false;
         let exportCancellable = true;
-        let exportCancelled = false;
         let currentExportProgress = 0;
-        let currentExportMessage = '';
         let featureSelectionState = new Map();
         let isFeatureListVisible = false;
         let exportContext = null;
+        let editorItem = null;
+        let legendEntries = [];
+        const FIXED_ITEMS = ['title', 'description', 'scale', 'qr', 'info'];
+
+        const PRINT_FORMATS = ['pdf', 'png', 'jpeg', 'svg'];
+        const PAGE_FORMATS = [...PRINT_FORMATS, 'geotiff'];
+        const VECTOR_FORMATS = ['geojson', 'kml', 'csv', 'dxf'];
+
+        const PAGE_SIZES = {
+            A4: [297, 210], A3: [420, 297], A2: [594, 420], A1: [841, 594], A0: [1189, 841],
+            Letter: [279, 216], Legal: [356, 216]
+        };
 
         const formatsByUseFor = {
-            print: {
-                formats: [
-                    { value: 'jpeg', label: 'JPEG', shortcut: 'j', icon: 'filetype-jpg', description: 'Compressed image, smaller file size' },
-                    { value: 'png', label: 'PNG', shortcut: 'p', icon: 'filetype-png', description: 'Lossless image, transparent backgrounds' },
-                    { value: 'svg', label: 'SVG', shortcut: 's', icon: 'filetype-svg', description: 'Scalable image, map embedded at full resolution' },
-                    { value: 'pdf', label: 'PDF', shortcut: 'd', icon: 'filetype-pdf', description: 'Georeferenced GeoPDF, best for printing and GIS apps like Avenza Maps' }
-                ]
-            },
-            web: {
-                formats: [
-                    { value: 'html', label: 'HTML', shortcut: 'h', icon: 'filetype-html', description: 'Interactive web map' },
-                    { value: 'iframe', label: 'Iframe', shortcut: 'i', icon: 'code-square', description: 'Embed code for websites and blogs' }
-                ]
-            },
-            gis: {
-                formats: [
-                    { value: 'kml', label: 'KML', shortcut: 'k', icon: 'filetype-xml', description: 'For Google Earth and mapping apps' },
-                    { value: 'geojson', label: 'GeoJSON', shortcut: 'j', icon: 'filetype-json', description: 'For web development and GIS software' },
-                    { value: 'geotiff', label: 'GeoTIFF', shortcut: 't', icon: 'filetype-tiff', description: 'Georeferenced raster image' },
-                    { value: 'csv', label: 'GeoCSV', shortcut: 'c', icon: 'filetype-csv', description: 'Spreadsheet with feature metadata and coordinates' },
-                    { value: 'style', label: 'Style JSON', shortcut: 's', icon: 'palette', description: 'For Maputnik and Mapbox Studio' }
-                ]
-            },
-            cad: {
-                formats: [
-                    { value: 'dxf', label: 'DXF', shortcut: 'd', icon: 'file-earmark-ruled', description: 'For AutoCAD and CAD software' }
-                ]
-            }
+            print: [
+                { value: 'jpeg', label: 'JPEG', icon: 'filetype-jpg', description: 'Compressed image, smaller file size' },
+                { value: 'png', label: 'PNG', icon: 'filetype-png', description: 'Lossless image, transparent backgrounds' },
+                { value: 'svg', label: 'SVG', icon: 'filetype-svg', description: 'Scalable image, map embedded at full resolution' },
+                { value: 'pdf', label: 'PDF', icon: 'filetype-pdf', description: 'Georeferenced GeoPDF, best for printing and GIS apps like Avenza Maps' }
+            ],
+            web: [
+                { value: 'html', label: 'HTML', icon: 'filetype-html', description: 'Interactive web map' },
+                { value: 'iframe', label: 'Iframe', icon: 'code-square', description: 'Embed code for websites and blogs' }
+            ],
+            gis: [
+                { value: 'kml', label: 'KML', icon: 'filetype-xml', description: 'For Google Earth and mapping apps' },
+                { value: 'geojson', label: 'GeoJSON', icon: 'filetype-json', description: 'For web development and GIS software' },
+                { value: 'geotiff', label: 'GeoTIFF', icon: 'filetype-tiff', description: 'Georeferenced raster image' },
+                { value: 'csv', label: 'GeoCSV', icon: 'filetype-csv', description: 'Spreadsheet with feature metadata and coordinates' },
+                { value: 'style', label: 'Style JSON', icon: 'palette', description: 'For Maputnik and Mapbox Studio' }
+            ],
+            cad: [
+                { value: 'dxf', label: 'DXF', icon: 'file-earmark-ruled', description: 'For AutoCAD and CAD software' }
+            ]
         };
+
+        const SHORTCUTS = {
+            print: { j: 'jpeg', p: 'png', s: 'svg', d: 'pdf' },
+            web: { h: 'html', i: 'iframe' },
+            gis: { k: 'kml', j: 'geojson', t: 'geotiff', c: 'csv', s: 'style' },
+            cad: { d: 'dxf' }
+        };
+        const USE_FOR_SHORTCUTS = { p: 'print', w: 'web', g: 'gis', c: 'cad' };
+
+        const post = (message) => window.parent.postMessage(message, '*');
 
         $(document).ready(function () {
             setupEventListeners();
             updateFormatOptions();
             updateAdvancedOptions();
-            window.parent.postMessage({ type: 'export-ready' }, '*');
+            reportSize();
+            post({ type: 'export-ready' });
         });
 
+        // The parent sizes the panel's iframe to its content
+        function reportSize() {
+            const parts = ['export-head', 'export-content-inner', 'export-footer'].map(id => document.getElementById(id));
+            let last = 0;
+            const send = () => {
+                const height = Math.ceil(parts.reduce((sum, el) => sum + el.offsetHeight, 0));
+                if (height !== last) post({ type: 'export-size', height: (last = height) });
+            };
+            const observer = new ResizeObserver(send);
+            parts.forEach(el => observer.observe(el));
+            send();
+        }
+
         function setupEventListeners() {
-            $('#close-btn').on('click', () => {
-                window.parent.postMessage({ type: 'export-close' }, '*');
-            });
+            $('#close-btn').on('click', () => post({ type: 'export-close' }));
 
             $('#use-for-tabs').on('click', '.use-for-tab', function () {
                 setUseFor($(this).data('use-for'));
                 sendSettingsUpdate();
             });
 
-            $('#context-whole-map, #context-clear').on('click', () => {
-                window.parent.postMessage({ type: 'export-clear-context' }, '*');
-            });
-
-            $(document).on('change', 'input[name="format"]', (e) => {
-                currentFormat = e.target.value;
-                updateAdvancedOptions();
-            });
+            $('#context-whole-map, #context-clear').on('click', () => post({ type: 'export-clear-context' }));
 
             $(document).on('change', 'input[name="style-spec"]', (e) => {
-                const showToken = e.target.value === 'mapbox';
-                $('#mapbox-token-group').toggle(showToken);
+                $('#mapbox-token-group').toggle(e.target.value === 'mapbox');
             });
 
             $('#page-size').on('change', () => {
                 const isCustom = $('#page-size').val() === 'Custom';
                 $('#custom-dimensions').toggle(isCustom);
-                $('input[name="orientation"]').closest('.form-group').toggle(!isCustom);
+                $('#orientation-group').toggle(!isCustom);
                 updateAdvancedOptions();
             });
 
             $('#custom-width, #custom-height').on('input', () => {
-                if ($('#page-size').val() === 'Custom') {
-                    updateAdvancedOptions();
-                }
+                if ($('#page-size').val() === 'Custom') updateAdvancedOptions();
             });
 
-            $(document).on('change', 'input[name="orientation"]', () => {
-                updateAdvancedOptions();
-            });
+            $(document).on('change', 'input[name="orientation"]', updateAdvancedOptions);
+            $('#dxf-include-raster').on('change', updateAdvancedOptions);
 
-            $('#dxf-include-raster').on('change', () => {
-                updateAdvancedOptions();
+            $('.layout-toggle').on('change', function () {
+                post({ type: 'layout-visibility', config: { [$(this).data('item')]: this.checked } });
+                if ($(this).data('item') === editorItem) $('#editor-visible').prop('checked', this.checked);
             });
+            setupEditorListeners();
 
             $('#iframe-size').on('change', () => {
-                const isCustom = $('#iframe-size').val() === 'custom';
-                $('#iframe-custom-size').toggle(isCustom);
+                $('#iframe-custom-size').toggle($('#iframe-size').val() === 'custom');
                 generateIframeCode();
             });
-
-            $('#iframe-width, #iframe-height').on('input', () => {
-                generateIframeCode();
-            });
+            $('#iframe-width, #iframe-height').on('input', generateIframeCode);
 
             $('#export-btn').on('click', () => {
                 if (isExporting) {
-                    if (currentExportProgress < 0) stopProcessing(false);
+                    if (currentExportProgress < 0) stopProcessing();
                     else if (exportCancellable) cancelExport();
                 } else {
                     performExport();
                 }
             });
 
-            // Listen for messages from parent
             window.addEventListener('message', (event) => {
-                if (event.data.type === 'export-data') {
-                    exportData = event.data;
-                } else if (event.data.type === 'title-update') {
-                    const titleInput = $('#map-title');
-                    if (titleInput.val() === '' || !titleInput.data('customized')) {
-                        titleInput.val(event.data.title.replace(/<br\s*\/?>/gi, ' '));
-                        titleInput.data('customized', false);
-                    }
-                } else if (event.data.type === 'export-progress') {
-                    console.log(`Export progress: ${event.data.percent}% - ${event.data.message}`);
-                    if (isExporting) {
-                        updateButtonProgress(event.data.percent, event.data.message);
-                    }
-                } else if (event.data.type === 'export-opened') {
-                    if (event.data.context) {
-                        applyContext(event.data.context);
+                const data = event.data || {};
+                if (data.type === 'export-progress') {
+                    if (isExporting) updateButtonProgress(data.percent, data.message);
+                } else if (data.type === 'export-opened') {
+                    if (data.context) {
+                        applyContext(data.context);
                     } else {
                         if (exportContext) applyContext(null);
-                        if (event.data.initialSettings) {
-                            applyInitialSettings(event.data.initialSettings);
-                        }
+                        if (data.initialSettings) applyInitialSettings(data.initialSettings);
                     }
                     updateAdvancedOptions();
-                } else if (event.data.type === 'export-closed') {
+                } else if (data.type === 'export-closed') {
                     exportContext = null;
                     renderContext();
-                } else if (event.data.type === 'export-context') {
-                    applyContext(event.data.context);
-                } else if (event.data.type === 'export-context-count') {
+                } else if (data.type === 'export-context') {
+                    applyContext(data.context);
+                } else if (data.type === 'export-context-count') {
                     if (exportContext) {
-                        exportContext.featureCount = event.data.count;
+                        exportContext.featureCount = data.count;
                         renderContext();
                     }
-                } else if (event.data.type === 'frame-aspect-changed') {
-                    handleFrameAspectChanged(event.data.aspectRatio);
-                } else if (event.data.type === 'selected-features') {
-                    populateFeatureList(event.data.features);
+                } else if (data.type === 'selected-features') {
+                    populateFeatureList(data.features);
+                } else if (data.type === 'layout-selected') {
+                    renderEditor(data.item, data.state);
+                } else if (data.type === 'layout-legend') {
+                    renderLegendList(data.entries);
                 }
             });
 
-            // Track title customization
-            $('#map-title').on('input', function () {
-                $(this).data('customized', true);
-                window.parent.postMessage({
-                    type: 'title-changed',
-                    config: {
-                        title: $(this).val(),
-                        customized: true
-                    }
-                }, '*');
-            });
+            $('#customize-features-btn').on('click', toggleFeatureList);
+            $('#select-all-features-btn').on('click', () => setAllFeatures(true));
+            $('#select-none-features-btn').on('click', () => setAllFeatures(false));
+            $('#export-selected-only').on('change', updateFeatureListVisibility);
 
-            $('#map-description').on('input', function () {
-                window.parent.postMessage({
-                    type: 'description-changed',
-                    config: {
-                        description: $(this).val(),
-                        customized: true
-                    }
-                }, '*');
-            });
+            $(document).on('keydown', handleExportKeydown);
 
-            $('#customize-features-btn').on('click', () => {
-                toggleFeatureList();
-            });
-
-            $('#select-all-features-btn').on('click', () => {
-                selectAllFeatures();
-            });
-
-            $('#select-none-features-btn').on('click', () => {
-                selectNoneFeatures();
-            });
-
-            $('#export-selected-only').on('change', () => {
-                updateFeatureListVisibility();
-            });
-
-            $(document).on('keydown', (e) => {
-                handleExportKeydown(e);
-            });
+            $(document).on('change', 'input, select, textarea', sendSettingsUpdate);
+            $(document).on('click', '.format-button', () => setTimeout(sendSettingsUpdate, 100));
         }
 
         function selectUseForTab(useFor) {
@@ -996,22 +1229,22 @@
             updateAdvancedOptions();
         }
 
+        function selectFormat(format) {
+            $(`.format-button[data-format="${format}"]`).click();
+        }
+
         function applyContext(context) {
             exportContext = context || null;
             renderContext();
-
             if (!exportContext) {
-                $('#map-title').val('').data('customized', false);
                 updateAdvancedOptions();
                 return;
             }
-
             const useFor = formatsByUseFor[context.useFor] ? context.useFor : 'gis';
             setUseFor(useFor);
-            if (context.format && formatsByUseFor[useFor].formats.some(f => f.value === context.format)) {
-                $(`.format-button[data-format="${context.format}"]`).click();
+            if (context.format && formatsByUseFor[useFor].some(f => f.value === context.format)) {
+                selectFormat(context.format);
             }
-            $('#map-title').val(context.title || '').data('customized', false);
         }
 
         function renderContext() {
@@ -1022,7 +1255,7 @@
             const $sheet = $('input[name="csv-geom"][value="sheet"]');
             if (routes) $sheet.prop('checked', true);
             else if ($sheet.is(':checked')) $('input[name="csv-geom"][value="xy"]').prop('checked', true);
-            $('#export-heading').text(ctx ? `Export ${ctx.kind || 'layer'}` : 'Export Map');
+            $('#export-heading').text(ctx ? `Export ${ctx.kind || 'layer'}` : 'Export map');
             $('#selected-only-settings').toggle(!ctx);
             $('#context-scope').toggle(!!ctx).text(ctx ? contextScopeText(ctx) : '');
             if (!ctx) return;
@@ -1030,7 +1263,7 @@
             $('#context-title').text(ctx.title || ctx.layerId);
             $('#context-subtitle').text(ctx.subtitle || '').toggle(!!ctx.subtitle);
             $('#context-icon').attr('name', ctx.icon || (ctx.kind === 'route' ? 'signpost-split' : 'layers'));
-            $('#context-banner')[0].style.setProperty('--context-color', ctx.color || '#3b82f6');
+            $('#context-banner')[0].style.setProperty('--context-color', ctx.color || '#7cb4ff');
         }
 
         function contextScopeText(ctx) {
@@ -1042,377 +1275,253 @@
         }
 
         function updateFormatOptions() {
-            const options = formatsByUseFor[currentUseFor];
-            const $container = $('#format-options-container');
-            $container.empty();
+            const formats = formatsByUseFor[currentUseFor];
+            const $container = $('#format-options-container').empty();
+            currentFormat = formats[0].value;
 
-            currentFormat = options.formats[0].value;
-
-            if (options.formats.length === 1) {
-                // Single format - hide format selector entirely
+            if (formats.length === 1) {
                 $container.hide();
-            } else {
-                // Multiple formats - show as icon grid
-                $container.show();
-                $container.html(`
-                    <label class="form-label">Format</label>
+                return;
+            }
+            $container.show().html(`
+                <div class="section-label">Format</div>
+                <div class="section">
                     <div class="format-grid">
-                        ${options.formats.map((format, index) => {
-                            const labelWithShortcut = format.shortcut
-                                ? format.label.replace(new RegExp(`^(${format.shortcut})`, 'i'), '<u>$1</u>')
-                                : format.label;
-                            return `
-                            <label class="format-button ${index === 0 ? 'selected' : ''}" data-format="${format.value}">
+                        ${formats.map((format, index) => `
+                            <label class="format-button ${index === 0 ? 'selected' : ''}" data-format="${format.value}" title="${format.label}">
                                 <input type="radio" name="format" value="${format.value}" ${index === 0 ? 'checked' : ''}>
                                 <sl-icon name="${format.icon}" class="format-icon"></sl-icon>
-                                <div class="format-label">${labelWithShortcut}</div>
-                            </label>`;
-                        }).join('')}
+                                <div class="format-label">${format.label}</div>
+                            </label>`).join('')}
                     </div>
-                    <div class="format-description-box">
-                        <div class="format-description" id="format-desc">${options.formats[0].description}</div>
-                    </div>
-                `);
+                    <div class="format-description" id="format-desc">${formats[0].description}</div>
+                </div>
+            `);
 
-                // Add click handlers for format buttons
-                $('.format-button').on('click', function () {
-                    const $button = $(this);
-                    const formatValue = $button.data('format');
-                    const format = options.formats.find(f => f.value === formatValue);
-
-                    // Update selection
-                    $('.format-button').removeClass('selected');
-                    $button.addClass('selected');
-                    $button.find('input[type="radio"]').prop('checked', true);
-
-                    // Update description
-                    $('#format-desc').text(format.description);
-
-                    // Trigger change event
-                    currentFormat = formatValue;
-                    updateAdvancedOptions();
-                });
-            }
+            $('.format-button').on('click', function () {
+                const $button = $(this);
+                const format = formats.find(f => f.value === $button.data('format'));
+                $('.format-button').removeClass('selected');
+                $button.addClass('selected').find('input').prop('checked', true);
+                $('#format-desc').text(format.description);
+                currentFormat = format.value;
+                updateAdvancedOptions();
+            });
         }
 
-        function handleFrameAspectChanged(aspectRatio) {
-            const currentPageSize = $('#page-size').val();
-
-            if (currentPageSize !== 'Custom') {
-                $('#page-size').val('Custom');
-                $('#custom-dimensions').show();
+        function getPageSize() {
+            if ($('#page-size').val() === 'Custom') {
+                return {
+                    w: parseFloat($('#custom-width').val()) || 297,
+                    h: parseFloat($('#custom-height').val()) || 210
+                };
             }
+            const [long, short] = PAGE_SIZES[$('#page-size').val()] || PAGE_SIZES.A4;
+            return $('input[name="orientation"]:checked').val() === 'portrait' ? { w: short, h: long } : { w: long, h: short };
+        }
 
-            const baseWidth = 400;
-            const calculatedWidth = Math.round(baseWidth);
-            const calculatedHeight = Math.round(baseWidth / aspectRatio);
+        function layoutVisibility() {
+            const visible = {};
+            $('.layout-toggle').each(function () {
+                visible[$(this).data('item')] = this.checked;
+            });
+            return visible;
+        }
 
-            $('#custom-width').val(calculatedWidth);
-            $('#custom-height').val(calculatedHeight);
-
-            updateAdvancedOptions();
+        function needsFrame() {
+            return PAGE_FORMATS.includes(currentFormat) || (currentFormat === 'dxf' && $('#dxf-include-raster').is(':checked'));
         }
 
         function updateAdvancedOptions() {
-            const $advanced = $('#advanced-options');
-            const $pageSettings = $('#page-settings');
-            const $metadataSettings = $('#metadata-settings');
-            const $vectorSettings = $('#vector-settings');
-            const $dxfSettings = $('#dxf-settings');
-            const $csvSettings = $('#csv-settings');
-            const $styleJsonSettings = $('#style-json-settings');
-            const $iframeSettings = $('#iframe-settings');
-            const $printOverlaySettings = $('#print-overlay-settings');
+            const show = {
+                page: needsFrame(),
+                overlay: PRINT_FORMATS.includes(currentFormat),
+                vector: VECTOR_FORMATS.includes(currentFormat),
+                dxf: currentFormat === 'dxf',
+                csv: currentFormat === 'csv',
+                style: currentFormat === 'style',
+                iframe: currentFormat === 'iframe'
+            };
+            $('#page-settings').toggle(show.page);
+            $('#print-overlay-settings').toggle(show.overlay);
+            if (!show.overlay && editorItem) post({ type: 'layout-select', item: null });
+            $('#vector-settings').toggle(show.vector);
+            $('#dxf-settings').toggle(show.dxf);
+            $('#csv-settings').toggle(show.csv);
+            $('#style-json-settings').toggle(show.style);
+            $('#iframe-settings').toggle(show.iframe);
+            $('#advanced-options').toggle(Object.values(show).some(Boolean));
 
-            // Hide all by default
-            $pageSettings.hide();
-            $metadataSettings.hide();
-            $printOverlaySettings.hide();
-            $vectorSettings.hide();
-            $dxfSettings.hide();
-            $csvSettings.hide();
-            $styleJsonSettings.hide();
-            $iframeSettings.hide();
+            if (show.vector) updateFeatureListVisibility();
+            if (show.iframe) generateIframeCode();
+            if (!isExporting) setButton(currentFormat === 'iframe' ? 'clipboard' : 'download', currentFormat === 'iframe' ? 'Copy embed code' : 'Download');
 
-            let showAdvanced = false;
-
-            // Show relevant options based on format
-            if (currentFormat === 'pdf' || currentFormat === 'geotiff' || currentFormat === 'png' || currentFormat === 'jpeg' || currentFormat === 'svg') {
-                $pageSettings.show();
-                $metadataSettings.show();
-                showAdvanced = true;
-
-                if (currentFormat === 'pdf' || currentFormat === 'png' || currentFormat === 'jpeg' || currentFormat === 'svg') {
-                    $printOverlaySettings.show();
-                }
-            }
-
-            if (currentFormat === 'geojson' || currentFormat === 'kml') {
-                $vectorSettings.show();
-                showAdvanced = true;
-                updateFeatureListVisibility();
-            }
-
-            if (currentFormat === 'csv') {
-                $vectorSettings.show();
-                $csvSettings.show();
-                showAdvanced = true;
-                updateFeatureListVisibility();
-            }
-
-            if (currentFormat === 'dxf') {
-                $vectorSettings.show();
-                $dxfSettings.show();
-                showAdvanced = true;
-                updateFeatureListVisibility();
-
-                // Show page settings if raster is included
-                const includeRaster = $('#dxf-include-raster').is(':checked');
-                if (includeRaster) {
-                    $pageSettings.show();
-                    $metadataSettings.show();
-                } else {
-                    $metadataSettings.show();
-                }
-            }
-
-            if (currentFormat === 'style') {
-                $styleJsonSettings.show();
-                showAdvanced = true;
-            }
-
-            if (currentFormat === 'iframe') {
-                $iframeSettings.show();
-                showAdvanced = true;
-                generateIframeCode();
-            }
-
-            $advanced.toggle(showAdvanced);
-
-            // Update export button text
-            const $exportBtn = $('#export-btn span');
-            if (currentFormat === 'iframe') {
-                $exportBtn.text('Copy Embed Code');
+            if (show.page) {
+                const size = getPageSize();
+                post({ type: 'frame-show', config: { widthMm: size.w, heightMm: size.h, showLayout: show.overlay, visible: layoutVisibility() } });
             } else {
-                $exportBtn.text('Download');
+                post({ type: 'frame-hide' });
             }
+        }
 
-            // Show/hide export frame for PDF, GeoTIFF, PNG, JPEG, SVG, and DXF with raster
-            const shouldShowFrame =
-                currentFormat === 'pdf' ||
-                currentFormat === 'geotiff' ||
-                currentFormat === 'png' ||
-                currentFormat === 'jpeg' ||
-                currentFormat === 'svg' ||
-                (currentFormat === 'dxf' && $('#dxf-include-raster').is(':checked'));
+        // -- the selected page element's editor (js/export-layout.js) --
 
-            if (shouldShowFrame) {
-                const pageSize = $('#page-size').val();
-                const orientation = $('input[name="orientation"]:checked').val();
+        function updateItem(changes) {
+            if (editorItem) post({ type: 'layout-update', item: editorItem, changes });
+        }
 
-                let size;
-                if (pageSize === 'Custom') {
-                    const customWidth = parseFloat($('#custom-width').val()) || 297;
-                    const customHeight = parseFloat($('#custom-height').val()) || 210;
-                    size = { w: customWidth, h: customHeight };
-                } else {
-                    const sizes = {
-                        'A4': orientation === 'portrait' ? { w: 210, h: 297 } : { w: 297, h: 210 },
-                        'A3': orientation === 'portrait' ? { w: 297, h: 420 } : { w: 420, h: 297 },
-                        'A2': orientation === 'portrait' ? { w: 420, h: 594 } : { w: 594, h: 420 },
-                        'A1': orientation === 'portrait' ? { w: 594, h: 841 } : { w: 841, h: 594 },
-                        'A0': orientation === 'portrait' ? { w: 841, h: 1189 } : { w: 1189, h: 841 },
-                        'Letter': orientation === 'portrait' ? { w: 216, h: 279 } : { w: 279, h: 216 },
-                        'Legal': orientation === 'portrait' ? { w: 216, h: 356 } : { w: 356, h: 216 }
-                    };
-                    size = sizes[pageSize] || sizes['A4'];
-                }
+        function setupEditorListeners() {
+            $('#print-overlay-settings').on('click', '.row-select[data-item]', function () {
+                post({ type: 'layout-select', item: $(this).data('item') });
+            });
+            $('#editor-back').on('click', () => post({ type: 'layout-select', item: null }));
+            $('#editor-visible').on('change', function () {
+                if (FIXED_ITEMS.includes(editorItem)) $(`#include-${editorItem}`).prop('checked', this.checked).trigger('change');
+                else updateItem({ visible: this.checked });
+            });
+            $('#editor-arrange').on('click', () => updateItem({ arrange: true }));
+            $('#editor-detail').on('click', function () { updateItem({ detail: !$(this).hasClass('active') }); });
+            $('#layout-legend').on('change', '.legend-toggle', function () {
+                post({ type: 'layout-update', item: $(this).attr('data-item'), changes: { visible: this.checked } });
+            });
+            $('#legend-all').on('click', () => {
+                const show = !legendEntries.some(entry => entry.visible);
+                legendEntries.forEach(entry => post({ type: 'layout-update', item: `layer:${entry.id}`, changes: { visible: show } }));
+            });
+            $('#editor-text').on('input', function () { updateItem({ text: this.value }); });
+            $('#editor-color').on('input', function () { updateItem({ textColor: this.value }); });
+            $('#editor-bg').on('input', function () { updateItem({ background: this.value }); });
+            $('#editor-opacity').on('input', function () {
+                $('#editor-opacity-value').text(`${this.value}%`);
+                updateItem({ backgroundOpacity: this.value / 100 });
+            });
+            $('#editor-anchor').on('click', 'button', function () { updateItem({ anchor: $(this).data('anchor') }); });
+            $('#editor-x, #editor-y').on('input', function () {
+                const value = parseFloat(this.value);
+                if (!isNaN(value)) updateItem({ [this.id === 'editor-x' ? 'x' : 'y']: value });
+            });
+        }
 
-                const aspectRatio = size.w / size.h;
+        // A field being typed in keeps its value
+        function setIfIdle(selector, value) {
+            const el = $(selector)[0];
+            if (el && document.activeElement !== el) el.value = value;
+        }
 
-                window.parent.postMessage({
-                    type: 'frame-show',
-                    config: { aspectRatio: aspectRatio }
-                }, '*');
-            } else {
-                window.parent.postMessage({
-                    type: 'frame-hide'
-                }, '*');
+        function renderEditor(item, state) {
+            const opened = item && item !== editorItem;
+            editorItem = item && state ? item : null;
+            $('#layout-list, #layout-hint').toggle(!editorItem);
+            $('#layout-legend-wrap').prop('hidden', !!editorItem || !legendEntries.length);
+            $('#layout-editor').prop('hidden', !editorItem);
+            if (!editorItem) return;
+
+            $('#editor-name').text(state.label);
+            $('#editor-visible').prop('checked', state.visible);
+            $('#editor-text-field').toggle(state.editable);
+            setIfIdle('#editor-text', state.text ?? '');
+            $('#editor-color-row').toggle(!!state.textColor);
+            if (state.textColor) setIfIdle('#editor-color', state.textColor);
+            setIfIdle('#editor-bg', state.background);
+            const opacity = Math.round(state.backgroundOpacity * 100);
+            setIfIdle('#editor-opacity', opacity);
+            $('#editor-opacity-value').text(`${opacity}%`);
+
+            const p = state.position;
+            $('#editor-anchor button').each(function () {
+                $(this).toggleClass('active', $(this).data('anchor') === `${p.ay}-${p.ax}`);
+            });
+            $('#editor-x-label').text(p.ax === 'right' ? 'Right' : p.ax === 'center' ? 'Centre' : 'Left');
+            $('#editor-y-label').text(p.ay === 'bottom' ? 'Bottom' : p.ay === 'center' ? 'Middle' : 'Top');
+            $('#editor-x').prop('disabled', p.ax === 'center');
+            $('#editor-y').prop('disabled', p.ay === 'center');
+            setIfIdle('#editor-x', p.ax === 'center' ? '' : p.x);
+            setIfIdle('#editor-y', p.ay === 'center' ? '' : p.y);
+            $('#editor-follows').text(p.follows
+                ? `Sits under the ${p.follows.toLowerCase()} until it is moved`
+                : p.arranged ? 'Arranged in the legend column until it is moved' : '');
+
+            const legend = state.legend;
+            $('#editor-arrange').prop('hidden', !legend || p.arranged);
+            $('#editor-detail-row').prop('hidden', !legend);
+            if (legend) {
+                $('#editor-detail')
+                    .toggleClass('active', legend.detail)
+                    .prop('disabled', !legend.hasDetail)
+                    .attr('title', legend.hasDetail ? "Show this map's detailed legend" : 'This map has no detailed legend');
             }
+            if (opened) {
+                document.getElementById('layout-editor').scrollIntoView({ block: 'nearest' });
+                if (state.editable) $('#editor-text').trigger('focus');
+            }
+        }
+
+        // A row per map's legend group, with its eye
+        function renderLegendList(entries) {
+            legendEntries = entries || [];
+            const $list = $('#layout-legend').empty();
+            $('#layout-legend-wrap').prop('hidden', !!editorItem || !legendEntries.length);
+            $('#legend-all').text(legendEntries.some(entry => entry.visible) ? 'Hide all' : 'Show all');
+            legendEntries.forEach(entry => {
+                const item = `layer:${entry.id}`;
+                const select = $('<button type="button" class="row-select">')
+                    .attr({ 'data-item': item, title: `Edit the legend of ${entry.title}` })
+                    .append('<sl-icon name="list-ul"></sl-icon>', $('<span class="toggle-name">').text(entry.title), '<sl-icon class="row-chevron" name="chevron-right"></sl-icon>');
+                const eye = $('<label class="eye" title="Show or hide this legend">').append(
+                    $('<input type="checkbox" class="legend-toggle">').attr('data-item', item).prop('checked', entry.visible),
+                    '<sl-icon class="eye-on" name="eye"></sl-icon><sl-icon class="eye-off" name="eye-slash"></sl-icon>'
+                );
+                $('<div class="toggle-row">').append(select, eye).appendTo($list);
+            });
         }
 
         function generateIframeCode() {
-            const sizeOption = $('#iframe-size').val();
-            let width, height;
-
-            switch (sizeOption) {
-                case 'responsive':
-                    width = '100%';
-                    height = '600px';
-                    break;
-                case 'small':
-                    width = '600px';
-                    height = '400px';
-                    break;
-                case 'medium':
-                    width = '800px';
-                    height = '600px';
-                    break;
-                case 'large':
-                    width = '1200px';
-                    height = '800px';
-                    break;
-                case 'custom':
-                    width = ($('#iframe-width').val() || 800) + 'px';
-                    height = ($('#iframe-height').val() || 600) + 'px';
-                    break;
-                default:
-                    width = '800px';
-                    height = '600px';
-            }
-
-            const currentUrl = window.parent.location.href;
-            const iframeCode = `<iframe src="${currentUrl}" width="${width}" height="${height}" style="border: none;" allowfullscreen></iframe>`;
-
-            $('#iframe-code').val(iframeCode);
-        }
-
-        function requestExportData() {
-            window.parent.postMessage({ type: 'request-export-data' }, '*');
+            const sizes = {
+                responsive: ['100%', '600px'],
+                small: ['600px', '400px'],
+                medium: ['800px', '600px'],
+                large: ['1200px', '800px'],
+                custom: [`${$('#iframe-width').val() || 800}px`, `${$('#iframe-height').val() || 600}px`]
+            };
+            const [width, height] = sizes[$('#iframe-size').val()] || sizes.medium;
+            const src = window.parent.location.href;
+            $('#iframe-code').val(`<iframe src="${src}" width="${width}" height="${height}" style="border: none;" allowfullscreen></iframe>`);
         }
 
         function performExport() {
-            // Handle iframe format separately
             if (currentFormat === 'iframe') {
-                const iframeCode = $('#iframe-code').val();
-                navigator.clipboard.writeText(iframeCode).then(() => {
-                    alert('Embed code copied to clipboard!');
-                }).catch(() => {
-                    // Fallback: select the text
-                    $('#iframe-code').select();
-                    alert('Embed code is ready - press Ctrl+C to copy');
-                });
+                const code = $('#iframe-code').val();
+                navigator.clipboard.writeText(code).then(() => {
+                    setButton('check-circle', 'Copied');
+                    setTimeout(updateAdvancedOptions, 1500);
+                }).catch(() => $('#iframe-code').select());
                 return;
             }
 
-            const exportConfig = {
-                format: currentFormat,
-                useFor: currentUseFor
-            };
+            const exportConfig = { format: currentFormat, useFor: currentUseFor };
 
-            // Collect options based on format
-            if (currentFormat === 'pdf' || currentFormat === 'geotiff') {
-                const pageSize = $('#page-size').val();
-                const orientation = $('input[name="orientation"]:checked').val();
-
-                let size;
-                if (pageSize === 'Custom') {
-                    size = {
-                        w: parseFloat($('#custom-width').val()) || 297,
-                        h: parseFloat($('#custom-height').val()) || 210
-                    };
-                } else {
-                    const sizes = {
-                        'A4': orientation === 'portrait' ? { w: 210, h: 297 } : { w: 297, h: 210 },
-                        'A3': orientation === 'portrait' ? { w: 297, h: 420 } : { w: 420, h: 297 },
-                        'A2': orientation === 'portrait' ? { w: 420, h: 594 } : { w: 594, h: 420 },
-                        'A1': orientation === 'portrait' ? { w: 594, h: 841 } : { w: 841, h: 594 },
-                        'A0': orientation === 'portrait' ? { w: 841, h: 1189 } : { w: 1189, h: 841 },
-                        'Letter': orientation === 'portrait' ? { w: 216, h: 279 } : { w: 279, h: 216 },
-                        'Legal': orientation === 'portrait' ? { w: 216, h: 356 } : { w: 356, h: 216 }
-                    };
-                    size = sizes[pageSize] || sizes['A4'];
-                }
-
+            if (PAGE_FORMATS.includes(currentFormat) || (currentFormat === 'dxf' && $('#dxf-include-raster').is(':checked'))) {
+                const size = getPageSize();
                 exportConfig.width = size.w;
                 exportConfig.height = size.h;
                 exportConfig.dpi = parseInt($('#dpi-select').val());
-                exportConfig.title = $('#map-title').val();
-                exportConfig.description = $('#map-description').val();
-                exportConfig.includeQRCode = $('#include-qr').is(':checked');
-                exportConfig.includeLegend = $('#include-legend').is(':checked');
+            }
+            if (PRINT_FORMATS.includes(currentFormat) || currentFormat === 'geotiff') {
                 exportConfig.includeMarkers = $('#include-markers').is(':checked');
             }
 
-            if (currentFormat === 'png' || currentFormat === 'jpeg' || currentFormat === 'svg') {
-                const pageSize = $('#page-size').val();
-                const orientation = $('input[name="orientation"]:checked').val();
-
-                let size;
-                if (pageSize === 'Custom') {
-                    size = {
-                        w: parseFloat($('#custom-width').val()) || 297,
-                        h: parseFloat($('#custom-height').val()) || 210
-                    };
-                } else {
-                    const sizes = {
-                        'A4': orientation === 'portrait' ? { w: 210, h: 297 } : { w: 297, h: 210 },
-                        'A3': orientation === 'portrait' ? { w: 297, h: 420 } : { w: 420, h: 297 },
-                        'A2': orientation === 'portrait' ? { w: 420, h: 594 } : { w: 594, h: 420 },
-                        'A1': orientation === 'portrait' ? { w: 594, h: 841 } : { w: 841, h: 594 },
-                        'A0': orientation === 'portrait' ? { w: 841, h: 1189 } : { w: 1189, h: 841 },
-                        'Letter': orientation === 'portrait' ? { w: 216, h: 279 } : { w: 279, h: 216 },
-                        'Legal': orientation === 'portrait' ? { w: 216, h: 356 } : { w: 356, h: 216 }
-                    };
-                    size = sizes[pageSize] || sizes['A4'];
-                }
-
-                exportConfig.width = size.w;
-                exportConfig.height = size.h;
-                exportConfig.dpi = parseInt($('#dpi-select').val());
-                exportConfig.title = $('#map-title').val();
-                exportConfig.description = $('#map-description').val();
-                exportConfig.includeQRCode = $('#include-qr').is(':checked');
-                exportConfig.includeLegend = $('#include-legend').is(':checked');
-                exportConfig.includeMarkers = $('#include-markers').is(':checked');
-            }
-
-            if (!exportContext && (currentFormat === 'geojson' || currentFormat === 'kml' || currentFormat === 'csv' || currentFormat === 'dxf')) {
+            if (!exportContext && VECTOR_FORMATS.includes(currentFormat)) {
                 exportConfig.exportSelectedOnly = $('#export-selected-only').is(':checked');
-
                 if (exportConfig.exportSelectedOnly && featureSelectionState.size > 0) {
                     exportConfig.customSelectedFeatures = getSelectedFeaturesForExport();
                 }
             }
 
-            if (currentFormat === 'csv') {
-                exportConfig.geometryField = $('input[name="csv-geom"]:checked').val();
-            }
+            if (currentFormat === 'csv') exportConfig.geometryField = $('input[name="csv-geom"]:checked').val();
 
             if (currentFormat === 'dxf') {
                 exportConfig.coordSystem = $('input[name="dxf-coords"]:checked').val();
                 exportConfig.includeRaster = $('#dxf-include-raster').is(':checked');
-
-                // Add page dimensions if raster is included
-                if (exportConfig.includeRaster) {
-                    const pageSize = $('#page-size').val();
-                    const orientation = $('input[name="orientation"]:checked').val();
-
-                    let size;
-                    if (pageSize === 'Custom') {
-                        size = {
-                            w: parseFloat($('#custom-width').val()) || 297,
-                            h: parseFloat($('#custom-height').val()) || 210
-                        };
-                    } else {
-                        const sizes = {
-                            'A4': orientation === 'portrait' ? { w: 210, h: 297 } : { w: 297, h: 210 },
-                            'A3': orientation === 'portrait' ? { w: 297, h: 420 } : { w: 420, h: 297 },
-                            'A2': orientation === 'portrait' ? { w: 420, h: 594 } : { w: 594, h: 420 },
-                            'A1': orientation === 'portrait' ? { w: 594, h: 841 } : { w: 841, h: 594 },
-                            'A0': orientation === 'portrait' ? { w: 841, h: 1189 } : { w: 1189, h: 841 },
-                            'Letter': orientation === 'portrait' ? { w: 216, h: 279 } : { w: 279, h: 216 },
-                            'Legal': orientation === 'portrait' ? { w: 216, h: 356 } : { w: 356, h: 216 }
-                        };
-                        size = sizes[pageSize] || sizes['A4'];
-                    }
-
-                    exportConfig.width = size.w;
-                    exportConfig.height = size.h;
-                    exportConfig.dpi = parseInt($('#dpi-select').val());
-                    exportConfig.title = $('#map-title').val();
-                    exportConfig.description = $('#map-description').val();
-                }
             }
 
             if (currentFormat === 'style') {
@@ -1420,138 +1529,72 @@
                 exportConfig.mapboxToken = $('#mapbox-token').val();
             }
 
-            const needsCanvas =
-                currentFormat === 'pdf' ||
-                currentFormat === 'geotiff' ||
-                currentFormat === 'png' ||
-                currentFormat === 'jpeg' ||
-                currentFormat === 'svg' ||
-                (currentFormat === 'dxf' && exportConfig.includeRaster);
+            const needsCanvas = PAGE_FORMATS.includes(currentFormat) || (currentFormat === 'dxf' && exportConfig.includeRaster);
+            if (needsCanvas || VECTOR_FORMATS.includes(currentFormat)) startProcessing(needsCanvas);
 
-            const isVectorExport =
-                currentFormat === 'geojson' ||
-                currentFormat === 'kml' ||
-                currentFormat === 'csv' ||
-                currentFormat === 'dxf';
-
-            if (needsCanvas || isVectorExport) {
-                startProcessing(needsCanvas);
-            }
-
-            window.parent.postMessage({
-                type: 'export-start',
-                config: exportConfig
-            }, '*');
+            post({ type: 'export-start', config: exportConfig });
         }
 
+        function setButton(iconName, text) {
+            const $btn = $('#export-btn');
+            $btn.find('sl-icon').attr('name', iconName);
+            $btn.find('span').text(text);
+        }
 
         function startProcessing(needsCanvas = true) {
             isExporting = true;
             exportCancellable = needsCanvas;
-            exportCancelled = false;
             currentExportProgress = 0;
-            currentExportMessage = 'Starting export';
-
-            const $btn = $('#export-btn');
-
-            $btn.addClass('processing');
-            $btn.prop('disabled', false);
-
-            if (needsCanvas) {
-                window.parent.postMessage({
-                    type: 'processing-overlay-show'
-                }, '*');
-            }
-
+            $('#export-btn').addClass('processing');
+            if (needsCanvas) post({ type: 'processing-overlay-show' });
             updateButtonProgress(0, 'Starting export');
         }
 
-        function stopProcessing(completed = true) {
+        function stopProcessing() {
             isExporting = false;
-            exportCancelled = false;
-
-            const $btn = $('#export-btn');
-
-            $btn.removeClass('processing');
-
-            window.parent.postMessage({
-                type: 'processing-overlay-hide'
-            }, '*');
-
-            const $icon = $btn.find('sl-icon');
-            const $text = $btn.find('span');
-
-            if (currentFormat === 'iframe') {
-                $icon.attr('name', 'clipboard');
-                $text.text('Copy Embed Code');
-            } else {
-                $icon.attr('name', 'download');
-                $text.text('Download');
-            }
+            $('#export-btn').removeClass('processing');
+            post({ type: 'processing-overlay-hide' });
+            updateAdvancedOptions();
         }
 
         function updateButtonProgress(percent, message) {
             currentExportProgress = percent;
-            currentExportMessage = message;
-
-            const $btn = $('#export-btn');
-            const $icon = $btn.find('sl-icon');
-            const $text = $btn.find('span');
-
             if (percent < 0) {
-                $icon.attr('name', 'x-circle');
-                $text.text('Export failed - Click to dismiss');
+                setButton('x-circle', `${message || 'Export failed'} - click to dismiss`);
             } else if (percent >= 100) {
-                $icon.attr('name', 'check-circle');
-                $text.text('Export complete');
-                setTimeout(() => stopProcessing(true), 1000);
+                setButton('check-circle', 'Export complete');
+                setTimeout(stopProcessing, 1000);
             } else {
-                $icon.attr('name', 'arrow-clockwise');
-                $text.text(`${message} (${Math.round(percent)}%)${exportCancellable ? ' - Click to cancel' : ''}`);
+                setButton('arrow-clockwise', `${message} (${Math.round(percent)}%)${exportCancellable ? ' - click to cancel' : ''}`);
             }
         }
 
         function cancelExport() {
             if (!isExporting) return;
-
-            exportCancelled = true;
-            window.parent.postMessage({
-                type: 'export-cancel'
-            }, '*');
-
+            post({ type: 'export-cancel' });
             updateButtonProgress(-1, 'Export cancelled');
-            setTimeout(() => stopProcessing(false), 1500);
+            setTimeout(stopProcessing, 1500);
         }
 
         function updateFeatureListVisibility() {
             if (exportContext) return;
-            const isChecked = $('#export-selected-only').is(':checked');
-            const $customizeBtn = $('#customize-features-btn');
-
-            if (isChecked) {
-                requestSelectedFeatures();
+            if ($('#export-selected-only').is(':checked')) {
+                post({ type: 'request-selected-features' });
             } else {
-                $customizeBtn.hide();
+                $('#customize-features-btn').hide();
                 $('#feature-list-container').hide();
                 isFeatureListVisible = false;
             }
         }
 
-        function requestSelectedFeatures() {
-            window.parent.postMessage({ type: 'request-selected-features' }, '*');
-        }
-
         function populateFeatureList(selectedFeatures) {
             featureSelectionState.clear();
-
             if (!selectedFeatures || selectedFeatures.length === 0) {
                 $('#customize-features-btn').hide();
                 $('#feature-list-container').hide();
                 return;
             }
-
             $('#customize-features-btn').show();
-
             selectedFeatures.forEach(item => {
                 const key = `${item.layerId}_${JSON.stringify(item.feature.id || item.feature.properties)}`;
                 featureSelectionState.set(key, {
@@ -1562,126 +1605,65 @@
                     layerConfig: item.layerConfig
                 });
             });
-
-            if (isFeatureListVisible) {
-                renderFeatureList();
-            }
+            if (isFeatureListVisible) renderFeatureList();
         }
 
         function toggleFeatureList() {
             isFeatureListVisible = !isFeatureListVisible;
-            const $container = $('#feature-list-container');
-
             if (isFeatureListVisible) {
                 renderFeatureList();
-                $container.slideDown(200);
+                $('#feature-list-container').slideDown(150);
             } else {
-                $container.slideUp(200);
+                $('#feature-list-container').slideUp(150);
             }
         }
 
         function renderFeatureList() {
-            const $items = $('#feature-list-items');
-            $items.empty();
-
+            const $items = $('#feature-list-items').empty();
             if (featureSelectionState.size === 0) {
-                $items.html('<div style="padding: 8px; text-align: center; color: #9ca3af; font-size: 12px;">No features selected</div>');
+                $items.html('<div class="feature-list-item-layer" style="padding: 8px; text-align: center;">No features selected</div>');
                 updateSelectionButtons();
                 return;
             }
-
-            featureSelectionState.forEach((data, key) => {
-                const featureName = getFeatureName(data.feature, data.layerConfig);
-
-                const $item = $('<div>', { class: 'feature-list-item' });
-
-                const $checkbox = $('<input>', {
-                    type: 'checkbox',
-                    checked: data.selected,
-                    'data-key': key
-                });
-
-                $checkbox.on('change', function() {
-                    data.selected = $(this).is(':checked');
+            featureSelectionState.forEach((data) => {
+                const $checkbox = $('<input>', { type: 'checkbox', checked: data.selected }).on('change', function () {
+                    data.selected = this.checked;
                     updateSelectionButtons();
                 });
-
-                const $label = $('<div>', {
-                    class: 'feature-list-item-label',
-                    text: featureName
-                });
-
-                const $layer = $('<div>', {
-                    class: 'feature-list-item-layer',
-                    text: data.layerTitle
-                });
-
-                $item.append($checkbox).append($label).append($layer);
-                $items.append($item);
+                $('<label>', { class: 'feature-list-item' })
+                    .append($checkbox)
+                    .append($('<div>', { class: 'feature-list-item-label', text: getFeatureName(data.feature, data.layerConfig) }))
+                    .append($('<div>', { class: 'feature-list-item-layer', text: data.layerTitle }))
+                    .appendTo($items);
             });
-
             updateSelectionButtons();
         }
 
         function getFeatureName(feature, layerConfig) {
             if (!feature) return 'Unknown';
-
             const props = feature.properties || {};
-            const layerTitle = layerConfig?.title || 'Feature';
-
             const labelField = layerConfig?.inspect?.label;
-            if (labelField && props[labelField]) {
-                return String(props[labelField]);
-            }
-
+            if (labelField && props[labelField]) return String(props[labelField]);
             if (props.name) return props.name;
             if (props.title) return props.title;
             if (props.label) return props.label;
-
             const firstValue = Object.values(props).find(v => v && typeof v === 'string' && v.length < 50);
             if (firstValue) return firstValue;
-
             if (props.id) return `ID: ${props.id}`;
-
-            return `${layerTitle} feature`;
+            return `${layerConfig?.title || 'Feature'} feature`;
         }
 
         function updateSelectionButtons() {
-            let selectedCount = 0;
-            let totalCount = featureSelectionState.size;
-
-            featureSelectionState.forEach(data => {
-                if (data.selected) selectedCount++;
-            });
-
-            $('#feature-list-count').text(`${selectedCount} of ${totalCount} features selected`);
-
-            const $selectAll = $('#select-all-features-btn');
-            const $selectNone = $('#select-none-features-btn');
-
-            if (selectedCount === 0) {
-                $selectAll.show();
-                $selectNone.hide();
-            } else if (selectedCount === totalCount) {
-                $selectAll.hide();
-                $selectNone.show();
-            } else {
-                $selectAll.show();
-                $selectNone.show();
-            }
+            let selected = 0;
+            featureSelectionState.forEach(data => { if (data.selected) selected++; });
+            const total = featureSelectionState.size;
+            $('#feature-list-count').text(`${selected} of ${total} features`);
+            $('#select-all-features-btn').toggle(selected < total);
+            $('#select-none-features-btn').toggle(selected > 0);
         }
 
-        function selectAllFeatures() {
-            featureSelectionState.forEach(data => {
-                data.selected = true;
-            });
-            renderFeatureList();
-        }
-
-        function selectNoneFeatures() {
-            featureSelectionState.forEach(data => {
-                data.selected = false;
-            });
+        function setAllFeatures(selected) {
+            featureSelectionState.forEach(data => { data.selected = selected; });
             renderFeatureList();
         }
 
@@ -1702,230 +1684,112 @@
         function handleExportKeydown(e) {
             if (e.key === 'Escape') {
                 e.preventDefault();
-                $('#close-btn').click();
+                if (editorItem) {
+                    document.activeElement?.blur();
+                    post({ type: 'layout-select', item: null });
+                } else {
+                    $('#close-btn').click();
+                }
                 return;
             }
 
+            // Keys are the panel's shortcuts only when nothing that takes them has focus
+            const $active = $(document.activeElement);
+            if ($active.is('input, textarea, select, [contenteditable]')) return;
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+
             if (e.key === ' ') {
+                if ($active.is('button')) return;
                 e.preventDefault();
                 $('#export-btn').click();
                 return;
             }
 
-            const activeElement = $(document.activeElement);
-            if (activeElement.is('input, textarea, select')) {
-                return;
-            }
-
             const key = e.key.toLowerCase();
-
-            const formatShortcuts = {
-                'p': 'print',
-                'w': 'web',
-                'g': 'gis',
-                'c': 'cad'
-            };
-
-            const useForValue = formatShortcuts[key];
-            if (useForValue && currentUseFor !== useForValue) {
+            const useFor = USE_FOR_SHORTCUTS[key];
+            if (useFor && currentUseFor !== useFor) {
                 e.preventDefault();
-                setUseFor(useForValue);
+                setUseFor(useFor);
                 sendSettingsUpdate();
                 return;
             }
 
-            if (currentUseFor === 'print') {
-                const printFormatShortcuts = { 'j': 'jpeg', 'p': 'png', 's': 'svg', 'd': 'pdf' };
-                const formatValue = printFormatShortcuts[key];
-                if (formatValue) {
-                    e.preventDefault();
-                    $(`.format-button[data-format="${formatValue}"]`).click();
-                    return;
-                }
-            }
-
-            if (currentUseFor === 'web') {
-                const webFormatShortcuts = { 'h': 'html', 'i': 'iframe' };
-                const formatValue = webFormatShortcuts[key];
-                if (formatValue) {
-                    e.preventDefault();
-                    $(`.format-button[data-format="${formatValue}"]`).click();
-                    return;
-                }
-            }
-
-            if (currentUseFor === 'gis') {
-                const gisFormatShortcuts = { 'k': 'kml', 'j': 'geojson', 't': 'geotiff', 'c': 'csv', 's': 'style' };
-                const formatValue = gisFormatShortcuts[key];
-                if (formatValue) {
-                    e.preventDefault();
-                    $(`.format-button[data-format="${formatValue}"]`).click();
-                    return;
-                }
-            }
-
-            if (currentUseFor === 'cad') {
-                if (key === 'd') {
-                    e.preventDefault();
-                    $(`.format-button[data-format="dxf"]`).click();
-                    return;
-                }
+            const format = SHORTCUTS[currentUseFor]?.[key];
+            if (format) {
+                e.preventDefault();
+                selectFormat(format);
             }
         }
 
         function serializeCurrentSettings() {
-            const settings = {
-                format: currentFormat
-            };
+            const settings = { format: currentFormat };
 
-            if (currentFormat === 'pdf' || currentFormat === 'geotiff' || currentFormat === 'png' || currentFormat === 'jpeg' || currentFormat === 'svg') {
+            if (needsFrame()) {
                 settings.pageSize = $('#page-size').val();
                 settings.orientation = $('input[name="orientation"]:checked').val();
                 settings.dpi = parseInt($('#dpi-select').val());
-
                 if (settings.pageSize === 'Custom') {
                     settings.customWidth = parseFloat($('#custom-width').val());
                     settings.customHeight = parseFloat($('#custom-height').val());
                 }
+            }
 
+            if (PRINT_FORMATS.includes(currentFormat)) {
                 settings.includeMarkers = $('#include-markers').is(':checked');
-
-                if (currentFormat === 'pdf') {
-                    settings.includeLegend = $('#include-legend').is(':checked');
-                }
+                const hidden = Object.entries(layoutVisibility()).filter(([, visible]) => !visible).map(([name]) => name);
+                if (hidden.length) settings.hide = hidden;
             }
 
-            if (currentFormat === 'geojson' || currentFormat === 'kml' || currentFormat === 'csv' || currentFormat === 'dxf') {
-                settings.exportSelectedOnly = $('#export-selected-only').is(':checked');
-            }
-
-            if (currentFormat === 'csv') {
-                settings.geometryField = $('input[name="csv-geom"]:checked').val();
-            }
-
+            if (VECTOR_FORMATS.includes(currentFormat)) settings.exportSelectedOnly = $('#export-selected-only').is(':checked');
+            if (currentFormat === 'csv') settings.geometryField = $('input[name="csv-geom"]:checked').val();
             if (currentFormat === 'dxf') {
                 settings.coordSystem = $('input[name="dxf-coords"]:checked').val();
                 settings.includeRaster = $('#dxf-include-raster').is(':checked');
-
-                if (settings.includeRaster) {
-                    settings.pageSize = $('#page-size').val();
-                    settings.orientation = $('input[name="orientation"]:checked').val();
-                    settings.dpi = parseInt($('#dpi-select').val());
-
-                    if (settings.pageSize === 'Custom') {
-                        settings.customWidth = parseFloat($('#custom-width').val());
-                        settings.customHeight = parseFloat($('#custom-height').val());
-                    }
-                }
             }
-
-            if (currentFormat === 'style') {
-                settings.styleSpec = $('input[name="style-spec"]:checked').val();
-            }
+            if (currentFormat === 'style') settings.styleSpec = $('input[name="style-spec"]:checked').val();
 
             return settings;
         }
 
         function sendSettingsUpdate() {
-            const settings = serializeCurrentSettings();
-            window.parent.postMessage({
-                type: 'export-settings-changed',
-                settings: settings
-            }, '*');
+            post({ type: 'export-settings-changed', settings: serializeCurrentSettings() });
         }
 
         function applyInitialSettings(settings) {
             if (!settings || !settings.format) return;
 
-            currentFormat = settings.format;
-
-            const useForMap = {
-                'jpeg': 'print',
-                'png': 'print',
-                'svg': 'print',
-                'pdf': 'print',
-                'html': 'web',
-                'iframe': 'web',
-                'geojson': 'gis',
-                'kml': 'gis',
-                'geotiff': 'gis',
-                'csv': 'gis',
-                'style': 'gis',
-                'dxf': 'cad'
-            };
-
-            const useFor = useForMap[settings.format] || 'print';
+            const useFor = Object.keys(formatsByUseFor).find(key => formatsByUseFor[key].some(f => f.value === settings.format)) || 'print';
             if (useFor !== currentUseFor) {
                 currentUseFor = useFor;
                 selectUseForTab(useFor);
                 updateFormatOptions();
             }
+            selectFormat(settings.format);
 
-            $(`.format-button[data-format="${settings.format}"]`).click();
-
+            if (settings.orientation) $(`input[name="orientation"][value="${settings.orientation}"]`).prop('checked', true);
             if (settings.pageSize) {
                 $('#page-size').val(settings.pageSize);
                 if (settings.pageSize === 'Custom' && settings.customWidth && settings.customHeight) {
                     $('#custom-width').val(settings.customWidth);
                     $('#custom-height').val(settings.customHeight);
-                    $('#custom-dimensions').show();
                 }
                 $('#page-size').trigger('change');
             }
-
-            if (settings.orientation) {
-                $(`input[name="orientation"][value="${settings.orientation}"]`).prop('checked', true);
+            if (settings.dpi) $('#dpi-select').val(settings.dpi);
+            if (settings.includeMarkers !== undefined) $('#include-markers').prop('checked', settings.includeMarkers);
+            if (Array.isArray(settings.hide)) {
+                $('.layout-toggle').each(function () {
+                    this.checked = !settings.hide.includes($(this).data('item'));
+                });
             }
-
-            if (settings.dpi) {
-                $('#dpi-select').val(settings.dpi);
-            }
-
-            if (settings.includeLegend !== undefined) {
-                $('#include-legend').prop('checked', settings.includeLegend);
-            }
-
-            if (settings.includeMarkers !== undefined) {
-                $('#include-markers').prop('checked', settings.includeMarkers);
-            }
-
-            if (settings.exportSelectedOnly !== undefined) {
-                $('#export-selected-only').prop('checked', settings.exportSelectedOnly);
-            }
-
-            if (settings.geometryField) {
-                $(`input[name="csv-geom"][value="${settings.geometryField}"]`).prop('checked', true);
-            }
-
-            if (settings.coordSystem) {
-                $(`input[name="dxf-coords"][value="${settings.coordSystem}"]`).prop('checked', true);
-            }
-
-            if (settings.includeRaster !== undefined) {
-                $('#dxf-include-raster').prop('checked', settings.includeRaster);
-            }
-
-            if (settings.styleSpec) {
-                $(`input[name="style-spec"][value="${settings.styleSpec}"]`).prop('checked', true);
-            }
+            if (settings.exportSelectedOnly !== undefined) $('#export-selected-only').prop('checked', settings.exportSelectedOnly);
+            if (settings.geometryField) $(`input[name="csv-geom"][value="${settings.geometryField}"]`).prop('checked', true);
+            if (settings.coordSystem) $(`input[name="dxf-coords"][value="${settings.coordSystem}"]`).prop('checked', true);
+            if (settings.includeRaster !== undefined) $('#dxf-include-raster').prop('checked', settings.includeRaster);
+            if (settings.styleSpec) $(`input[name="style-spec"][value="${settings.styleSpec}"]`).prop('checked', true);
 
             updateAdvancedOptions();
         }
-
-        $(document).on('change', 'input, select, textarea', function() {
-            const id = $(this).attr('id');
-            const name = $(this).attr('name');
-
-            if (id === 'map-title' || id === 'map-description') {
-                return;
-            }
-
-            sendSettingsUpdate();
-        });
-
-        $(document).on('click', '.format-button', function() {
-            setTimeout(sendSettingsUpdate, 100);
-        });
     </script>
 </body>
 
