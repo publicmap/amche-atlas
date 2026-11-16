@@ -43,6 +43,13 @@ function cachedDataURL(url, cache) {
     return cache.get(url);
 }
 
+function plainText(html) {
+    if (!html) return '';
+    const holder = document.createElement('div');
+    holder.innerHTML = String(html);
+    return (holder.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
 function withRegistryTags(config) {
     const registryLayer = window.layerRegistry?.getLayer(config.id);
     if (!registryLayer?.tags) return config;
@@ -117,6 +124,7 @@ export async function renderLegendGroups(doc, { map, forExport = false, imageCac
         const entry = {
             id: config.id,
             title: config.title || config.id,
+            attribution: plainText(config.attribution),
             hasDetail: !!legend,
             detail: !!legend && (overrides[config.id]?.detail ?? detailByDefault(config, legend))
         };

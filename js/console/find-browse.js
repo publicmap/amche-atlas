@@ -6,7 +6,7 @@
  * details, previewing its extent - which all go through MapBrowserControl so
  * Find behaves exactly as the old map browser panel did.
  */
-import { el, row, eyeButton, setEyeState, layerThumb } from './find-rows.js';
+import { el, row, eyeButton, setEyeState, layerThumb, deleteButton, eyesState, setGroupEye, groupEye } from './find-rows.js';
 import { pendingState, setPending, eyeKey, trackEye, isLayerLoading } from './layer-loading.js';
 import { matchRank } from './find-rank.js';
 import { viewBbox, bboxInView, parseBbox, isIncludingOutside, bboxDistance } from './find-scope.js';
@@ -128,20 +128,31 @@ export function switchAtlas(atlasId) {
     if (moving) control._handleResetView(meta.map || null, meta.bbox);
 }
 
+/** A map's subtitle: its tags, or else its description. */
+export function layerMeta(layer) {
+    return (layer.tags || []).join(' › ') || plainText(layer.description);
+}
+
 /**
- * The one row every map list in Find uses: thumbnail, title over meta, then
- * zoom (which flies back on a second click) and the show/hide eye. The on-map
- * list passes its own thumbnail and hover (isolating the layer on the map).
+ * The one row every map list in Find uses: thumbnail, title over its tags,
+ * then zoom (which flies back on a second click) and the show/hide eye. The
+ * on-map list passes its own thumbnail and hover (isolating the layer on the
+ * map), and for a map it keeps while it is off, `onRemove` - a delete button
+ * in place of zoom that drops it from the list.
  */
-export function layerRow(layer, { active = activeIds(), on, meta = null, outside = false, className = '', thumb = null, onEnter = null, onLeave = null } = {}) {
+export function layerRow(layer, { active = activeIds(), on, meta = null, outside = false, className = '', thumb = null, onEnter = null, onLeave = null, onRemove = null } = {}) {
     const title = layer.title || layer.name || layer.id;
     const trailing = el('span', 'console-row-actions');
-    trailing.append(layerZoomButton(layer, { outside }), layerEye(layer, on === undefined ? { active } : { active, on }));
+    const shown = on === undefined ? isLayerActive(layer, active) : on;
+    trailing.append(
+        onRemove && !shown ? deleteButton(`Remove ${title} from Active Maps`, onRemove) : layerZoomButton(layer, { outside }),
+        layerEye(layer, { active, on: shown })
+    );
     // A row with results nested under it (js/console/layer-features.js) opens them instead
     const node = row({
         thumb: thumb || layerThumb(layer),
         title,
-        meta: meta ?? (plainText(layer.description) || (layer.tags || []).join(' › ')),
+        meta: meta ?? layerMeta(layer),
         trailing,
         className: [className, outside && 'outside'].filter(Boolean).join(' '),
         onClick: () => (node.toggleFeatures ? node.toggleFeatures() : openLayerInfo(layer)),
@@ -162,4 +173,26 @@ export function atlasLayers(atlasId) {
             return layer ? { ...layer, _prefixedId: layer._prefixedId || id } : null;
         })
         .filter(Boolean);
+}
+
+/**
+ * A section's eye over its maps' eyes: on when all of them are, part when
+ * some are; clicking it turns them all on, or all off once they all are.
+ * `layers()` gives the section's maps when it is clicked and synced.
+ */
+export function layersGroupEye(layers, noun = 'these maps') {
+    const button = groupEye((next) => {
+        layers().forEach(layer => {
+            if (isLayerActive(layer) !== (next === 'on')) setLayerActive(layer, next === 'on');
+        });
+        syncLayersGroupEye(button, layers());
+    }, { noun });
+    syncLayersGroupEye(button, layers());
+    return button;
+}
+
+export function syncLayersGroupEye(button, layers) {
+    const active = activeIds();
+    setGroupEye(button, eyesState(layers.map(layer => isLayerActive(layer, active))));
+    button.hidden = !layers.length;
 }

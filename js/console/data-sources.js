@@ -90,8 +90,8 @@ export function dataSourcesTree(layers, item, isStarred) {
     const tree = el('div', 'console-sources');
     const sources = root.children.size;
     const heading = el('div', 'console-sources-heading');
-    heading.append(icon('database'), el('span', 'console-sources-title', 'Data Sources'),
-        el('span', 'console-tree-count', `${root.count} map${root.count === 1 ? '' : 's'} · ${sources} source${sources === 1 ? '' : 's'}`));
+    heading.title = `${root.count} map${root.count === 1 ? '' : 's'} from ${sources} source${sources === 1 ? '' : 's'}`;
+    heading.append(icon('database'), el('span', 'console-sources-title', 'Data Sources'), el('span', 'console-tree-count', `(${root.count})`));
     tree.appendChild(heading);
     [...root.children.values()].sort(byGroup).forEach(child => tree.appendChild(build(child)));
     return tree;

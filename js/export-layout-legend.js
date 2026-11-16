@@ -41,6 +41,11 @@ export class LegendGroups {
         return structuredClone(this._overrides);
     }
 
+    setDetailAll(ids, detail) {
+        ids.forEach(id => { this._overrides[id] = { ...this._overrides[id], detail }; });
+        this.refresh();
+    }
+
     setDetail(id, detail) {
         this._overrides[id] = { ...this._overrides[id], detail };
         this.refresh();

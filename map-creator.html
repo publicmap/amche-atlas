@@ -717,25 +717,29 @@
             background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
         }
 
-        #lh-opacity, .lh-raster-input {
+        #lh-opacity, #lh-raster .raster-input {
             accent-color: #3b82f6;
             height: 20px;
         }
 
-        .lh-raster-row {
+        #lh-raster .raster-row {
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        .lh-raster-label {
+        #lh-raster .raster-input { flex: 1; min-width: 0; }
+
+        #lh-raster .raster-label {
             width: 6.5rem;
             flex-shrink: 0;
             font-size: 12px;
             color: #9ca3af;
         }
 
-        .lh-raster-value {
+        #lh-raster .raster-label-inline { width: auto; }
+
+        #lh-raster .raster-value {
             width: 2.25rem;
             flex-shrink: 0;
             text-align: right;
@@ -743,7 +747,35 @@
             color: #9ca3af;
         }
 
-        .lh-raster-input:disabled { opacity: 0.4; }
+        #lh-raster .raster-input:disabled { opacity: 0.4; }
+
+        #lh-raster .raster-key { margin-top: 6px; }
+
+        #lh-raster .raster-key-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #d1d5db;
+            cursor: pointer;
+            padding: 2px 0;
+        }
+
+        #lh-raster .raster-key-gap { flex: 1; }
+
+        #lh-raster .raster-recolor { gap: 14px; }
+
+        #lh-raster .raster-key-hex { width: auto; font-family: ui-monospace, monospace; }
+
+        #lh-raster .raster-swatch::part(trigger) {
+            width: 26px;
+            height: 26px;
+        }
+
+        #lh-raster .raster-key[hidden],
+        #lh-raster .raster-key-fields[hidden] { display: none; }
+
+        #lh-raster .raster-reset { margin-top: 6px; }
 
         /* The title bar's actions share one height; icon-only ones are square */
         #nav-actions button:not(.hidden) {
@@ -1826,10 +1858,7 @@
                 </div>
                 <details id="lh-raster" class="mt-1.5" style="display: none;">
                     <summary class="text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-pointer select-none py-1">Image Adjustments</summary>
-                    <div id="lh-raster-sliders" class="mt-1"></div>
-                    <button type="button" class="info-header-action mt-1.5" id="lh-raster-reset" title="Put brightness, contrast, saturation and hue back to their defaults">
-                        <sl-icon name="arrow-counterclockwise"></sl-icon><span>Reset Adjustments</span>
-                    </button>
+                    <div id="lh-raster-body" class="mt-1"></div>
                 </details>
 
                 <div class="mt-2 flex items-center gap-1.5 flex-wrap">

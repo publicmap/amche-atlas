@@ -19,6 +19,7 @@ import { localizeTextField } from './locale-text-field.js';
 import { localeManager } from './locale-manager.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
 import { pmtilesArchiveUrl } from './pmtiles-source.js';
+import { withColorKey, setPixelEdits } from './raster-color-key.js';
 import { routeSheets } from './route-sheet-layer.js';
 import { ROUTE_STYLE, ROUTE_INSPECT } from './search/route-geojson.js';
 
@@ -279,7 +280,7 @@ export class MapboxAPI {
                 sourceConfig.attribution = config.attribution;
             }
 
-            this._map.addSource(sourceId, sourceConfig);
+            this._map.addSource(sourceId, withColorKey(sourceConfig, config));
 
             // Re-add layer
             const layerConfig = this._createLayerConfig({
@@ -482,7 +483,7 @@ export class MapboxAPI {
                 sourceConfig.attribution = config.attribution;
             }
 
-            this._map.addSource(sourceId, sourceConfig);
+            this._map.addSource(sourceId, withColorKey(sourceConfig, config));
 
             // Re-add layer
             const layerConfig = this._createLayerConfig({
@@ -747,6 +748,13 @@ export class MapboxAPI {
      * @param {Object} config - Layer configuration
      * @returns {boolean} - Success status
      */
+    /** Redraw a raster layer's tiles with its config's colorKey and recolor (js/raster-color-key.js). */
+    updateLayerColorKey(groupId, config) {
+        const sources = new Set(this.getLayerGroupIds(groupId, config)
+            .map(id => this._map.getLayer(id)?.source).filter(Boolean));
+        sources.forEach(sourceId => setPixelEdits(this._map.getSource(sourceId), config));
+    }
+
     removeLayerGroup(groupId, config) {
         try {
             // Clear any refresh timers
@@ -1506,7 +1514,7 @@ export class MapboxAPI {
                 sourceConfig.attribution = config.attribution;
             }
 
-            this._map.addSource(sourceId, sourceConfig);
+            this._map.addSource(sourceId, withColorKey(sourceConfig, config));
 
             const layerConfig = this._createLayerConfig({
                 id: layerId,
@@ -1781,7 +1789,7 @@ export class MapboxAPI {
                 sourceConfig.attribution = config.attribution;
             }
 
-            this._map.addSource(sourceId, sourceConfig);
+            this._map.addSource(sourceId, withColorKey(sourceConfig, config));
 
             const layerConfig = this._createLayerConfig({
                 id: layerId,
@@ -1924,7 +1932,7 @@ export class MapboxAPI {
                 sourceConfig.attribution = config.attribution;
             }
 
-            this._map.addSource(sourceId, sourceConfig);
+            this._map.addSource(sourceId, withColorKey(sourceConfig, config));
 
             const layerConfig = this._createLayerConfig({
                 id: layerId,
@@ -2049,7 +2057,7 @@ export class MapboxAPI {
                 sourceConfig.attribution = config.attribution;
             }
 
-            this._map.addSource(sourceId, sourceConfig);
+            this._map.addSource(sourceId, withColorKey(sourceConfig, config));
 
             // Re-add layer
             const layerConfig = this._createLayerConfig({

@@ -762,7 +762,7 @@
     },
     {
       "tags": [
-        "2.Development Plans",
+        "Development Plans",
         "2.1.Zoning Changes"
       ],
       "id": "zoning-changes",
@@ -972,7 +972,7 @@
     },
     {
       "tags": [
-        "2.Development Plans",
+        "Development Plans",
         "2.1.Conversions"
       ],
       "id": "39a-landuse-change",
@@ -1567,7 +1567,7 @@
     },
     {
       "tags": [
-        "3.Coastal Zone Plans",
+        "Coastal Zone Plans",
         "CZMP 2019 (Draft)"
       ],
       "title": "Bund Sluice Gates",
@@ -1610,7 +1610,7 @@
     },
     {
       "tags": [
-        "3.Coastal Zone Plans",
+        "Coastal Zone Plans",
         "Community Plan"
       ],
       "title": "Aldona Community CZMP",
@@ -1642,7 +1642,7 @@
     },
     {
       "tags": [
-        "3.Coastal Zone Plans",
+        "Coastal Zone Plans",
         "CZMP 2019 (Draft)"
       ],
       "title": "Khazan Bunds",
@@ -1723,7 +1723,7 @@
     },
     {
       "tags": [
-        "3.Coastal Zone Plans"
+        "Coastal Zone Plans"
       ],
       "title": "CZMP 2019 Hazard Lines",
       "description": "Coastal lines demarcating the high tide line (HTL), low tide line (LTL) and composite hazard line. The primary purpose of the composite hazard line is to identify hazard zones along the coastline that reflects a potential danger and risk to people and their property. The hazard line is part of <a href='https://en.wikipedia.org/wiki/Integrated_coastal_zone_management'>Integrated coastal zone management</a> and is required per <a href='https://mczma.gov.in/sites/default/files/MoEF%20CZMP%20Guidelines%20OM%2026-6-2019.pdf'>required for CZMP 2019 maps</a>. This hazard line been prepared for the coastlines of India by <a href='https://surveyofindia.gov.in/documents/integrated-coastal-hazard-zone-mapping.pdf'>Survey of India</a> as a 0.5 meter contour line extending upto 7km inland at 1:10k scale to be used in CZMP 2019 maps. The line is an estimation of the highest tide level forecasted over the next 100 years. See <a href='https://moef.gov.in/uploads/2019/10/Climate-Change-and-the-Vulnerable-Indian-Coast_compressed.pdf'>Hazard line for the coast of India and its implications in coastal management (pg.29), MoEFCC</a> for the methods of delianation of the hazard line. This includes collection and presentation of data, identifying flood lines over the last 40 years (which includes sea level rise impacts), and a prediction of erosion to take place over the next 100 years and digital photogrammetric processing of high resolution Aerial photography data.",
@@ -1849,7 +1849,7 @@
     },
     {
       "tags": [
-        "3.Coastal Zone Plans",
+        "Coastal Zone Plans",
         "CZMP 2019 (Draft)"
       ],
       "id": "2019-czmp-khazan",
@@ -2984,7 +2984,7 @@
     },
     {
       "tags": [
-        "2.Development Plans"
+        "Development Plans"
       ],
       "title": "Tillari Command Area Development Scheme",
       "description": "Notified Command Area Development Scheme for the Tillari Irrigation Project covering talukas of Bicholim, Pernem and Bardez in North Goa.",
@@ -3058,7 +3058,7 @@
     },
     {
       "tags": [
-        "3.Coastal Zone Plans",
+        "Coastal Zone Plans",
         "CZMP 2019 (Draft)"
       ],
       "title": "CZMP 2019 (Draft) Coastal Landuse Map Of Goa (1:25K)",
@@ -3089,7 +3089,7 @@
     },
     {
       "tags": [
-        "3.Coastal Zone Plans",
+        "Coastal Zone Plans",
         "CZMP 2019 (Draft)"
       ],
       "title": "CZMP 2019 (Draft) Map Of Goa(1:4K)",
@@ -3120,7 +3120,7 @@
     },
     {
       "tags": [
-        "3.Coastal Zone Plans"
+        "Coastal Zone Plans"
       ],
       "title": "Notified Goa CZMP 2011",
       "description": "Coastal Zone Management Plan 2011. Plotwise details of structures existing between 1991-2006 within the CRZ is available in <a href='https://drive.google.com/drive/folders/1cwGn6MvguWpMLEYAaEbDAIE9BZdfW8re?usp=share_link'>this report</a>.",
@@ -3133,38 +3133,7 @@
     },
     {
       "tags": [
-        "2.Development Plans"
-      ],
-      "title": "Regional Development Plan for Goa 2021",
-      "description": "Landuse zoning plan for Goa 2021 (RDP-2021) prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a> and <a href='https://tcp.goa.gov.in/regional-plan-for-goa-2021'>notified</a> as per the <a href='https://indiankanoon.org/doc/3192342/'>Goa TCP Act</a>. See <a href='https://uat-tcp.mygov.co.in/wp-content/uploads/2017/Regional-Plan-report-1-2-3/RPG21RELEASE1final.pdf'>Regional Plan Report</a> for details.",
-      "headerImage": "https://mapwarper.net/uploads/74193/thumb/siolim-marna.png",
-      "legendImage": "assets/map-layers/goa/legend-rdp.jpg",
-      "type": "tms",
-      "id": "2021-regional-plan",
-      "url": "https://mapwarper.net/mosaics/tile/2054/{z}/{x}/{y}.png",
-      "attribution": "<a href='https://tcp.goa.gov.in/'>Town and Country Planning Department, Government of Goa</a>, <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
-      "style": {
-        "raster-opacity": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          12,
-          0.8,
-          17,
-          0.5,
-          19,
-          0.1
-        ]
-      },
-      "initiallyChecked": true
-    },
-    {
-      "tags": [
-        "2.Development Plans",
+        "Development Plans",
         "Draft Development Plans"
       ],
       "title": "Draft Mapusa Town Planning Scheme Phase 1",
@@ -3196,24 +3165,87 @@
     },
     {
       "tags": [
-        "2.Development Plans"
+        "Development Plans"
       ],
-      "title": "Outline Development Plan 2011",
+      "title": "Outline Development Plans 2011",
       "description": "Outline Development Plan 2011 prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a>",
       "headerImage": "https://mapwarper.net/uploads/91643/thumb/2008_Final_Panaji_ODP-2011.png",
       "legendImage": "assets/map-layers/goa/legend-odp.jpg",
       "type": "tms",
-      "id": "2011-outline-plan",
+      "date": "2011",
+      "id": "odp-2011",
       "url": "https://mapwarper.net/mosaics/tile/2151/{z}/{x}/{y}.png",
       "attribution": "<a href='https://tcp.goa.gov.in/'>Town and Country Planning Department, Government of Goa</a>, <a href='https://mapwarper.net/layers/2151#Show_tab'>Mapwarper</a>"
     },
     {
       "tags": [
-        "2.Development Plans"
+        "Development Plans"
+      ],
+      "title": "Outline Development Plans for Goa (Notified)",
+      "description": "Landuse zoning plan for Goa 2021 (RDP-2021) prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a> and <a href='https://tcp.goa.gov.in/regional-plan-for-goa-2021'>notified</a> as per the <a href='https://indiankanoon.org/doc/3192342/'>Goa TCP Act</a>. See <a href='https://uat-tcp.mygov.co.in/wp-content/uploads/2017/Regional-Plan-report-1-2-3/RPG21RELEASE1final.pdf'>Regional Plan Report</a> for details.",
+      "headerImage": "https://mapwarper.net/uploads/114525/thumb/Panjim_ODP_2011.png",
+      "legendImage": "assets/map-layers/goa/legend-odp.jpg",
+      "type": "tms",
+      "id": "notified-odp",
+      "url": "https://mapwarper.net/mosaics/tile/2701/{z}/{x}/{y}.png",
+      "attribution": "<a href='https://tcp.goa.gov.in/'>Town and Country Planning Department, Government of Goa</a>, <a href='https://mapwarper.net/layers/2701#Show_tab'>Mapwarper</a>",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          12,
+          0.8,
+          17,
+          0.5,
+          19,
+          0.1
+        ]
+      },
+      "initiallyChecked": true
+    },
+    {
+      "tags": [
+        "Development Plans"
+      ],
+      "title": "Regional Development Plans for Goa 2021",
+      "description": "Landuse zoning plan for Goa 2021 (RDP-2021) prepared by the <a href='https://tcp.goa.gov.in/'>Goa Town & Country Planning Department</a> and <a href='https://tcp.goa.gov.in/regional-plan-for-goa-2021'>notified</a> as per the <a href='https://indiankanoon.org/doc/3192342/'>Goa TCP Act</a>. See <a href='https://uat-tcp.mygov.co.in/wp-content/uploads/2017/Regional-Plan-report-1-2-3/RPG21RELEASE1final.pdf'>Regional Plan Report</a> for details.",
+      "headerImage": "https://mapwarper.net/uploads/74193/thumb/siolim-marna.png",
+      "legendImage": "assets/map-layers/goa/legend-rdp.jpg",
+      "type": "tms",
+      "id": "2021-regional-plan",
+      "url": "https://mapwarper.net/mosaics/tile/2054/{z}/{x}/{y}.png",
+      "attribution": "<a href='https://tcp.goa.gov.in/'>Town and Country Planning Department, Government of Goa</a>, <a href='https://mapwarper.net/layers/2054#Show_tab'>Mapwarper</a>",
+      "style": {
+        "raster-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          12,
+          0.8,
+          17,
+          0.5,
+          19,
+          0.1
+        ]
+      },
+      "initiallyChecked": true
+    },
+    {
+      "tags": [
+        "Development Plans"
       ],
       "title": "Taluka Land Use Plans 2021",
       "description": "Taluka level regional plans",
-      "date": "",
+      "date": "2021",
       "type": "tms",
       "id": "taluka-plan",
       "url": "https://mapwarper.net/maps/tile/87245/{z}/{x}/{y}.png",

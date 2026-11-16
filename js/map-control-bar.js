@@ -326,7 +326,6 @@ export class MapControlBar {
         this._head.refreshOverview();
         this._syncHead();
         this.find.setOnMap(layers);
-        this.find.onMapActions.update(layers);
         this.find.refresh();
     }
 

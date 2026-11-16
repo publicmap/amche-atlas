@@ -1,19 +1,19 @@
 /**
  * Active Maps, above Data Sources in atlas mode (js/console/atlas-overview.js):
- * the maps now on the map, as the tree's rows, and beside its heading Show:
- * two links, each only while it would change what is on the map -
- * Starred (x): the atlas's starred maps (js/starred-layers.js - its
+ * the maps now on the map, then those the atlas has had on that are off now
+ * (js/active-map-history.js), as the tree's rows. Its header's actions:
+ * Starred - the atlas's starred maps (js/starred-layers.js - its
  * `initiallyChecked` maps unless the viewer changed the stars), and only
- * those, keeping the index atlas's shared base maps; In Current View (y):
- * every map of the atlas taking in the view - its own extent, or, without
- * one, its atlas's - turned on beside what is on already; once they all are,
- * Hide All instead, leaving only the shared base maps.
+ * those, keeping the index atlas's shared base maps; In view - every map of
+ * the atlas taking in the view (its own extent, or, without one, its
+ * atlas's) turned on beside what is on already; and the eye over them all.
  *
- * The links (ShowLinks) are also beside Find's "On the map" heading
+ * The actions (ShowLinks) are also in Find's Active Maps header
  * (js/console/find-panel.js).
  */
-import { el, icon, linkButton, hint } from './find-rows.js';
-import { atlasLayers } from './find-browse.js';
+import { el, hint, sectionHeader, sectionAction, setActionTitle, setSectionCount } from './find-rows.js';
+import { atlasLayers, layersGroupEye, syncLayersGroupEye } from './find-browse.js';
+import { activeMapHistory } from '../active-map-history.js';
 import { parseBbox, viewBbox, bboxInView } from './find-scope.js';
 import { atlasExtent } from './atlas-outlines.js';
 import { isStarred } from '../starred-layers.js';
@@ -82,41 +82,36 @@ function showInView(atlasId) {
     });
 }
 
-/** Show: Starred (x) | In Current View (y) - each link only while it would change what is on the map. */
+/**
+ * Two square actions for a section header (sectionAction, js/console/find-rows.js),
+ * each shown only while it would change what is on the map: Starred - only
+ * the atlas's starred maps, and the shared base maps; In view - turn on every
+ * map of the atlas taking in the view. (Turning everything off is the
+ * section's eye.)
+ */
 export class ShowLinks {
     /** @param {{defaults?: (atlasId: string) => Array}} [options] - the atlas's default (starred) maps */
     constructor({ defaults = starredMaps } = {}) {
         this._getDefaults = () => defaults(this._atlasId);
-        this._defaults = linkButton('', () => setDefaults(this._getDefaults()), 'Only this atlas’s default (starred) maps, and the shared base maps');
-        this._inView = linkButton('', () => {
-            if (this._allShown) browser()?.hideAllLayers?.();
-            else showInView(this._atlasId);
-        }, '');
-        this.el = el('span', 'console-active-links');
-        this._sep = el('span', 'console-active-sep', '|');
-        this.el.append(el('span', 'console-active-label', 'Show'), this._defaults, this._sep, this._inView);
+        this._defaults = sectionAction('star', '', () => setDefaults(this._getDefaults()));
+        this._inView = sectionAction('bounding-box-circles', '', () => showInView(this._atlasId));
+        this.buttons = [this._defaults, this._inView];
     }
 
     sync(atlasId) {
         this._atlasId = atlasId;
         if (!atlasId) return;
         const defaults = this._getDefaults();
-        this._defaults.replaceChildren(el('span', '', 'Starred'), icon('star-fill'), el('span', '', `(${defaults.length})`));
         const inView = mapsInView(atlasId);
         const on = new Set(activeIds().map(baseId));
         const base = new Set((browser()?._getAtlasInitiallyCheckedIds?.('index') || []).map(baseId));
         const starred = new Set(defaults.map(layer => baseId(layer._prefixedId || layer.id)));
-        // Everything in view on already: the link takes them all off instead
-        this._allShown = inView.length > 0 && inView.every(layer => on.has(baseId(layer._prefixedId || layer.id)));
-        // Only the links that would change what is on the map
         const starredShowing = [...starred].every(id => on.has(id)) && [...on].every(id => starred.has(id) || base.has(id));
-        const nothingToHide = [...on].every(id => base.has(id));
+        const offInView = inView.filter(layer => !on.has(baseId(layer._prefixedId || layer.id)));
         this._defaults.hidden = !starred.size || starredShowing;
-        this._inView.hidden = this._allShown ? nothingToHide : !inView.length;
-        this._sep.hidden = this._defaults.hidden || this._inView.hidden;
-        this.el.hidden = this._defaults.hidden && this._inView.hidden;
-        this._inView.textContent = this._allShown ? 'Hide All' : `In Current View (${inView.length})`;
-        this._inView.title = this._allShown ? 'Turn every map off, but the shared base maps' : 'Turn on every map of this atlas in the view';
+        this._inView.hidden = !offInView.length;
+        setActionTitle(this._defaults, `Show only this atlas’s ${defaults.length} starred map${defaults.length === 1 ? '' : 's'}, and the shared base maps`);
+        setActionTitle(this._inView, `Turn on ${offInView.length === 1 ? 'the 1 map' : `the ${offInView.length} maps`} of this atlas in the view that ${offInView.length === 1 ? 'is' : 'are'} off`);
     }
 }
 
@@ -127,34 +122,44 @@ export class ActiveMaps {
      */
     constructor({ row, defaults }) {
         this._row = row;
-        this.el = el('section', 'console-active-maps');
-        const heading = el('div', 'console-sources-heading');
-        this._count = el('span', 'console-tree-count');
+        this.el = el('section', 'console-section console-active-maps');
         this._list = el('div', 'console-tree-items');
         this._links = new ShowLinks({ defaults: () => defaults() });
-        heading.append(icon('layers'), el('span', 'console-sources-title', 'Active Maps'), this._count, this._links.el);
-        this.el.append(heading, this._list);
+        this._eye = layersGroupEye(() => this._layers || [], 'the maps in this list');
+        this._head = sectionHeader({ label: 'Active Maps', actions: this._links.buttons, eye: this._eye });
+        this.el.append(this._head, this._list);
     }
 
     reset() {
         this._key = null;
     }
 
-    /** Lists the maps on the map again, when they changed; the links' counts always. */
+    /**
+     * The maps on the map, then those the atlas has had on and are off now
+     * (js/active-map-history.js), when they changed; the actions always.
+     */
     render(atlasId) {
         this._atlasId = atlasId;
         const ids = activeMaps();
-        const key = `${atlasId}|${ids.join(',')}`;
+        const off = activeMapHistory.list(atlasId).filter(id => id !== 'locations' && !ids.some(on => baseId(on) === baseId(id)));
+        const key = `${atlasId}|${ids.join(',')}|${off.join(',')}`;
         if (key !== this._key) {
             this._key = key;
-            const layers = ids.map(id => window.layerRegistry?.getLayer?.(id, null, true) || { id }).map((layer, i) => ({ ...layer, _prefixedId: layer._prefixedId || ids[i] }));
-            this._list.replaceChildren(...(layers.length ? layers.map(layer => this._row(layer)) : [hint('Nothing is on the map.')]));
-            this._count.textContent = `(${ids.length})`;
+            this._layers = [...ids, ...off]
+                .map(id => {
+                    const layer = window.layerRegistry?.getLayer?.(id, null, true);
+                    return layer || (ids.includes(id) ? { id } : null);
+                })
+                .filter(Boolean)
+                .map(layer => ({ ...layer, _prefixedId: layer._prefixedId || layer.id }));
+            this._list.replaceChildren(...(this._layers.length ? this._layers.map(layer => this._row(layer)) : [hint('Nothing is on the map.')]));
+            setSectionCount(this._head, this._layers.length);
         }
         this.syncCounts();
     }
 
     syncCounts() {
         if (this._atlasId) this._links.sync(this._atlasId);
+        syncLayersGroupEye(this._eye, this._layers || []);
     }
 }

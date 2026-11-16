@@ -17,7 +17,12 @@
  * map row as the rest of Find (layerRow in js/console/find-browse.js: zoom
  * and show/hide), with the thumbnail showing whether the layer has features
  * in view. Its meta names the map's tags, or its atlas when that is not the
- * current one. Clicking a row opens its details page in Find
+ * current one.
+ *
+ * A map turned off stays in the list, in its place, to be turned back on
+ * (js/active-map-history.js keeps every map the atlas has had on): its zoom
+ * becomes a delete button that drops it from the list. The maps on the map
+ * fill the other places in stack order. Clicking a row opens its details page in Find
  * (js/console/layer-details.js) - or, for a map with features or locations
  * nested under it (js/console/layer-features.js), lists them; hovering isolates the layer through
  * MapLayerControl's shared LayerIsolationManager; rows drag to reorder.
@@ -29,6 +34,7 @@ import { MapControlBar } from './map-control-bar.js';
 import { LayerCompareBadge } from './layer-compare-badge.js';
 import { attachSwipeDelete } from './layer-swipe-delete.js';
 import { layerRow, atlasLayers } from './console/find-browse.js';
+import { activeMapHistory, keepPlaces } from './active-map-history.js';
 import { isIncludingOutside } from './console/find-scope.js';
 
 const THUMB_SIZE = 32;
@@ -64,14 +70,18 @@ export class LayerStackStrip {
         // Debounced: window.urlManager's active-layers state updates on its own
         // 300ms debounce (see CLAUDE.md), so reading it synchronously on
         // 'layer-toggled' would render from stale state.
+        // A map kept in the list stays in its place when turned off; one that isn't goes
         this._onToggled = (e) => {
-            if (e.detail?.visible === false) this._animateOut(e.detail.layerId);
+            const id = e.detail?.layerId;
+            if (e.detail?.visible === false && !activeMapHistory.has(this._atlasId(), id)) this._animateOut(id);
         };
+        // Changes redraw even under the pointer: the rows keep their places
         this._onChange = (e) => {
             clearTimeout(this._refreshTimer);
             const shown = e?.type === 'layer-toggled' && e.detail?.visible === true;
-            this._refreshTimer = setTimeout(() => this.render(), shown ? 0 : 400);
+            this._refreshTimer = setTimeout(() => this.render({ evenIfHovered: true }), shown ? 0 : 400);
         };
+        this._lastOrder = null;
     }
 
     /**
@@ -135,6 +145,7 @@ export class LayerStackStrip {
         window.addEventListener('urlUpdated', this._onChange);
         window.addEventListener('mask-changed', this._onChange);
         window.addEventListener('compare-changed', this._onChange);
+        this._offHistory = activeMapHistory.onRemove(() => this.render({ force: true }));
 
         // The event may already have fired by the time this mounts.
         if (window.layersInitialized) this._onChange();
@@ -180,6 +191,7 @@ export class LayerStackStrip {
         window.removeEventListener('urlUpdated', this._onChange);
         window.removeEventListener('mask-changed', this._onChange);
         window.removeEventListener('compare-changed', this._onChange);
+        this._offHistory?.();
         clearTimeout(this._refreshTimer);
         clearTimeout(this._reorderTimer);
         this._map?.off?.('dataloading', this._onDataLoading);
@@ -198,14 +210,14 @@ export class LayerStackStrip {
      * changed - it is also called on every map 'idle' as a self-heal, so the
      * no-change case has to stay cheap.
      */
-    render({ force = false } = {}) {
+    render({ force = false, evenIfHovered = false } = {}) {
         if (!this._el) return;
 
         // Rebuilding mid-hover would drop the row (and its open flyout) out from
         // under the cursor - and with the isolation the hover applied still on the
         // map. Defer to the strip's mouseleave instead. A reorder forces the
         // rebuild, since the whole point of it is that the row moves.
-        if (!force && this._el.querySelector('.layer-stack-item:hover')) {
+        if (!force && !evenIfHovered && this._el.querySelector('.layer-stack-item:hover')) {
             this._pendingRender = true;
             return;
         }
@@ -219,9 +231,12 @@ export class LayerStackStrip {
         const layers = allLayers.filter(l => l.id !== compareId && (this._showHidden || !this._noFeatureIds.has(l.id)));
         const hiddenCount = allLayers.filter(l => l.id !== compareId).length - layers.length;
         this._controlBar?.setHidden(allLayers.filter(l => this._noFeatureIds.has(l.id)).length, this._showHidden);
+        const atlasId = this._atlasId();
+        this._remember(atlasId, allLayers);
+        const inactive = this._inactiveLayers(atlasId, allLayers);
         const maskedId = this._getMaskedLayerId();
         const loadingIds = window.layerControl?._loadingLayerIds;
-        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|compare:${compareId}|mask:${maskedId}|open:${this._open}|atlas:${window.layerRegistry?.getCurrentAtlas?.()}|hidden:${hiddenCount}:${this._showHidden}|empty:${[...this._noFeatureIds].join(',')}`;
+        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|off:${inactive.map(l => l.id).join(',')}|compare:${compareId}|mask:${maskedId}|open:${this._open}|atlas:${atlasId}|hidden:${hiddenCount}:${this._showHidden}|empty:${[...this._noFeatureIds].join(',')}`;
         if (!force && signature === this._signature) return;
         this._signature = signature;
 
@@ -231,20 +246,113 @@ export class LayerStackStrip {
 
         const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(layers);
         const inAtlas = this._currentAtlasIds();
+        if (this._lastOrder?.atlasId !== atlasId) this._lastOrder = { atlasId, ids: activeMapHistory.list(atlasId) };
+        const byId = new Map([...layers, ...inactive].map(layer => [layer.id, layer]));
+        const offIds = new Set(inactive.map(layer => layer.id));
+        // A map turned back on takes its place in the list again, and the map's stack follows
+        const stacks = [overlays, basemaps].map(list => this._keepRevived(list.map(layer => layer.id), this._lastOrder.ids));
+        const moved = stacks.some((ids, section) => ids.some((id, i) => id !== [overlays, basemaps][section][i].id));
+        const sections = stacks.map((ids, section) => keepPlaces(
+            ids,
+            inactive.filter(layer => LayerOrderManager.isBasemap(layer) === (section === 1)).map(layer => layer.id),
+            this._lastOrder.ids
+        ));
+        this._offIds = offIds;
+        if (moved) this._postOrder(stacks[0], stacks[1]);
 
-        [overlays, basemaps].forEach((list, section) => {
-            list.forEach((layer, index) => {
-                const item = this._createItem(layer, { maskedId, inAtlas });
+        const rows = [];
+        sections.forEach((ids, section) => {
+            ids.forEach((id, index) => {
+                const layer = byId.get(id);
+                const off = offIds.has(id);
+                const item = off ? this._createOffItem(layer, atlasId) : this._createItem(layer, { maskedId, inAtlas });
                 // The two groups meet at the first basemap, which carries the rule
-                if (section === 1 && index === 0 && overlays.length) {
+                if (section === 1 && index === 0 && sections[0].length) {
                     item.classList.add('layer-stack-basemap-start');
                 }
                 this._el.appendChild(item);
+                if (id !== 'locations') rows.push({ layer, on: !off });
             });
         });
+        const shownOrder = sections.flat();
+        this._lastOrder.ids = [...shownOrder, ...this._lastOrder.ids.filter(id => !shownOrder.includes(id))];
+        activeMapHistory.setOrder(atlasId, shownOrder.filter(id => id !== 'locations'));
 
+        this._controlBar?.find?.setOnMapRows(rows);
         this._controlBar?.find?.decorateOnMap();
         this._footer?.sync();
+    }
+
+    /** Stack ids with the maps that were off before back in their places in `lastOrder`. */
+    _keepRevived(stackIds, lastOrder) {
+        const wasOff = this._offIds || new Set();
+        const revived = stackIds.filter(id => wasOff.has(id) && lastOrder.includes(id));
+        if (!revived.length) return stackIds;
+        const ids = stackIds.filter(id => !revived.includes(id));
+        revived
+            .sort((a, b) => lastOrder.indexOf(a) - lastOrder.indexOf(b))
+            .forEach(id => {
+                const at = lastOrder.indexOf(id);
+                const before = ids.findIndex(other => lastOrder.indexOf(other) > at);
+                ids.splice(before < 0 ? ids.length : before, 0, id);
+            });
+        return ids;
+    }
+
+    _atlasId() {
+        return window.layerRegistry?.getCurrentAtlas?.() || 'index';
+    }
+
+    /** Every map on the map joins the list; one the registry doesn't know keeps its config. */
+    _remember(atlasId, layers) {
+        const kept = layers.filter(layer => layer.id !== 'locations');
+        activeMapHistory.add(atlasId, kept.map(layer => layer.id));
+        kept.forEach(layer => {
+            if (!window.layerRegistry?.getLayer?.(layer.id, null, true)) activeMapHistory.keepConfig(atlasId, layer);
+        });
+    }
+
+    /**
+     * The maps this atlas has had on and are off now: from the registry, the
+     * layer control (a layer given inline stays there once off), or the
+     * config the list kept for it.
+     */
+    _inactiveLayers(atlasId, activeLayers) {
+        const on = new Set(activeLayers.flatMap(layer => [layer.id, layer._prefixedId]).filter(Boolean));
+        const groups = window.layerControl?._state?.groups || [];
+        return activeMapHistory.list(atlasId)
+            .filter(id => id !== 'locations' && !on.has(id))
+            .map(id => {
+                const layer = window.layerRegistry?.getLayer?.(id, null, true)
+                    || groups.find(group => group.id === id)
+                    || activeMapHistory.config(id, atlasId);
+                return layer && !on.has(layer._prefixedId) && !on.has(layer.id) ? { ...layer, id, _prefixedId: layer._prefixedId || id } : null;
+            })
+            .filter(Boolean);
+    }
+
+    /** A map kept in the list while off: turn it back on, or delete it from the list. */
+    _createOffItem(layer, atlasId) {
+        const thumbnail = LayerThumbnail.generate(layer, THUMB_SIZE, {
+            interactive: false,
+            layerDefaults: window.layerControl?._defaultStyles || {}
+        });
+        thumbnail.classList.add('console-thumb', 'layer-stack-cell');
+        const tags = Array.isArray(layer.tags) ? layer.tags.join(' › ') : '';
+        const forget = () => activeMapHistory.remove(atlasId, layer.id);
+        const item = layerRow(layer, {
+            on: false,
+            meta: tags,
+            thumb: thumbnail,
+            className: 'layer-stack-item layer-stack-off',
+            onRemove: forget
+        });
+        item.dataset.layerItem = 'true';
+        item.dataset.layerId = layer.id;
+        item.dataset.off = 'true';
+        item.dataset.basemap = String(LayerOrderManager.isBasemap(layer));
+        attachSwipeDelete(item, forget);
+        return item;
     }
 
     /**
@@ -386,7 +494,11 @@ export class LayerStackStrip {
         item.prepend(grip);
 
         this._setupItemDrag(item);
-        attachSwipeDelete(item, () => this._post({ type: 'remove-layer', layerId: layer.id }));
+        // Swiping a row away removes the map, and drops it from the list too
+        attachSwipeDelete(item, () => {
+            activeMapHistory.remove(this._atlasId(), layer.id);
+            this._post({ type: 'remove-layer', layerId: layer.id });
+        });
 
         return item;
     }
@@ -511,11 +623,18 @@ export class LayerStackStrip {
         const shownOverlays = [];
         const shownBasemaps = [];
         this._el.querySelectorAll('[data-layer-item]').forEach(el => {
+            if (el.dataset.off === 'true') return;
             (el.dataset.basemap === 'true' ? shownBasemaps : shownOverlays).push(el.dataset.layerId);
         });
+        this._postOrder(shownOverlays, shownBasemaps);
+    }
 
-        // Layers filtered out of the strip keep their slots: only the rows on
-        // screen are reordered among themselves.
+    /**
+     * Sends the order of the rows shown as `reorder-layers`. Layers filtered
+     * out of the strip keep their slots: only the rows on screen are
+     * reordered among themselves.
+     */
+    _postOrder(shownOverlays, shownBasemaps) {
         const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(this._getVisibleLayers({ withLocations: true }));
         const merge = (full, shown) => {
             const onScreen = new Set(shown);

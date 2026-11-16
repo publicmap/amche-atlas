@@ -22,6 +22,7 @@ import { LayerLegend } from '../layer-legend.js';
 import { ruleFilter } from '../rule-legend.js';
 import { LayerOrderManager } from '../layer-order-manager.js';
 import { LayerActions } from './layer-actions.js';
+import { RasterAdjust } from '../raster-adjust.js';
 import { isStarred, setStarred } from '../starred-layers.js';
 
 const FEATURE_LIMIT = 6;
@@ -36,6 +37,34 @@ export class LayerDetails {
         this.el = el('div', 'console-details');
         this.el.hidden = true;
         this._actions = new LayerActions({ onChange: () => this.refresh() });
+        // A slider dragged here changes the layer, and the map's update redraws
+        // this page: hold the redraw until the pointer is let go, or the drag
+        // loses the slider under it.
+        this.el.addEventListener('pointerdown', () => {
+            this._pressed = true;
+            const release = () => {
+                window.removeEventListener('pointerup', release, true);
+                window.removeEventListener('pointercancel', release, true);
+                this._pressed = false;
+                this._resumeRefresh();
+            };
+            window.addEventListener('pointerup', release, true);
+            window.addEventListener('pointercancel', release, true);
+        });
+        // An open colour picker would close if the page were redrawn under it
+        this.el.addEventListener('sl-show', () => { this._pickerOpen = true; });
+        this.el.addEventListener('sl-after-hide', () => {
+            this._pickerOpen = false;
+            this._resumeRefresh();
+        });
+    }
+
+    get _holding() {
+        return !!(this._pressed || this._pickerOpen);
+    }
+
+    _resumeRefresh() {
+        if (!this._holding && this._heldRefresh) this.refresh();
     }
 
     get isOpen() {
@@ -62,12 +91,15 @@ export class LayerDetails {
     close() {
         this._release();
         this._layer = null;
+        this._raster = null;
+        this._pressed = this._pickerOpen = false;
         this.el.hidden = true;
         this.el.replaceChildren();
     }
 
     refresh() {
-        if (this._layer) this.render();
+        this._heldRefresh = this._holding;
+        if (this._layer && !this._holding) this.render();
     }
 
     // A copy, as the editor gets: the legend and thumbnail resolve style values
@@ -143,6 +175,7 @@ export class LayerDetails {
         }
 
         if (on) this.el.appendChild(this._opacityRow(live));
+        if (on && RasterAdjust.isRaster(live)) this.el.appendChild(this._rasterSection(live));
         this.el.appendChild(this._actions.render(live, on));
 
         const legend = LayerLegend.generate(live, { onPreview: on ? (ruleId) => this._previewRule(live, ruleId) : undefined });
@@ -175,6 +208,24 @@ export class LayerDetails {
         });
         wrap.append(slider, value);
         return wrap;
+    }
+
+    // Kept across redraws of the page so a dragged slider or an open colour
+    // picker isn't swapped out from under the pointer; only its values update.
+    _rasterSection(live) {
+        if (this._raster?.id !== live.id) {
+            const details = el('details', 'console-raster');
+            details.open = !!this._rasterOpen;
+            details.addEventListener('toggle', () => { this._rasterOpen = details.open; });
+            details.appendChild(el('summary', 'console-raster-summary', 'Image adjustments'));
+            const body = el('div', 'console-raster-body');
+            const adjust = new RasterAdjust({ post, buttonClass: 'console-action' });
+            adjust.mount(body);
+            details.appendChild(body);
+            this._raster = { id: live.id, details, adjust };
+        }
+        this._raster.adjust.render(live);
+        return this._raster.details;
     }
 
     _previewRule(live, ruleId) {

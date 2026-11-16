@@ -1,8 +1,14 @@
 /**
  * Shared building blocks for every list in the map console (js/map-control-bar.js):
- * one row shape (thumbnail, title over meta, trailing action), one section label,
- * one eye toggle. Find's results, its browse sections and the on-map list all use
- * these, so the console reads as a single component.
+ * one row shape (a square thumbnail; title, then a subtitle, then badges of its
+ * features; trailing actions), one section header, one eye toggle. Find's
+ * results, its browse sections and the on-map list all use these, so the
+ * console reads as a single component.
+ *
+ * A section header is "Label (count)"; hovering the section reveals square
+ * buttons acting on all its items and, last, a small eye over all the rows'
+ * eyes - on, off, or part when only some are on (js/map-export.html's panel
+ * follows the same pattern).
  */
 import { LayerThumbnail } from '../layer-thumbnail.js';
 
@@ -20,14 +26,91 @@ export function icon(name) {
 }
 
 export function sectionLabel(text, ...extras) {
-    const label = el('div', 'console-label');
-    label.appendChild(el('span', '', text));
+    return sectionHeader({ label: text, extras });
+}
+
+/**
+ * A section's header row.
+ * @param {Object} options
+ * @param {string} options.label
+ * @param {number|null} [options.count] - shown as "(count)"
+ * @param {HTMLElement[]} [options.actions] - square buttons acting on every item (sectionAction)
+ * @param {HTMLElement|null} [options.eye] - the eye over every row's eye (groupEye)
+ * @param {HTMLElement[]} [options.extras] - always shown, after the label
+ */
+export function sectionHeader({ label, count = null, actions = [], eye = null, extras = [] }) {
+    const head = el('div', 'console-label console-section-head');
+    const text = el('span', 'console-section-title', label);
+    head.appendChild(text);
+    const countEl = el('span', 'console-section-count');
+    head.appendChild(countEl);
+    setSectionCount(head, count);
     if (extras.length) {
         const side = el('span', 'console-label-side');
         side.append(...extras.filter(Boolean));
-        label.appendChild(side);
+        head.appendChild(side);
     }
-    return label;
+    const tools = el('span', 'console-section-tools');
+    tools.append(...actions.filter(Boolean));
+    if (eye) tools.appendChild(eye);
+    head.appendChild(tools);
+    return head;
+}
+
+export function setSectionCount(head, count) {
+    const countEl = head?.querySelector(':scope > .console-section-count');
+    if (!countEl) return;
+    countEl.textContent = count === null || count === undefined ? '' : `(${count})`;
+}
+
+/** A square button in a section header, acting on all the section's items; `on` marks a toggle that is on. */
+export function sectionAction(iconName, title, onClick, { on = false } = {}) {
+    const button = el('button', 'console-section-action');
+    button.type = 'button';
+    button.appendChild(icon(iconName));
+    setActionTitle(button, title);
+    button.classList.toggle('on', on);
+    button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onClick(e);
+    });
+    return button;
+}
+
+export function setActionTitle(button, title) {
+    button.title = title;
+    button.setAttribute('aria-label', title);
+}
+
+/** Whether a set of eyes is all on, all off, or part. */
+export function eyesState(states) {
+    const on = states.filter(Boolean).length;
+    if (!states.length || on === 0) return 'off';
+    return on === states.length ? 'on' : 'part';
+}
+
+/** What a group eye does next: part and off turn everything on, on turns everything off. */
+export function nextEyeState(state) {
+    return state === 'on' ? 'off' : 'on';
+}
+
+/**
+ * The section's eye over all its rows' eyes, smaller and aligned with them.
+ * `onClick(next)` gets the state to set every row to.
+ */
+export function groupEye(onClick, { state = 'off', noun = 'all' } = {}) {
+    const button = eyeButton(state, () => onClick(nextEyeState(button.dataset.state)), '');
+    button.classList.add('console-eye-group');
+    setGroupEye(button, state, noun);
+    return button;
+}
+
+export function setGroupEye(button, state, noun = button.dataset.noun || 'all') {
+    if (!button) return;
+    button.dataset.state = state;
+    button.dataset.noun = noun;
+    const title = state === 'on' ? `Hide ${noun}` : state === 'part' ? `Some are hidden - show ${noun}` : `Show ${noun}`;
+    setEyeState(button, state, title);
 }
 
 export function linkButton(text, onClick, title = '') {

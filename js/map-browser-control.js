@@ -11,6 +11,7 @@ import { LayerStackStrip } from './layer-stack-strip.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { atlasPinsUrl } from './atlas-pins.js';
 import { rememberAtlas, restoreAtlas } from './atlas-memory.js';
+import { activeMapHistory } from './active-map-history.js';
 
 export class MapBrowserControl {
     constructor() {
@@ -758,6 +759,14 @@ export class MapBrowserControl {
                 return;
             }
 
+            // A layer given inline, gone from the link but kept in the Active Maps list
+            const kept = activeMapHistory.config(layerId);
+            if (kept && active) {
+                await mapLayerControl._addLayerDirectly(kept).then(() => {
+                    this._updateIframeActiveLayers();
+                    this._notifyLayerLoaded(layerId);
+                }).catch(err => console.error('[MapBrowser] Failed to add kept layer:', err));
+            }
             return;
         }
 
@@ -1008,9 +1017,8 @@ export class MapBrowserControl {
     }
 
     // Turns off every active layer except the index atlas's own base layers
-    // (selection / admin lines / satellite etc.), which Clear all in the
-    // console's On the map list (js/console/on-map-actions.js) leaves for a
-    // second press. It isn't scoped to a single atlas — there's no selected-atlas
+    // (selection / admin lines / satellite etc.), which a caller can take in a
+    // second pass with basemapsWhenEmpty. It isn't scoped to a single atlas — there's no selected-atlas
     // context here (e.g. the shortcut menu) — it just protects the shared base
     // layers and clears everything else.
     hideAllLayers({ basemapsWhenEmpty = false } = {}) {

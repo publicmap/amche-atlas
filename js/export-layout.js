@@ -161,6 +161,7 @@ export class ExportLayout {
         });
         this.placeAll();
         this._notify();
+        if (Object.keys(visibility).some(isLegendGroup)) this._callbacks.onLegendChange?.(this.legend.entries());
     }
 
     isVisible(name) {
@@ -250,6 +251,37 @@ export class ExportLayout {
         if (typeof changes.detail === 'boolean' && isLegendGroup(name)) {
             this.legend.setDetail(legendGroupId(name), changes.detail);
         }
+        this.placeAll();
+        this._notify();
+    }
+
+    /** Each element's value in a line, for its row in the Export panel. */
+    summaries() {
+        const text = (value, empty) => (value || '').replace(/\s+/g, ' ').trim() || empty;
+        const scale = this.el?.querySelector('[data-export-scale-label]')?.textContent;
+        const qrBox = this.el?.querySelector('[data-export-qr]');
+        return {
+            title: text(this._text.title, 'No title yet'),
+            description: text(this._text.description, 'No description yet - click to add one'),
+            scale: scale ? `30 mm bar is ${scale}, north arrow` : 'Scale bar and north arrow',
+            qr: qrBox?.style.width ? `${parseFloat(qrBox.style.width).toFixed(0)} mm, links to this view` : 'Links to this view',
+            info: text(this._items.info?.textContent, 'Export date and the map’s link')
+        };
+    }
+
+    /** Every element back in its default place, the legend groups back in their column. */
+    resetPositions() {
+        this._positions = { ...this._positions, ...structuredClone(DEFAULT_POSITIONS) };
+        Object.keys(this._items).filter(isLegendGroup).forEach(name => { this._positions[name] = { auto: true }; });
+        this.placeAll();
+        this._notify();
+    }
+
+    /** One change to every legend group: { arrange } or { detail }. */
+    updateLegendGroups(changes = {}) {
+        const names = Object.keys(this._items).filter(isLegendGroup);
+        if (changes.arrange) names.forEach(name => { this._positions[name] = { auto: true }; });
+        if (typeof changes.detail === 'boolean') this.legend.setDetailAll(names.map(legendGroupId), changes.detail);
         this.placeAll();
         this._notify();
     }

@@ -9,6 +9,7 @@
  */
 
 import { LayerThumbnail } from './layer-thumbnail.js';
+import { addAlignLinks, alignIconHTML, warperPageUrl } from './warper-align.js';
 
 export class MapAttributionControl {
     constructor() {
@@ -485,6 +486,10 @@ export class MapAttributionControl {
                     link.setAttribute('target', '_blank');
                     link.setAttribute('rel', 'noopener noreferrer');
                 });
+                if (!addAlignLinks(tempDiv, this._map) && layer) {
+                    const pageUrl = warperPageUrl(layer.url);
+                    if (pageUrl) tempDiv.insertAdjacentHTML('beforeend', ' ' + alignIconHTML(pageUrl, this._map));
+                }
                 const idx = this._itemLayers.length;
                 this._itemLayers.push(layer || null);
                 const thumbHtml = layer ? this._buildThumbnailHTML(layer) : '';

@@ -241,7 +241,7 @@ function pointMarker(size, lngLat, project) {
 function shell(size) {
     const box = document.createElement('div');
     box.className = 'feature-thumbnail';
-    box.style.cssText = `width:${size}px;height:${size}px;border-radius:5px;overflow:hidden;position:relative;flex:none;background:#fff;`;
+    box.style.cssText = `width:${size}px;height:${size}px;border-radius:0;overflow:hidden;position:relative;flex:none;background:#fff;`;
     return box;
 }
 
@@ -259,7 +259,7 @@ export class FeatureThumbnail {
     static _fallback(layerConfig, size) {
         if (!layerConfig) return null;
         const thumbnail = LayerThumbnail.generate(layerConfig, size, { interactive: false });
-        thumbnail.style.borderRadius = '5px';
+        thumbnail.style.borderRadius = '0';
         thumbnail.style.margin = '0';
         return thumbnail;
     }

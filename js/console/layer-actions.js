@@ -3,11 +3,14 @@
  * show only, compare, mask, export and edit. Everything but Edit acts on the
  * live map through the window messages MapFeatureControl already handles
  * (the same ones the layer editor's header, js/layer-header.js, posts), so
- * actions that need the map on it are disabled while it is off.
+ * actions that need the map on it are disabled while it is off. While it is
+ * off and kept in the Active Maps list (js/active-map-history.js), Remove
+ * drops it from there.
  */
 import { el, icon } from './find-rows.js';
 import { LayerOrderManager } from '../layer-order-manager.js';
 import { ZoomToParam } from '../zoom-to-param.js';
+import { activeMapHistory } from '../active-map-history.js';
 
 const EXPORT_FORMATS = [['geojson', 'GeoJSON'], ['kml', 'KML'], ['csv', 'GeoCSV']];
 const post = (message) => window.postMessage(message, '*');
@@ -79,6 +82,16 @@ export class LayerActions {
         grid.appendChild(actionButton('pencil', 'Edit', () => {
             window.browserControl?.openLayerEditor(live, { tab: 'edit' });
         }, { title: 'Edit the data source, style and details' }));
+
+        const atlasId = window.layerRegistry?.getCurrentAtlas?.() || 'index';
+        if (!on && activeMapHistory.has(atlasId, live.id)) {
+            const remove = actionButton('trash', 'Remove', () => {
+                activeMapHistory.remove(atlasId, live.id);
+                this._onChange();
+            }, { title: 'Remove this map from the Active Maps list' });
+            remove.classList.add('console-action-danger');
+            grid.appendChild(remove);
+        }
         return grid;
     }
 

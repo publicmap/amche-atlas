@@ -1078,6 +1078,8 @@ Standard raster tile services (`/{z}/{x}/{y}.png|.jpg`). Supports an optional pr
 | `proxyUrl`, `proxyReferer` | Wraps the tile URL through a CORS proxy with the given Referer header. |
 | `urlTimeParam` | Template such as `TIME={time}` for time-aware sources (see NASA GIBS atlas). |
 | `geojson` | Inline GeoJSON drawn as a `simplestyle-spec` overlay on top of the raster. |
+| `colorKey` | `{ "color": "#ffffff", "alpha": 0, "tolerance": 0.1 }` turns pixels near `color` (largest per-channel difference ≤ `tolerance`, 0–1) to `alpha` opacity, keeping every other pixel as it is - e.g. the paper of a scanned map. Tiles are keyed in the browser by `js/color-key-tile-provider.js` (Mapbox GL JS TileProvider), so the tile server must allow CORS. Also on `wms` and `wmts`; not on `mapbox://` or PMTiles URLs. Set from Image Adjustments in the layer editor and the console's layer details. |
+| `recolor` | `{ "grayscale": true, "invert": true }` redraws the pixels (after `colorKey`) in greys and/or as a negative - e.g. a scanned map's black lines turned white over a dark basemap. Same tile provider and layer types as `colorKey`. |
 
 ```json
 {

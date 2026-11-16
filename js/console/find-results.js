@@ -9,8 +9,8 @@
  * Every list is scoped to the view (js/console/find-scope.js); what lies
  * outside is either left out and counted, or listed with a zoom button.
  */
-import { el, sectionLabel, row, iconThumb, chevron, moreRow, deleteButton, geometryIcon } from './find-rows.js';
-import { layerRow, atlasName, activeIds, openLayerInfo } from './find-browse.js';
+import { el, sectionHeader, row, iconThumb, chevron, moreRow, deleteButton, geometryIcon } from './find-rows.js';
+import { layerRow, layerMeta, layersGroupEye, atlasName, activeIds, openLayerInfo } from './find-browse.js';
 import { nestResults } from './layer-features.js';
 import { scoped, layerBbox, routeBbox, zoomButton, bboxInView, distanceInView } from './find-scope.js';
 import { byRank, matchRank } from './find-rank.js';
@@ -130,10 +130,15 @@ export class ResultsRenderer {
     maps(container, { groups, outside }, { label = 'Maps', key = 'maps', source = 'all atlases' } = {}) {
         if (!groups.length) return 0;
         const section = el('section', 'console-section');
-        section.appendChild(sectionLabel(label, el('span', '', source)));
+        section.appendChild(sectionHeader({
+            label,
+            count: groups.length,
+            extras: [el('span', '', source)],
+            eye: layersGroupEye(() => groups.map(group => group.layer), `the ${groups.length === 1 ? 'map' : `${groups.length} maps`} found`)
+        }));
         const active = activeIds();
         this._limited(section, key, groups, ({ layer, features, routes }) => {
-            const parent = this.ctx.track(layerRow(layer, { active, meta: atlasName(layer._sourceAtlas), outside: outside.has(layer) }), { layer });
+            const parent = this.ctx.track(layerRow(layer, { active, meta: layerMeta(layer) || atlasName(layer._sourceAtlas), outside: outside.has(layer) }), { layer });
             return this.nest(parent, layer, features, { routes });
         });
         container.appendChild(section);
@@ -215,7 +220,7 @@ export class ResultsRenderer {
         const items = sections.filter(s => s.ariaLabel === 'Data link').flatMap(s => s.items || []);
         if (!items.length) return 0;
         const section = el('section', 'console-section');
-        section.appendChild(sectionLabel('Data link'));
+        section.appendChild(sectionHeader({ label: 'Data link', count: items.length }));
         items.forEach(item => {
             section.appendChild(this.ctx.track(row({
                 thumb: iconThumb('link-45deg'),
@@ -234,7 +239,7 @@ export class ResultsRenderer {
         const revealed = hidden && this.ctx.expanded.has('places-outside');
         const list = revealed ? items : shown;
         const section = el('section', 'console-section');
-        section.appendChild(sectionLabel('Places', el('span', '', 'Mapbox · OpenStreetMap')));
+        section.appendChild(sectionHeader({ label: 'Places', count: list.length, extras: [el('span', '', 'Mapbox · OpenStreetMap')] }));
         this._limited(section, 'places', list, item => {
             const isPlot = !!item.properties?._isCadastralParquet;
             const point = placePoint(item);

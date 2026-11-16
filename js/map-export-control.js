@@ -127,16 +127,28 @@ export class MapExportControl {
 
     _onLayoutTextChange(name, text) {
         if (name === 'title') this._title = text;
+        this._postLayoutSummary();
     }
 
     // The selected page element's editor lives in the panel
     _onLayoutSelectionChange(item, state) {
         this._iframe?.contentWindow?.postMessage({ type: 'layout-selected', item, state }, '*');
+        this._postLayoutSummary();
     }
 
     // The panel lists a legend group per map, each with its eye
     _onLayoutLegendChange(entries) {
         this._iframe?.contentWindow?.postMessage({ type: 'layout-legend', entries }, '*');
+        this._postLayoutSummary();
+    }
+
+    // Each element's value, previewed under its name in the panel
+    _postLayoutSummary() {
+        cancelAnimationFrame(this._summaryFrame);
+        this._summaryFrame = requestAnimationFrame(() => {
+            const items = this._frame?.layout?.summaries();
+            if (items) this._iframe?.contentWindow?.postMessage({ type: 'layout-summary', items }, '*');
+        });
     }
 
     // The part of the map the frame fits in, in map-container pixels: clear of
@@ -175,6 +187,7 @@ export class MapExportControl {
                 shareUrl,
                 qrMm: this._qrSizeMm(shareUrl)
             });
+            this._postLayoutSummary();
         }, 350);
     }
 
@@ -275,6 +288,10 @@ export class MapExportControl {
                 this._frame.hide();
             } else if (type === 'layout-visibility') {
                 this._frame.layout.setVisible(config);
+            } else if (type === 'layout-reset') {
+                this._frame.layout.resetPositions();
+            } else if (type === 'layout-legend-all') {
+                this._frame.layout.updateLegendGroups(event.data.changes);
             } else if (type === 'layout-select') {
                 this._frame.layout.select(event.data.item);
             } else if (type === 'layout-update') {

@@ -20,9 +20,9 @@
  * locations are nested under their map (js/console/layer-features.js), and
  * picking a feature opens the layer editor on it (map-creator.html).
  */
-import { el, icon, sectionLabel, linkButton, hint } from './find-rows.js';
+import { el, sectionHeader, linkButton, hint } from './find-rows.js';
 import { watchLoading } from './layer-loading.js';
-import { atlasesForSelector, atlasName, atlasLayers, layerRow, activeIds, isLayerActive, switchAtlas, clearPreview } from './find-browse.js';
+import { atlasesForSelector, atlasName, atlasLayers, layerRow, layersGroupEye, activeIds, isLayerActive, switchAtlas, clearPreview } from './find-browse.js';
 import { scoped, layerBbox } from './find-scope.js';
 import { atlasCards, updateAtlasCards } from './atlas-cards.js';
 import { renderAtlases } from './find-atlases.js';
@@ -32,8 +32,7 @@ import { FindSections } from './find-sections.js';
 import { FindFilters } from './find-filters.js';
 import { FeatureSync } from './feature-sync.js';
 import { tagFilterBar, filterByTags } from './tag-filter.js';
-import { OnMapActions } from './on-map-actions.js';
-import { ShowLinks } from './active-maps.js';
+import { ActiveMapsHeader } from './active-maps-header.js';
 import { onStarredChange } from '../starred-layers.js';
 import { LayerDetails } from './layer-details.js';
 import { routeActions } from './route-actions.js';
@@ -146,7 +145,6 @@ export class FindPanel {
         this._map = map || window.map;
         this._onToggleHidden = onToggleHidden;
         this.el = el('div', 'console-find');
-        this.onMapActions = new OnMapActions();
         this.filters = new FindFilters({
             onChange: () => {
                 if (!this.filters.browsingTags) {
@@ -162,11 +160,8 @@ export class FindPanel {
         optionsEl?.append(this.filters.row, this._tagSlot);
         this._strip = stripEl;
         this._onMap = el('section', 'console-section console-onmap');
-        this._showLinks = new ShowLinks();
-        this._onMapCount = el('span', 'console-tree-count');
-        const heading = el('div', 'console-sources-heading console-onmap-heading');
-        heading.append(icon('layers'), el('span', 'console-sources-title', 'Active Maps'), this._onMapCount, this._showLinks.el, this.onMapActions.el);
-        this._onMap.append(heading);
+        this._activeHead = new ActiveMapsHeader();
+        this._onMap.append(this._activeHead.el);
         this._offStarred = onStarredChange(() => this._scheduleRefresh());
         if (stripEl) this._onMap.appendChild(stripEl);
 
@@ -304,6 +299,11 @@ export class FindPanel {
     /** The maps on the map, in stack order (js/layer-stack-strip.js). */
     setOnMap(layers) {
         this._onMapLayers = Array.isArray(layers) ? layers : [];
+    }
+
+    /** The Active Maps list's rows, on and off (js/layer-stack-strip.js), for its header. */
+    setOnMapRows(rows) {
+        this._activeHead.setRows(rows);
     }
 
     /** How many maps on the map the strip leaves out for having nothing in view. */
@@ -492,10 +492,9 @@ export class FindPanel {
             return {
                 count: this._onMapLayers.length - this._onMapHidden, hidden: this._onMapHidden, inactive,
                 build: (c) => {
-                    this._showLinks.sync(atlasId);
-                    this._onMapCount.textContent = `(${this._onMapLayers.filter(layer => layer.id !== 'locations').length})`;
+                    this._activeHead.sync(atlasId);
                     c.appendChild(this._onMap);
-                    if (!this._onMapLayers.some(layer => layer.id !== 'locations')) {
+                    if (!this._activeHead.count) {
                         const empty = hint('Nothing is on the map yet. ');
                         empty.appendChild(linkButton(`Browse the maps in ${atlasName(atlasId)}`, () => this._showAllMaps()));
                         c.appendChild(empty);
@@ -530,7 +529,7 @@ export class FindPanel {
                 this._results.links(c, this._sections);
                 if (entries.length) {
                     const section = el('section', 'console-section');
-                    section.append(sectionLabel('Atlases'), atlasCards(entries, this._openAtlas));
+                    section.append(sectionHeader({ label: 'Atlases', count: entries.length }), atlasCards(entries, this._openAtlas));
                     c.appendChild(section);
                 }
                 this._results.maps(c, { groups, outside: searched.outside }, { label: 'Maps' });
@@ -583,9 +582,10 @@ export class FindPanel {
     }
 
     _listLayers(container, label, layers, { active, outside, empty = null }) {
-        const rows = layers.map(layer => this._track(layerRow(layer, { active, meta: (layer.tags || []).join(' › '), outside: outside.has(layer) }), { layer }));
+        const rows = layers.map(layer => this._track(layerRow(layer, { active, outside: outside.has(layer) }), { layer }));
         const section = el('section', 'console-section');
-        section.append(sectionLabel(label), ...(rows.length ? rows : (empty ? [hint(empty)] : [])));
+        const eye = layers.length ? layersGroupEye(() => layers, `the ${layers.length === 1 ? 'map' : `${layers.length} maps`} in this list`) : null;
+        section.append(sectionHeader({ label, count: layers.length, eye }), ...(rows.length ? rows : (empty ? [hint(empty)] : [])));
         container.appendChild(section);
     }
 
@@ -651,7 +651,6 @@ export class FindPanel {
         this._map?.off?.('move', this._onMapMove);
         cancelAnimationFrame(this._moveFrame);
         this.featureSync.destroy();
-        this.onMapActions?.destroy();
         this.el?.remove();
     }
 }

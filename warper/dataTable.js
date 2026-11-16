@@ -1,20 +1,19 @@
 /**
  * DataTable Plugin for Warper Tool
- * Displays CSV data in a searchable DataTable modal
+ * Lists every mapwarper / WMF warper map referenced by the atlas configs
  */
 
 class WarperDataTable {
     constructor(options) {
         this.options = {
-            url: '',
+            configBase: '../config/',
             title: 'Data Table',
             name: ['Name'],
-            type: 'Type',
             click: 'URL',
             ...options
         };
         
-        this.csvData = null;
+        this.rows = null;
         this.dataTable = null;
         this.modal = null;
         this.isInitializing = false;
@@ -24,13 +23,10 @@ class WarperDataTable {
     }
     
     async init() {
-        // Check if required dependencies are loaded
         if (typeof DataTable === 'undefined' && typeof $.fn.dataTable === 'undefined') {
             console.error('DataTables library not found. Please include DataTables CSS and JS files.');
             return;
         }
-        
-        await this.loadCSVData();
         const modalCreated = await this.createModal();
         if (!modalCreated) {
             console.error('Failed to create modal during initialization');
@@ -38,131 +34,71 @@ class WarperDataTable {
         }
         this.setupEventListeners();
     }
-    
-    async loadCSVData() {
+
+    async loadAtlasData() {
+        const configBase = new URL(this.options.configBase, window.location.href);
+        const resolve = (entry) => /^https?:\/\//.test(entry)
+            ? entry
+            : new URL(`${entry}.atlas.json`, configBase).href;
         try {
-            console.log('Loading CSV data from:', this.options.url);
-            const response = await fetch(this.options.url, {
-                mode: 'cors',
-                headers: {
-                    'Accept': 'text/csv,text/plain,*/*'
+            const index = await fetch(new URL('index.atlas.json', configBase)).then(r => r.json());
+            const entries = Array.isArray(index.atlases) ? index.atlases : [];
+            const atlases = await Promise.all(entries.map(async entry => {
+                try {
+                    const res = await fetch(resolve(entry));
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    return { id: entry, config: await res.json() };
+                } catch (error) {
+                    console.warn('Failed to load atlas', entry, error);
+                    return null;
                 }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
-            }
-            
-            const csvText = await response.text();
-            this.csvData = this.parseCSV(csvText);
-            console.log('CSV data loaded successfully:', this.csvData.length, 'rows');
-            
-            if (this.csvData.length === 0) {
-                console.warn('No data found in CSV or parsing failed');
-            }
+            }));
+            this.rows = this.extractWarperMaps(atlases.filter(Boolean));
         } catch (error) {
-            console.error('Error loading CSV data:', error);
-            if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                console.error('This might be a CORS issue. Make sure the CSV URL allows cross-origin requests.');
-            }
-            this.csvData = [];
+            console.error('Error loading atlas configs:', error);
+            this.rows = [];
         }
     }
-    
-    parseCSV(csvText) {
-        const lines = csvText.split('\n');
-        if (lines.length < 2) return [];
-        
-        // Parse CSV with proper handling of quoted fields
-        const parseCSVLine = (line) => {
-            const result = [];
-            let current = '';
-            let inQuotes = false;
-            
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                const nextChar = line[i + 1];
-                
-                if (char === '"') {
-                    if (inQuotes && nextChar === '"') {
-                        // Escaped quote
-                        current += '"';
-                        i++; // Skip next quote
+
+    extractWarperMaps(atlases) {
+        const pattern = /https?:\/\/(mapwarper\.net|warper\.wmflabs\.org)\/(maps|layers|mosaics)\/(?:tile\/|wms\/)?(\d+)/;
+        const rows = new Map();
+        const walk = (layers, atlasName) => {
+            (layers || []).forEach(layer => {
+                if (!layer || typeof layer !== 'object') return;
+                const match = [layer.url, layer.attribution]
+                    .filter(v => typeof v === 'string')
+                    .map(v => v.match(pattern))
+                    .find(Boolean);
+                if (match) {
+                    const [, host, kind, id] = match;
+                    const isMap = kind === 'maps';
+                    const url = `https://${host}/${isMap ? 'maps' : 'layers'}/${id}`;
+                    const existing = rows.get(url);
+                    if (existing) {
+                        if (!existing.Atlas.split(', ').includes(atlasName)) existing.Atlas += `, ${atlasName}`;
                     } else {
-                        // Toggle quote state
-                        inQuotes = !inQuotes;
+                        rows.set(url, {
+                            Title: layer.title || layer.id || '',
+                            Atlas: atlasName,
+                            Type: isMap ? 'Map' : 'Mosaic',
+                            Server: host,
+                            ID: id,
+                            Layer: layer.id || '',
+                            URL: url
+                        });
                     }
-                } else if (char === ',' && !inQuotes) {
-                    // End of field
-                    result.push(current.trim());
-                    current = '';
-                } else {
-                    current += char;
                 }
-            }
-            
-            // Add the last field
-            result.push(current.trim());
-            return result;
-        };
-        
-        // Find the header line (look for line with actual column names)
-        let headerLineIndex = 0;
-        let headers = [];
-        
-        for (let i = 0; i < Math.min(5, lines.length); i++) {
-            const testHeaders = parseCSVLine(lines[i]).map(h => h.replace(/^"|"$/g, '').trim());
-            // Look for a line that contains expected column names
-            if (testHeaders.some(h => h && (h.includes('Collection') || h.includes('Name') || h.includes('Mapwarper')))) {
-                headers = testHeaders;
-                headerLineIndex = i;
-                break;
-            }
-        }
-        
-        // Filter out empty headers and keep track of their positions
-        const validHeaders = [];
-        const validColumnIndices = [];
-        headers.forEach((header, index) => {
-            if (header && header.trim()) {
-                validHeaders.push(header.trim());
-                validColumnIndices.push(index);
-            }
-        });
-        
-        console.log('Found headers:', validHeaders);
-        console.log('Column indices:', validColumnIndices);
-        
-        if (validHeaders.length === 0) {
-            console.error('No valid headers found. Raw first line:', lines[0]);
-            console.error('All test headers:', headers);
-        }
-        
-        // Parse data rows
-        const data = [];
-        for (let i = headerLineIndex + 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-            
-            const allValues = parseCSVLine(line).map(v => v.replace(/^"|"$/g, '').trim());
-            const row = {};
-            
-            // Only extract values from valid column positions
-            validHeaders.forEach((header, validIndex) => {
-                const actualIndex = validColumnIndices[validIndex];
-                row[header] = allValues[actualIndex] || '';
+                if (Array.isArray(layer.layers)) walk(layer.layers, atlasName);
             });
-            
-            // Only add rows that have at least one non-empty value in valid columns
-            if (Object.values(row).some(value => value !== '')) {
-                data.push(row);
-            }
-        }
-        
-        console.log('Parsed data sample:', data.slice(0, 3));
-        return data;
+        };
+        atlases.forEach(({ id, config }) => {
+            const atlasId = /^https?:/.test(id) ? id.split('/').pop().replace('.atlas.json', '') : id;
+            walk(config.layers, config.name || atlasId);
+        });
+        return [...rows.values()];
     }
-    
+
     createModal() {
         // Remove existing modal if it exists
         const existingModal = document.getElementById('warper-datatable-modal');
@@ -185,11 +121,6 @@ class WarperDataTable {
                         <div class="bg-blue-600 text-white px-6 py-4 flex justify-between items-center">
                             <div class="flex items-center space-x-4">
                                 <h1 class="text-xl font-bold">${this.options.title}</h1>
-                                <a href="${this.getGoogleSheetsEditUrl()}" 
-                                   target="_blank" 
-                                   class="text-blue-200 hover:text-white underline text-sm">
-                                    View Sheet
-                                </a>
                             </div>
                             <button id="warper-datatable-close-x" 
                                     class="text-white hover:text-gray-300 text-2xl font-bold">
@@ -250,22 +181,6 @@ class WarperDataTable {
                 }
             }, 20); // Slightly longer delay
         });
-    }
-    
-    getGoogleSheetsEditUrl() {
-        // For the specific Goa Reference Map Index sheet
-        // The CSV URL has a different format than the edit URL
-        if (this.options.url.includes('2PACX-1vTChLW_Qr9M9huy7LZIlR3-1_JW_8hmospOHSZmbL0-VRbjyHtTfv2tzh3VVlO-g0LP2GXcyfX8P6Te')) {
-            return 'https://docs.google.com/spreadsheets/d/1F_1ntegp-tKhLfwaA4Ygv-cj1NST-fDmqeKuhfl1za8/edit?gid=347636234#gid=347636234';
-        }
-        
-        // Generic fallback for other sheets
-        const urlMatch = this.options.url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-        if (urlMatch) {
-            const sheetId = urlMatch[1];
-            return `https://docs.google.com/spreadsheets/d/${sheetId}/edit#gid=0`;
-        }
-        return '#';
     }
     
     setupEventListeners() {
@@ -362,13 +277,14 @@ class WarperDataTable {
             return;
         }
         
-        if (!this.csvData || this.csvData.length === 0) {
-            console.error('No CSV data available for display');
-            alert('No data available. Please check the CSV URL and your internet connection.');
+        this.isShowing = true;
+
+        if (!this.rows) await this.loadAtlasData();
+        if (this.rows.length === 0) {
+            this.isShowing = false;
+            alert('No mapwarper maps found in the atlas configs.');
             return;
         }
-        
-        this.isShowing = true;
         
         try {
             // Always ensure modal exists and is properly set up
@@ -384,7 +300,7 @@ class WarperDataTable {
                 this.setupEventListeners();
             }
             
-            console.log('Showing modal with', this.csvData.length, 'data rows');
+            console.log('Showing modal with', this.rows.length, 'data rows');
             this.modal.classList.remove('hidden');
             
             // Larger delay to ensure modal DOM is fully ready before populating table
@@ -495,7 +411,7 @@ class WarperDataTable {
     }
     
     async populateTable() {
-        if (!this.csvData || this.csvData.length === 0) return;
+        if (!this.rows || this.rows.length === 0) return;
         
         // Ensure we start with a clean table
         this.destroyDataTable();
@@ -509,7 +425,7 @@ class WarperDataTable {
         
         // Get all unique column names from the data
         const allColumns = new Set();
-        this.csvData.forEach(row => {
+        this.rows.forEach(row => {
             Object.keys(row).forEach(key => allColumns.add(key));
         });
         const dataColumns = Array.from(allColumns);
@@ -561,7 +477,7 @@ class WarperDataTable {
         }
         
         tbody.innerHTML = '';
-        this.csvData.forEach(row => {
+        this.rows.forEach(row => {
             const tr = document.createElement('tr');
             tr.classList.add('hover:bg-gray-100');
             
@@ -673,14 +589,14 @@ class WarperDataTable {
         const DataTableConstructor = window.DataTable || $.fn.dataTable;
         
         try {
-            console.log('Initializing DataTable with', this.csvData.length, 'rows and', columns.length, 'columns');
+            console.log('Initializing DataTable with', this.rows.length, 'rows and', columns.length, 'columns');
             
             // Store nameColumns for the initComplete function
             const nameColumns = this.options.name;
             
             // First try with simplified configuration to avoid column filter issues
             this.dataTable = new DataTableConstructor('#warper-datatable', {
-                data: this.csvData,
+                data: this.rows,
                 columns: columnDefs,
                 paging: false, // Show all entries
                 searching: true,
@@ -739,7 +655,7 @@ class WarperDataTable {
                             
                             if (infoElement.length && infoContainer.length) {
                                 // Move the info element to our custom footer container
-                                infoElement.appendTo(infoContainer);
+                                infoContainer.empty().append(infoElement);
                                 
                                 // Hide any empty containers that may have held the info element
                                 $(api.table().container()).find('.dataTables_wrapper .dataTables_info').parent().each(function() {
@@ -809,7 +725,7 @@ class WarperDataTable {
                 }
             });
             
-            console.log('DataTable initialized successfully with', this.csvData.length, 'rows and', columns.length, 'columns');
+            console.log('DataTable initialized successfully with', this.rows.length, 'rows and', columns.length, 'columns');
         } catch (error) {
             console.error('Error initializing DataTable:', error);
             
@@ -897,5 +813,4 @@ class WarperDataTable {
 }
 
 // Make it available globally
-window.WarperDataTable = WarperDataTable;
 window.WarperDataTable = WarperDataTable;

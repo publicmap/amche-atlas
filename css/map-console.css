@@ -482,7 +482,7 @@
 }
 
 .console-sources-heading > .console-tree-count {
-    margin-left: auto;
+    margin-left: -2px;
     font-weight: 400;
 }
 
@@ -502,60 +502,12 @@
     background: rgba(255, 191, 0, 0.14);
 }
 
-/* Active Maps (js/console/active-maps.js) and its links */
+/* Active Maps (js/console/active-maps.js) */
 .console-active-maps {
     display: flex;
     flex-direction: column;
     gap: 2px;
     margin-bottom: 8px;
-}
-
-.console-active-links {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-left: 8px;
-    font-weight: 400;
-}
-
-.console-active-links[hidden],
-.console-active-links > [hidden] {
-    display: none;
-}
-
-/* The count sits before the links, not pushed to the end */
-.console-active-maps .console-sources-heading > .console-tree-count,
-.console-onmap-heading > .console-tree-count {
-    margin-left: -2px;
-    font-weight: 400;
-}
-
-.console-active-maps .console-sources-heading > .console-active-links,
-.console-onmap-heading > .console-active-links {
-    margin-left: auto;
-}
-
-/* Find's on-map list (js/console/find-panel.js): Clear all after the links */
-.console-onmap-heading > .console-onmap-actions {
-    margin-left: auto;
-    font-weight: 400;
-}
-
-.console-onmap-heading > .console-active-links:not([hidden]) + .console-onmap-actions {
-    margin-left: 10px;
-}
-
-.console-active-label {
-    font-size: 11.5px;
-    color: var(--console-ink-3);
-}
-
-.console-active-links .console-link sl-icon {
-    color: var(--console-amber);
-}
-
-.console-active-sep {
-    color: var(--console-ink-3);
 }
 
 /* Filtered to a point on the Data Sources map (js/console/sources-map.js) */
@@ -1324,6 +1276,111 @@ mapbox-search-box [class$='--Container'] {
     text-transform: none;
 }
 
+/* The standard section header (sectionHeader, js/console/find-rows.js):
+   "Label (count)", then - while the section is hovered or focused - square
+   buttons acting on all its items and a small eye centred over the rows'
+   eyes (a row's 30px eye sits 8px from its right edge) */
+.console-section-head {
+    justify-content: flex-start;
+    gap: 6px;
+    min-height: 40px;
+    box-sizing: border-box;
+}
+
+.console-section-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.console-section-count {
+    flex-shrink: 0;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+
+.console-section-head > .console-label-side {
+    margin-left: auto;
+}
+
+.console-section-tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    flex-shrink: 0;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.12s;
+}
+
+.console-label-side + .console-section-tools {
+    margin-left: 8px;
+}
+
+.console-section-tools:empty {
+    display: none;
+}
+
+.console-section:hover .console-section-tools,
+.console-section:focus-within .console-section-tools,
+.console-section-head:hover .console-section-tools,
+.console-section-head:focus-within .console-section-tools {
+    visibility: visible;
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .console-section-tools {
+        visibility: visible;
+        opacity: 1;
+    }
+}
+
+.console-section-action {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--console-line-strong);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--console-ink-3) !important;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.console-section-action[hidden] {
+    display: none;
+}
+
+.console-section-action:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+    background: var(--console-hover);
+    color: var(--console-ink) !important;
+}
+
+.console-section-action.on {
+    border-color: var(--console-amber);
+    background: var(--console-amber-soft);
+    color: var(--console-ink) !important;
+}
+
+.console-section-action.danger:hover {
+    border-color: #dc2626;
+    background: rgba(220, 38, 38, 0.15);
+    color: #fca5a5 !important;
+}
+
+.console-eye.console-eye-group {
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    font-size: 12px;
+}
+
 .console-link {
     display: inline-flex;
     align-items: center;
@@ -1582,7 +1639,7 @@ mapbox-search-box [class$='--Container'] {
     width: 32px !important;
     height: 32px !important;
     flex-shrink: 0;
-    border-radius: 6px !important;
+    border-radius: 0 !important;
     overflow: hidden;
 }
 
@@ -2073,10 +2130,15 @@ mapbox-search-box [class$='--Container'] {
 
 /* ---------- On the map (js/layer-stack-strip.js) ---------- */
 
-.console-onmap-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
+/* A map kept in the list while it is off (js/active-map-history.js) */
+.layer-stack-item.layer-stack-off .console-thumb {
+    opacity: 0.4;
+    filter: grayscale(0.6);
+}
+
+.layer-stack-item.layer-stack-off .console-row-title {
+    color: var(--console-ink-2);
+    font-weight: 500;
 }
 
 .console-onmap-hidden {
@@ -2682,6 +2744,12 @@ body.console-find .marker-docked {
 .console-action:hover:not(:disabled) {
     background: var(--console-raised);
     color: var(--console-ink) !important;
+}
+
+.console-action.console-action-danger:hover:not(:disabled) {
+    border-color: #dc2626;
+    background: rgba(220, 38, 38, 0.15);
+    color: #fca5a5 !important;
 }
 
 .console-action.pressed {
@@ -5042,4 +5110,110 @@ body.console-find .marker-docked {
     filter: brightness(1.08);
     outline: 2px solid var(--console-amber-soft);
     outline-offset: 2px;
+}
+
+.console-raster {
+    margin: -4px 12px 12px;
+    padding: 6px 12px;
+    border: 1px solid var(--console-line);
+    border-radius: 10px;
+    background: var(--console-raised);
+}
+
+.console-raster-summary {
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    padding: 2px 0;
+}
+
+.console-raster-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 0 4px;
+}
+
+.console-raster .raster-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.console-raster .raster-label {
+    width: 96px;
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--console-ink-3);
+}
+
+.console-raster .raster-label-inline { width: auto; }
+
+.console-raster .raster-input {
+    flex: 1;
+    min-width: 0;
+    accent-color: var(--console-amber);
+}
+
+.console-raster .raster-input:disabled { opacity: 0.4; }
+
+.console-raster .raster-value {
+    width: 36px;
+    text-align: right;
+    font-size: 11.5px;
+    color: var(--console-ink-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.console-raster .raster-key {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.console-raster .raster-key-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.console-raster .raster-key-fields[hidden] { display: none; }
+
+.console-raster .raster-key-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.console-raster .raster-key-gap { flex: 1; }
+
+.console-raster .raster-recolor { gap: 14px; }
+
+.console-raster .raster-key-hex { width: auto; font-family: ui-monospace, monospace; }
+
+.console-raster .raster-swatch::part(trigger) {
+    width: 26px;
+    height: 26px;
+}
+
+.console-raster .raster-key[hidden] { display: none; }
+
+.console-raster .raster-reset {
+    align-self: flex-start;
+    width: auto;
+    min-height: 0;
+    flex-direction: row;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 4px 10px;
+    font-size: 12px;
+}
+
+.console-raster .raster-reset:disabled {
+    opacity: 0.45;
+    cursor: default;
 }

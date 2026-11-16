@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapbox GL Georeferencer</title>
+    <title>Amche Warper</title>
 
     <!-- Mapbox GL JS -->
     <script src='https://api.mapbox.com/mapbox-gl-js/v3.33.0-rc.1/mapbox-gl.js'></script>
@@ -46,6 +46,14 @@
 
     <!-- MapWarper API -->
     <script src="./mapwarper-api.js"></script>
+    <script src="./upload-map.js"></script>
+    <script src="./geotiff-writer.js"></script>
+    <script src="./local-georef-box.js"></script>
+    <script src="./local-georef-drag.js"></script>
+    <script src="./local-points.js"></script>
+    <script src="./local-georef-panel.js"></script>
+    <script src="./local-georef.js"></script>
+    <script src="./edit-history.js"></script>
 
     <!-- Navbar Component -->
     <script src="./navbar.js"></script>
@@ -226,6 +234,23 @@
             width: 100% !important;
         }
 
+        /* In-browser alignment of a dropped image */
+        body.local-bbox #source-map-panel,
+        body.local-bbox #control-mode-section,
+        body.local-bbox #output-section,
+        body.local-mode #warp-method-select,
+        body.local-mode #sync-warp-btn-group {
+            display: none;
+        }
+
+        body.local-mode #layer-panel {
+            display: none !important;
+        }
+
+        body.local-bbox #reference-map-panel {
+            flex: 1;
+        }
+
         /* Layer viewer mode */
         body.layer-mode #source-map-panel {
             display: none;
@@ -378,6 +403,8 @@
                 class="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
             <button class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                 onclick="loadMapWarperMap()">Load</button>
+            <button class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700" id="upload-map-btn"
+                onclick="mapUploader.open()" title="Upload a new map image (or drop an image anywhere on the page)">Upload</button>
         </div>
 
         <!-- Helper text for mapwarper URL input -->
@@ -414,6 +441,11 @@
                 Source Map
             </div>
             <div id="source-map" class="w-full h-full"></div>
+            <button id="map-lock-btn" type="button" onclick="toggleMapLock()" aria-label="Link map movement"
+                style="position:absolute;top:50%;right:-17px;transform:translateY(-50%);z-index:20;width:32px;height:32px;border-radius:9999px;background:white;border:1px solid #d1d5db;box-shadow:0 1px 3px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6b7280;">
+                <svg class="lock-closed" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2"/></svg>
+                <svg class="lock-open" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="display:none"><path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2"/></svg>
+            </button>
         </div>
 
         <!-- Reference Map - 40% -->
@@ -431,6 +463,8 @@
                 <div>
                     <div id="geocoder"></div>
                 </div>
+
+                <div id="edit-history-controls"></div>
 
                 <!-- Map Control Modes -->
                 <div id="control-mode-section">
@@ -552,7 +586,7 @@
             <h3>Control Points</h3>
             <div>
                 <button id="edit-toggle-btn" class="btn secondary" onclick="toggleEditMode()">Edit</button>
-                <button class="btn secondary" onclick="clearControlPoints()">Clear All</button>
+                <button class="btn secondary" onclick="clearControlPoints({ undoable: true })">Clear All</button>
                 <button class="btn" onclick="saveCSV()">Save CSV</button>
             </div>
         </div>
@@ -792,6 +826,9 @@
         let selectedPointIndex = -1;
         let zoomedToPointIndex = -1;
         let focusedMap = null;
+        let mapsLocked = true;
+        let syncTransform = null;
+        let syncingMaps = false;
         let nextPointId = 1;
         let sourceMarkers = new Map();
         let referenceMarkers = new Map();
@@ -806,12 +843,13 @@
         };
 
         // Undo functionality for marker positions
-        let markerPositionHistory = [];
 
         let activeLongPressTimer = null;
         let activeLongPressTriggered = false;
         let isEditMode = false;
         let currentViewMode = 'map'; // 'map' or 'layer'
+        let initialViewPending = /^#[\d.]+\/-?[\d.]+\/-?[\d.]+/.test(window.location.hash);
+        let keepReferenceView = false;
         let currentLayerPopup = null;
         let warpLayerId = null;
         let layerMapsData = [];
@@ -1388,7 +1426,7 @@
             });
 
             // Fit reference map with standard padding
-            if (hasRefPoints) {
+            if (hasRefPoints && !keepReferenceView) {
                 referenceMap.fitBounds(refBounds, {
                     padding: 50,
                     maxZoom: 13,
@@ -1426,10 +1464,15 @@
             map.getContainer().addEventListener('mouseenter', () => {
                 focusedMap = mapType;
             });
+            map.getContainer().addEventListener('touchstart', () => {
+                focusedMap = mapType;
+            }, { passive: true });
+            map.on('move', () => syncMaps(mapType));
 
             // Double click handler
             map.on('dblclick', (e) => {
                 e.preventDefault();
+                if (!pointEditingEnabled()) return;
                 addControlPoint(e, mapType);
             });
 
@@ -1442,7 +1485,7 @@
                     return; // Ignore clicks on markers
                 }
 
-                if (currentMode === 'move') {
+                if (currentMode === 'move' && pointEditingEnabled()) {
                     selectControlPoint(e, mapType);
                 }
             });
@@ -1471,6 +1514,8 @@
             }
 
             syncMapUrlParam(url.trim());
+            keepReferenceView = initialViewPending;
+            initialViewPending = false;
 
             if (urlData.type === 'layer') {
                 setLayerViewMode(true);
@@ -1515,14 +1560,36 @@
                 paint: { 'raster-opacity': 0.5 }
             }, beforeLayerId);
 
-            const center = getMapCenter(mapId);
-            referenceMap.setCenter(center.coords);
-            referenceMap.setZoom(center.zoom);
+            if (!keepReferenceView) {
+                const center = getMapCenter(mapId);
+                referenceMap.setCenter(center.coords);
+                referenceMap.setZoom(center.zoom);
+            }
 
             clearControlPoints();
             fetchExistingControlPoints(mapId, baseUrl);
 
             document.getElementById('warped-map-toggle').checked = true;
+        }
+
+        function unloadMapwarperMap() {
+            if (warpMapId && unsavedChangeCount > 0 && !pointsSynced
+                && !confirm('The loaded map has unsaved control point changes. Discard them?')) return false;
+            setLayerViewMode(false);
+            if (sourceMap.getLayer('image-layer')) sourceMap.removeLayer('image-layer');
+            if (sourceMap.getSource('image-source')) sourceMap.removeSource('image-source');
+            if (referenceMap.getLayer('warped-layer')) referenceMap.removeLayer('warped-layer');
+            if (referenceMap.getSource('warped-source')) referenceMap.removeSource('warped-source');
+            clearControlPoints();
+            markPointsSynced();
+            warpMapId = null;
+            imageTransform = null;
+            hideMapMetadata();
+            return true;
+        }
+
+        function reloadMapwarperUrl() {
+            if (parseMapwarperUrl(document.getElementById('mapwarper-url').value)) loadMapWarperMap();
         }
 
         function escapeHtml(str) {
@@ -1537,6 +1604,7 @@
 
             currentViewMode = isLayer ? 'layer' : 'map';
             document.body.classList.toggle('layer-mode', isLayer);
+            editHistory.refresh();
 
             if (entering) {
                 clearControlPoints();
@@ -1798,7 +1866,7 @@
             });
 
             const allCoords = features.flatMap(f => f.geometry.coordinates[0]);
-            if (allCoords.length > 0) {
+            if (allCoords.length > 0 && !keepReferenceView) {
                 const bounds = allCoords.reduce(
                     (b, c) => b.extend(c),
                     new mapboxgl.LngLatBounds(allCoords[0], allCoords[0])
@@ -1874,8 +1942,13 @@
 
         function onListItemClick(mapId) {
             const m = layerMapsData.find(m => String(m.id) === String(mapId));
-            if (!m || !m.attributes.bbox) return;
-            const [west, south, east, north] = m.attributes.bbox.split(',').map(Number);
+            if (!m) return;
+            const parts = (m.attributes.bbox || '').split(',').map(Number);
+            if (parts.length < 4 || parts.some(isNaN)) {
+                openMapInWarper(String(m.id), warpBaseUrl || 'https://mapwarper.net');
+                return;
+            }
+            const [west, south, east, north] = parts;
             referenceMap.fitBounds([[west, south], [east, north]], { padding: 60, maxZoom: 14, duration: 600 });
         }
 
@@ -2207,8 +2280,36 @@
         }
 
 
+        function pointEditingEnabled() {
+            if (currentViewMode === 'layer') return false;
+            return !(typeof localGeoref !== 'undefined' && localGeoref.active && localGeoref.mode !== 'points');
+        }
+
+        const pointsHistoryTarget = {
+            isActive: pointEditingEnabled,
+            snapshot: () => ({
+                points: structuredClone(controlPoints),
+                nextPointId,
+                deletedRowNumbers: [...deletedRowNumbers]
+            }),
+            restore(state) {
+                controlPoints = structuredClone(state.points);
+                nextPointId = Math.max(nextPointId, state.nextPointId);
+                deletedRowNumbers = new Set(state.deletedRowNumbers);
+                selectedPointIndex = -1;
+                updateMarkers();
+                updateCSVFromPoints();
+                updateRowNumbers();
+                markPointsDirty();
+            }
+        };
+
+        function recordPointsChange(label, coalesceKey = null) {
+            editHistory.record(pointsHistoryTarget, label, coalesceKey);
+        }
+
         function addControlPoint(e, mapType) {
-            if (currentViewMode === 'layer') return;
+            if (!pointEditingEnabled()) return;
             // Find existing incomplete point or create new one
             let pointIndex = controlPoints.findIndex(p =>
                 (mapType === 'source' && !p.sourceCoords && !p.sourcePixelCoords) ||
@@ -2217,6 +2318,7 @@
 
             let point;
             let isNewPoint = pointIndex === -1;
+            recordPointsChange(isNewPoint ? `add point ${getNextRowNumber()}` : `place point ${controlPoints[pointIndex].rowNumber}`);
 
             if (isNewPoint) {
                 point = {
@@ -2263,8 +2365,7 @@
 
         function moveControlPoint(e, mapType, pointIndex) {
             if (pointIndex >= 0 && pointIndex < controlPoints.length) {
-                // Save position to history before making changes
-                saveMarkerPositionToHistory(pointIndex);
+                recordPointsChange(`move point ${controlPoints[pointIndex].rowNumber}`);
 
                 const point = controlPoints[pointIndex];
 
@@ -2327,63 +2428,6 @@
         function deleteSelectedControlPoint() {
             if (selectedPointIndex < 0 || selectedPointIndex >= controlPoints.length) return;
             deleteControlPoint(controlPoints[selectedPointIndex].id);
-        }
-
-        function saveMarkerPositionToHistory(pointIndex) {
-            // Save the current position of the specified marker to history
-            if (pointIndex >= 0 && pointIndex < controlPoints.length) {
-                const point = controlPoints[pointIndex];
-                const historyEntry = {
-                    pointIndex: pointIndex,
-                    sourceCoords: point.sourceCoords ? [...point.sourceCoords] : null,
-                    referenceCoords: point.referenceCoords ? [...point.referenceCoords] : null,
-                    sourcePixelCoords: point.sourcePixelCoords ? [...point.sourcePixelCoords] : null
-                };
-                markerPositionHistory.push(historyEntry);
-
-                // Keep only the last 10 history entries to prevent memory issues
-                if (markerPositionHistory.length > 10) {
-                    markerPositionHistory.shift();
-                }
-            }
-        }
-
-        function undoLastMarkerPositionChange() {
-            if (markerPositionHistory.length === 0) return false;
-
-            const lastChange = markerPositionHistory.pop();
-            if (lastChange.pointIndex >= 0 && lastChange.pointIndex < controlPoints.length) {
-                const point = controlPoints[lastChange.pointIndex];
-
-                // Restore the previous position
-                if (lastChange.sourceCoords) {
-                    point.sourceCoords = [...lastChange.sourceCoords];
-                } else if (point.sourceCoords) {
-                    delete point.sourceCoords;
-                }
-
-                if (lastChange.referenceCoords) {
-                    point.referenceCoords = [...lastChange.referenceCoords];
-                } else if (point.referenceCoords) {
-                    delete point.referenceCoords;
-                }
-
-                if (lastChange.sourcePixelCoords) {
-                    point.sourcePixelCoords = [...lastChange.sourcePixelCoords];
-                } else if (point.sourcePixelCoords) {
-                    delete point.sourcePixelCoords;
-                }
-
-                // Deselect the marker and switch to pan mode
-                deselectMarkerAndSwitchToPan();
-
-                // Update the CSV and markers
-                updateCSVFromPoints();
-                updateMarkers();
-
-                return true;
-            }
-            return false;
         }
 
         function deselectMarkerAndSwitchToPan() {
@@ -2612,11 +2656,15 @@
                 .map(p => ({ pixel: getSourcePixelCoords(p), ref: p.referenceCoords }))
                 .filter(e => e.pixel && e.ref);
             if (complete.length < 3) return null;
+            const w = fitAffine(complete.map(e => e.pixel), complete.map(e => e.ref));
+            if (!w) return null;
+            const [lon, lat] = applyAffine(w, sourcePixel);
+            if (!isFinite(lon) || !isFinite(lat)) return null;
+            return [lon, lat];
+        }
 
-            const inputSet = complete.map(e => e.pixel);
-            const outputSet = complete.map(e => e.ref);
-            const N = complete.length;
-
+        function fitAffine(inputSet, outputSet) {
+            const N = inputSet.length;
             let cxI = 0, cyI = 0, cxO = 0, cyO = 0;
             for (let i = 0; i < N; i++) {
                 cxI += inputSet[i][0]; cyI += inputSet[i][1];
@@ -2644,11 +2692,83 @@
             if (!a || !b) return null;
 
             const a1 = a[1], a2 = a[2], a3 = b[1], a4 = b[2];
-            const w = [a1, a3, a2, a4, cxO - a1 * cxI - a2 * cyI, cyO - a3 * cxI - a4 * cyI];
-            const lon = w[4] + w[0] * sourcePixel[0] + w[2] * sourcePixel[1];
-            const lat = w[5] + w[1] * sourcePixel[0] + w[3] * sourcePixel[1];
-            if (!isFinite(lon) || !isFinite(lat)) return null;
-            return [lon, lat];
+            return [a1, a3, a2, a4, cxO - a1 * cxI - a2 * cyI, cyO - a3 * cxI - a4 * cyI];
+        }
+
+        function applyAffine(w, [x, y]) {
+            return [w[4] + w[0] * x + w[2] * y, w[5] + w[1] * x + w[3] * y];
+        }
+
+        function invertAffine(w) {
+            const det = w[0] * w[3] - w[2] * w[1];
+            if (!isFinite(det) || Math.abs(det) < 1e-12) return null;
+            const i0 = w[3] / det, i2 = -w[2] / det, i1 = -w[1] / det, i3 = w[0] / det;
+            return [i0, i1, i2, i3, -(i0 * w[4] + i2 * w[5]), -(i1 * w[4] + i3 * w[5])];
+        }
+
+        const SYNC_UNITS = 1e4;
+
+        function toSyncUnits(lngLat) {
+            const m = mapboxgl.MercatorCoordinate.fromLngLat(lngLat);
+            return [m.x * SYNC_UNITS, m.y * SYNC_UNITS];
+        }
+
+        function fromSyncUnits([x, y]) {
+            return new mapboxgl.MercatorCoordinate(x / SYNC_UNITS, y / SYNC_UNITS).toLngLat();
+        }
+
+        function refreshMapSync() {
+            const pairs = controlPoints.map(p => {
+                const pixel = getSourcePixelCoords(p);
+                const src = p.sourceCoords || (pixel && pixelToGeographic(pixel[0], pixel[1]));
+                return src && p.referenceCoords ? [toSyncUnits(src), toSyncUnits(p.referenceCoords)] : null;
+            }).filter(Boolean);
+            const forward = pairs.length >= 3 ? fitAffine(pairs.map(p => p[0]), pairs.map(p => p[1])) : null;
+            const inverse = forward && invertAffine(forward);
+            syncTransform = inverse
+                ? { forward, inverse, zoomShift: -Math.log2(Math.sqrt(Math.abs(forward[0] * forward[3] - forward[2] * forward[1]))) }
+                : null;
+            updateLockButton();
+            if (typeof localGeoref !== 'undefined' && localGeoref.active) localGeoref.points.update();
+        }
+
+        function syncMaps(fromType, force = false) {
+            if (!mapsLocked || !syncTransform || syncingMaps || currentViewMode !== 'map') return;
+            if (!force && focusedMap !== fromType) return;
+            const fromSource = fromType === 'source';
+            const from = fromSource ? sourceMap : referenceMap;
+            const to = fromSource ? referenceMap : sourceMap;
+            const w = fromSource ? syncTransform.forward : syncTransform.inverse;
+            const zoomShift = fromSource ? syncTransform.zoomShift : -syncTransform.zoomShift;
+            const center = fromSyncUnits(applyAffine(w, toSyncUnits(from.getCenter())));
+            if (!isFinite(center.lng) || !isFinite(center.lat)) return;
+            syncingMaps = true;
+            try {
+                to.jumpTo({ center, zoom: from.getZoom() + zoomShift });
+            } finally {
+                syncingMaps = false;
+            }
+        }
+
+        function toggleMapLock() {
+            mapsLocked = !mapsLocked;
+            updateLockButton();
+            if (mapsLocked) syncMaps(focusedMap === 'reference' ? 'reference' : 'source', true);
+        }
+
+        function updateLockButton() {
+            const btn = document.getElementById('map-lock-btn');
+            if (!btn) return;
+            const active = mapsLocked && !!syncTransform;
+            btn.querySelector('.lock-closed').style.display = mapsLocked ? '' : 'none';
+            btn.querySelector('.lock-open').style.display = mapsLocked ? 'none' : '';
+            btn.style.color = active ? '#2563eb' : '#6b7280';
+            btn.title = !mapsLocked
+                ? 'Maps move separately - click to link them'
+                : syncTransform
+                    ? 'Maps move together - click to unlink for manual repositioning'
+                    : 'Maps will move together once 3 control points are placed - click to unlink';
+            btn.setAttribute('aria-pressed', String(mapsLocked));
         }
 
         function getErrorBucket(errorMeters, maxError) {
@@ -2723,7 +2843,7 @@
                     // Add drag event handlers for selected markers
                     if (index === selectedPointIndex) {
                         marker.on('dragstart', () => {
-                            saveMarkerPositionToHistory(index);
+                            recordPointsChange(`move point ${point.rowNumber}`);
                             marker.getElement().classList.add('gcp-dragging');
                         });
 
@@ -2794,7 +2914,7 @@
                     // Add drag event handlers for selected markers
                     if (index === selectedPointIndex) {
                         marker.on('dragstart', () => {
-                            saveMarkerPositionToHistory(index);
+                            recordPointsChange(`move point ${point.rowNumber}`);
                             marker.getElement().classList.add('gcp-dragging');
                         });
 
@@ -2821,6 +2941,7 @@
 
             // Update cursor style after markers are updated
             updateMapCursor();
+            refreshMapSync();
         }
 
         function createNumberedMarker(lngLat, number, isSelected, map, color) {
@@ -2862,6 +2983,7 @@
         }
 
         function updateCSVFromPoints() {
+            refreshMapSync();
             const lines = ['x,y,lon,lat'];
 
             // Sort points by row number for consistent output
@@ -2976,6 +3098,7 @@
             const pointIndex = controlPoints.findIndex(p => p.id === pointId);
             if (pointIndex >= 0) {
                 const point = controlPoints[pointIndex];
+                recordPointsChange(`delete point ${point.rowNumber}`);
                 deletedRowNumbers.add(point.rowNumber);
                 controlPoints.splice(pointIndex, 1);
 
@@ -2992,7 +3115,13 @@
             }
         }
 
-        function clearControlPoints() {
+        function clearControlPoints({ undoable = false } = {}) {
+            if (undoable) {
+                if (!controlPoints.length) return;
+                recordPointsChange('clear all points');
+            } else {
+                editHistory.clear(pointsHistoryTarget);
+            }
             controlPoints = [];
             selectedPointIndex = -1;
             nextPointId = 1;
@@ -3902,30 +4031,9 @@
 
                 // Step 2: warp the map with the synced points
                 setSaveBtn('Warping…', 'bg-yellow-500 cursor-not-allowed');
-                const warpResult = await mapwarperAPI.warpMap(warpBaseUrl, warpMapId, warpMethod);
-                const warpStatus = warpResult?.data?.attributes?.status;
-
-                // warp! is synchronous server-side and resets status to :available
-                // on GDAL failure. Anything other than warping/warped/published
-                // after the rectify response means the warp already failed —
-                // don't bother polling.
-                if (warpStatus === 'available' || warpStatus === 'unloaded') {
-                    throw new Error(`Server rejected warp (status: ${warpStatus}). Check GCPs and try again.`);
-                }
-                if (warpStatus !== 'warped' && warpStatus !== 'published') {
-                    let elapsed = 0;
-                    while (elapsed < 60000) {
-                        await new Promise(r => setTimeout(r, 2000));
-                        elapsed += 2000;
-                        setSaveBtn(`Warping… ${Math.round(elapsed / 1000)}s`, 'bg-yellow-500 cursor-not-allowed');
-                        const status = await mapwarperAPI.getMapStatus(warpBaseUrl, warpMapId);
-                        if (status === 'warped' || status === 'published') break;
-                        if (status === 'available' || status === 'unloaded') {
-                            throw new Error(`Server rejected warp (status: ${status}). Check GCPs and try again.`);
-                        }
-                    }
-                    if (elapsed >= 60000) throw new Error('Warp timed out after 60s');
-                }
+                await mapwarperAPI.warpAndWait(warpBaseUrl, warpMapId, warpMethod, elapsed => {
+                    setSaveBtn(`Warping… ${Math.round(elapsed / 1000)}s`, 'bg-yellow-500 cursor-not-allowed');
+                });
 
                 refreshWarpedLayer(warpBaseUrl, warpMapId);
 
@@ -4051,12 +4159,6 @@
                 updateMapCursor();
             }
 
-            // Undo marker position change (Ctrl+Z / Cmd+Z)
-            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-                e.preventDefault();
-                undoLastMarkerPositionChange();
-            }
-
             // Deselect active marker (Escape)
             if (e.key === 'Escape' && selectedPointIndex >= 0) {
                 e.preventDefault();
@@ -4066,10 +4168,7 @@
 
             // Delete selected point
             if (e.key === 'Delete' && selectedPointIndex >= 0) {
-                controlPoints.splice(selectedPointIndex, 1);
-                selectedPointIndex = -1;
-                updateMarkers();
-                updateCSVFromPoints();
+                deleteSelectedControlPoint();
             }
         });
 
@@ -4078,11 +4177,10 @@
 
         function initializeDataTable() {
             warperDataTable = new WarperDataTable({
-                url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTChLW_Qr9M9huy7LZIlR3-1_JW_8hmospOHSZmbL0-VRbjyHtTfv2tzh3VVlO-g0LP2GXcyfX8P6Te/pub?output=csv',
-                title: 'Goa Reference Map Index',
-                name: ['Name', 'Taluka', 'District', 'Collection', 'Year', 'Level'],
-                type: 'Level',
-                click: 'Mapwarper'
+                configBase: '../config/',
+                title: 'Atlas Maps',
+                name: ['Atlas', 'Type', 'Server'],
+                click: 'URL'
             });
         }
 
@@ -4128,6 +4226,7 @@
             // Set up CSV textarea event listener for live sync
             const csvTextarea = document.getElementById('csv-output');
             csvTextarea.addEventListener('input', () => {
+                recordPointsChange('edit points CSV', 'csv');
                 updatePointsFromCSV();
             });
 

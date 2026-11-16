@@ -50,7 +50,7 @@ export class LayerHeader {
         $('#lh-move-up').on('click', () => this._moveLayer(-1));
         $('#lh-move-down').on('click', () => this._moveLayer(1));
         $('#lh-opacity').on('input', () => this._handleOpacityInput());
-        this.raster.bind();
+        this.raster.mount(document.getElementById('lh-raster-body'));
         $('#lh-zoom-feature').on('click', () => this._zoomToFeature());
         $('#lh-zoom-layer').on('click', (event) => this._zoomToLayer(event));
         $('#lh-export-selected').on('click', () => this._openExport(this.feature));
@@ -72,6 +72,7 @@ export class LayerHeader {
         this._renderStar(layer);
         this._renderVisibility(layer);
         this._updateOpacityUI(layer.opacity);
+        $('#lh-raster').toggle(RasterAdjust.isRaster(layer));
         this.raster.render(layer);
         this._updateCompareButton();
         this._updateMaskButton();

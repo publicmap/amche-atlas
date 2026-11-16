@@ -5,6 +5,8 @@
  * shows as a chip in the layer header, flagged when it is missing.
  */
 
+import { addAlignLinks, refreshAlignLink } from './warper-align.js';
+
 const DESCRIPTION_PLACEHOLDER = 'Add missing description';
 const ATTRIBUTION_PLACEHOLDER = 'Add missing attribution';
 
@@ -41,10 +43,21 @@ function sanitizeInlineHtml(html) {
     return root.innerHTML;
 }
 
+function parentMap() {
+    try {
+        return window.parent !== window ? window.parent.map || null : null;
+    } catch {
+        return null;
+    }
+}
+
 export class DescriptionCard {
     init() {
         // A link in the summary opens the link, not the editor.
-        $('#desc-summary').on('click', 'a', (e) => e.stopImmediatePropagation());
+        $('#desc-summary').on('click', 'a', (e) => {
+            e.stopImmediatePropagation();
+            refreshAlignLink(e, parentMap());
+        });
         // Viewing a layer, the summary is only read; Edit makes it editable
         $('#desc-summary').on('click', () => {
             if (!$('body').hasClass('is-viewing')) this.setOpen(true);
@@ -84,7 +97,10 @@ export class DescriptionCard {
         if (description) $description.html(sanitizeInlineHtml(description));
         else $description.text(DESCRIPTION_PLACEHOLDER);
         const $attribution = $('#desc-summary-attribution').toggleClass('desc-empty', !plainAttribution);
-        if (plainAttribution) $attribution.html(sanitizeInlineHtml(attribution));
+        if (plainAttribution) {
+            $attribution.html(sanitizeInlineHtml(attribution));
+            addAlignLinks($attribution[0], parentMap());
+        }
         else $attribution.text(ATTRIBUTION_PLACEHOLDER);
 
         const license = String($('#layer-license').val() || '').trim();

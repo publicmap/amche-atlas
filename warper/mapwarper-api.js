@@ -228,6 +228,34 @@ class MapwarperAPI {
         return { deleted: toDelete.length, updated: toUpdate.length, created: toCreate.length, createdData: created, createdLinks };
     }
 
+    async createMap(baseUrl, attributes, file = null) {
+        let body;
+        const headers = { 'Accept': 'application/json', ...this._authHeaders() };
+        if (file) {
+            body = new FormData();
+            body.append('data[type]', 'maps');
+            Object.entries(attributes).forEach(([k, v]) => body.append(`data[attributes][${k}]`, v));
+            body.append('data[attributes][upload]', file, file.name);
+        } else {
+            headers['Content-Type'] = 'application/json';
+            body = JSON.stringify({ data: { type: 'maps', attributes } });
+        }
+        const response = await fetch(`${baseUrl}/api/v1/maps`, { method: 'POST', headers, body });
+        const text = await response.text();
+        let data = null;
+        try { data = JSON.parse(text); } catch (e) { /* non-JSON error body */ }
+        if (!response.ok) {
+            const details = data && Array.isArray(data.errors)
+                ? data.errors.map(e => {
+                    const field = e.source && e.source.pointer ? e.source.pointer.split('/').pop().replace(/_/g, ' ') : '';
+                    return field ? `${field}: ${e.detail}` : (e.detail || e.title);
+                }).join('\n')
+                : text.slice(0, 300);
+            throw new Error(`Upload failed (${response.status})${details ? `:\n${details}` : ''}`);
+        }
+        return data;
+    }
+
     async getUserActivity(baseUrl, userId, page = 1) {
         const response = await fetch(`${baseUrl}/api/v1/activity/users/${userId}?per_page=100&page=${page}`, {
             headers: this._authHeaders()
@@ -269,6 +297,21 @@ class MapwarperAPI {
             throw new Error(`Warp failed (${response.status}): ${err}`);
         }
         return response.json();
+    }
+
+    async warpAndWait(baseUrl, mapId, warpType = 'auto', onProgress = () => {}) {
+        const result = await this.warpMap(baseUrl, mapId, warpType);
+        const rejected = status => new Error(`Server rejected warp (status: ${status}). Check the control points and try again.`);
+        let status = result?.data?.attributes?.status;
+        if (status === 'available' || status === 'unloaded') throw rejected(status);
+        for (let elapsed = 0; status !== 'warped' && status !== 'published'; ) {
+            if (elapsed >= 60000) throw new Error('Warp timed out after 60s');
+            await new Promise(r => setTimeout(r, 2000));
+            elapsed += 2000;
+            onProgress(elapsed);
+            status = await this.getMapStatus(baseUrl, mapId);
+            if (status === 'available' || status === 'unloaded') throw rejected(status);
+        }
     }
 
     async getLayer(baseUrl, layerId) {

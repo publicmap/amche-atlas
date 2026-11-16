@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="sl-theme-dark">
 
 <head>
     <meta charset="UTF-8">
@@ -7,6 +7,7 @@
     <title>Export Map</title>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/dark.css" />
     <script type="module"
         src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace-autoloader.js"></script>
     <style>
@@ -30,6 +31,10 @@
 
         * {
             box-sizing: border-box;
+        }
+
+        [hidden] {
+            display: none !important;
         }
 
         html,
@@ -403,19 +408,133 @@
             min-width: 0;
             display: flex;
             align-items: center;
-            gap: 8px;
-            height: 34px;
-            padding: 0 8px;
+            gap: 10px;
+            min-height: 44px;
+            padding: 5px 8px;
             border: 0;
             background: transparent;
             text-align: left;
             cursor: pointer;
         }
 
-        .row-select .toggle-name {
+        /* The row's icon, square like the console's thumbnails */
+        .row-select > sl-icon:first-child {
+            width: 30px;
+            height: 30px;
+            padding: 7px;
+            box-sizing: border-box;
+            border: 1px solid var(--console-line);
+            background: var(--console-raised);
+            color: var(--console-ink-2);
+        }
+
+        .toggle-text {
             flex: 1;
             min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .row-select .toggle-name {
+            min-width: 0;
+            font-weight: 600;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        /* A preview of the element's value under its name */
+        .toggle-sub {
+            margin-top: 1px;
+            font-size: 11.5px;
+            color: var(--console-ink-3);
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .toggle-sub:empty {
+            display: none;
+        }
+
+        /* A section's header, as the console's (js/console/find-rows.js): "Label (n)",
+           then - while the section is hovered - square actions on all its rows and a
+           small eye centred over the rows' 34px eyes */
+        .section-head {
+            justify-content: flex-start;
+            min-height: 38px;
+            padding-right: 18px;
+        }
+
+        .section-count {
             font-weight: 500;
+            letter-spacing: 0;
+        }
+
+        .section-tools {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: auto;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.12s;
+        }
+
+        .section-group:hover .section-tools,
+        .section-group:focus-within .section-tools {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        @media (hover: none) {
+            .section-tools {
+                visibility: visible;
+                opacity: 1;
+            }
+        }
+
+        .tool-btn,
+        .group-eye {
+            width: 22px;
+            height: 22px;
+            display: grid;
+            place-items: center;
+            padding: 0;
+            border: 1px solid var(--console-line-strong);
+            border-radius: 5px;
+            background: transparent;
+            color: var(--console-ink-3);
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .tool-btn:hover,
+        .group-eye:hover {
+            border-color: rgba(255, 255, 255, 0.5);
+            color: var(--console-ink);
+        }
+
+        .tool-btn.on {
+            border-color: var(--console-amber);
+            background: var(--console-amber-soft);
+            color: var(--console-ink);
+        }
+
+        .group-eye.on {
+            border-color: var(--console-amber);
+            background: var(--console-amber);
+            color: var(--console-amber-ink);
+        }
+
+        .group-eye.part {
+            border-color: var(--console-amber);
+            background: var(--console-amber-soft);
+            color: var(--console-amber);
+        }
+
+        sl-color-picker::part(trigger) {
+            border-radius: 5px;
         }
 
         .row-select .row-chevron {
@@ -849,38 +968,52 @@
 
                     <!-- The page's elements, placed and edited on the map -->
                     <div id="print-overlay-settings" style="display: none;">
-                        <div class="section-label">On the page</div>
+                        <div class="section-group" id="page-group">
+                        <div class="section-label section-head">
+                            <span>On the page</span>
+                            <span class="section-count" id="page-count"></span>
+                            <span class="section-tools">
+                                <button type="button" class="tool-btn" id="page-reset" title="Put every element back in its default place"><sl-icon name="arrow-counterclockwise"></sl-icon></button>
+                                <button type="button" class="group-eye" id="page-eye"><sl-icon name="eye"></sl-icon></button>
+                            </span>
+                        </div>
                         <div class="section" id="layout-list">
                             <div class="toggle-row" data-item="title">
-                                <button type="button" class="row-select" data-item="title" title="Edit the title"><sl-icon name="type-h1"></sl-icon><span class="toggle-name">Title</span><sl-icon class="row-chevron" name="chevron-right"></sl-icon></button>
+                                <button type="button" class="row-select" data-item="title" title="Edit the title"><sl-icon name="type-h1"></sl-icon><span class="toggle-text"><span class="toggle-name">Title</span><span class="toggle-sub" data-sub="title"></span></span><sl-icon class="row-chevron" name="chevron-right"></sl-icon></button>
                                 <label class="eye" title="Show or hide on the page"><input type="checkbox" class="layout-toggle" id="include-title" data-item="title" checked><sl-icon class="eye-on" name="eye"></sl-icon><sl-icon class="eye-off" name="eye-slash"></sl-icon></label>
                             </div>
                             <div class="toggle-row" data-item="description">
-                                <button type="button" class="row-select" data-item="description" title="Edit the description"><sl-icon name="text-paragraph"></sl-icon><span class="toggle-name">Description</span><sl-icon class="row-chevron" name="chevron-right"></sl-icon></button>
+                                <button type="button" class="row-select" data-item="description" title="Edit the description"><sl-icon name="text-paragraph"></sl-icon><span class="toggle-text"><span class="toggle-name">Description</span><span class="toggle-sub" data-sub="description"></span></span><sl-icon class="row-chevron" name="chevron-right"></sl-icon></button>
                                 <label class="eye" title="Show or hide on the page"><input type="checkbox" class="layout-toggle" id="include-description" data-item="description" checked><sl-icon class="eye-on" name="eye"></sl-icon><sl-icon class="eye-off" name="eye-slash"></sl-icon></label>
                             </div>
                             <div class="toggle-row" data-item="scale">
-                                <button type="button" class="row-select" data-item="scale" title="Edit the scale bar and north arrow"><sl-icon name="rulers"></sl-icon><span class="toggle-name">Scale &amp; north</span><sl-icon class="row-chevron" name="chevron-right"></sl-icon></button>
+                                <button type="button" class="row-select" data-item="scale" title="Edit the scale bar and north arrow"><sl-icon name="rulers"></sl-icon><span class="toggle-text"><span class="toggle-name">Scale &amp; north</span><span class="toggle-sub" data-sub="scale"></span></span><sl-icon class="row-chevron" name="chevron-right"></sl-icon></button>
                                 <label class="eye" title="Show or hide on the page"><input type="checkbox" class="layout-toggle" id="include-scale" data-item="scale" checked><sl-icon class="eye-on" name="eye"></sl-icon><sl-icon class="eye-off" name="eye-slash"></sl-icon></label>
                             </div>
                             <div class="toggle-row" data-item="qr">
-                                <button type="button" class="row-select" data-item="qr" title="Edit the qr code"><sl-icon name="qr-code"></sl-icon><span class="toggle-name">QR code</span><sl-icon class="row-chevron" name="chevron-right"></sl-icon></button>
+                                <button type="button" class="row-select" data-item="qr" title="Edit the qr code"><sl-icon name="qr-code"></sl-icon><span class="toggle-text"><span class="toggle-name">QR code</span><span class="toggle-sub" data-sub="qr"></span></span><sl-icon class="row-chevron" name="chevron-right"></sl-icon></button>
                                 <label class="eye" title="Show or hide on the page"><input type="checkbox" class="layout-toggle" id="include-qr" data-item="qr" checked><sl-icon class="eye-on" name="eye"></sl-icon><sl-icon class="eye-off" name="eye-slash"></sl-icon></label>
                             </div>
                             <div class="toggle-row" data-item="info">
-                                <button type="button" class="row-select" data-item="info" title="Edit the date &amp; link"><sl-icon name="link-45deg"></sl-icon><span class="toggle-name">Date &amp; link</span><sl-icon class="row-chevron" name="chevron-right"></sl-icon></button>
+                                <button type="button" class="row-select" data-item="info" title="Edit the date &amp; link"><sl-icon name="link-45deg"></sl-icon><span class="toggle-text"><span class="toggle-name">Date &amp; link</span><span class="toggle-sub" data-sub="info"></span></span><sl-icon class="row-chevron" name="chevron-right"></sl-icon></button>
                                 <label class="eye" title="Show or hide on the page"><input type="checkbox" class="layout-toggle" id="include-info" data-item="info" checked><sl-icon class="eye-on" name="eye"></sl-icon><sl-icon class="eye-off" name="eye-slash"></sl-icon></label>
                             </div>
                             <div class="toggle-row" title="Pins and balloons placed on the map, as they are">
-                                <span class="row-select" style="cursor: default;"><sl-icon name="geo-alt"></sl-icon><span class="toggle-name">Markers</span></span>
+                                <span class="row-select" style="cursor: default;"><sl-icon name="geo-alt"></sl-icon><span class="toggle-text"><span class="toggle-name">Markers</span><span class="toggle-sub">Pins and balloons on the map, as placed</span></span></span>
                                 <label class="eye" title="Show or hide on the page"><input type="checkbox" id="include-markers" checked><sl-icon class="eye-on" name="eye"></sl-icon><sl-icon class="eye-off" name="eye-slash"></sl-icon></label>
                             </div>
                         </div>
+                        </div>
 
-                        <div id="layout-legend-wrap" hidden>
-                            <div class="section-label">
+                        <div class="section-group" id="layout-legend-wrap" hidden>
+                            <div class="section-label section-head">
                                 <span>Legends</span>
-                                <button type="button" class="link-btn" id="legend-all" style="text-transform: none; letter-spacing: 0;">Hide all</button>
+                                <span class="section-count" id="legend-count"></span>
+                                <span class="section-tools">
+                                    <button type="button" class="tool-btn" id="legend-arrange" title="Put every legend back in the legend column"><sl-icon name="layout-sidebar-inset-reverse"></sl-icon></button>
+                                    <button type="button" class="tool-btn" id="legend-details"><sl-icon name="list-nested"></sl-icon></button>
+                                    <button type="button" class="group-eye" id="legend-eye"><sl-icon name="eye"></sl-icon></button>
+                                </span>
                             </div>
                             <div class="section" id="layout-legend"></div>
                         </div>
@@ -898,12 +1031,11 @@
                                 </label>
                                 <div class="editor-row" id="editor-color-row">
                                     <span>Text color</span>
-                                    <input type="color" id="editor-color" aria-label="Text color">
+                                    <sl-color-picker id="editor-color" size="small" format="hex" opacity hoist no-format-toggle label="Text color"></sl-color-picker>
                                 </div>
                                 <div class="editor-row">
                                     <span>Background</span>
-                                    <input type="color" id="editor-bg" aria-label="Background color">
-                                    <input type="range" id="editor-opacity" min="0" max="100" step="5" aria-label="Background opacity">
+                                    <sl-color-picker id="editor-bg" size="small" format="hex" opacity hoist no-format-toggle label="Background color"></sl-color-picker>
                                     <output id="editor-opacity-value">100%</output>
                                 </div>
                                 <div class="editor-row" style="align-items: flex-start;">
@@ -1156,6 +1288,7 @@
                 if ($(this).data('item') === editorItem) $('#editor-visible').prop('checked', this.checked);
             });
             setupEditorListeners();
+            syncPageEye();
 
             $('#iframe-size').on('change', () => {
                 $('#iframe-custom-size').toggle($('#iframe-size').val() === 'custom');
@@ -1200,6 +1333,8 @@
                     renderEditor(data.item, data.state);
                 } else if (data.type === 'layout-legend') {
                     renderLegendList(data.entries);
+                } else if (data.type === 'layout-summary') {
+                    renderSummary(data.items);
                 }
             });
 
@@ -1333,6 +1468,7 @@
         }
 
         function updateAdvancedOptions() {
+            syncPageEye();
             const show = {
                 page: needsFrame(),
                 overlay: PRINT_FORMATS.includes(currentFormat),
@@ -1384,21 +1520,75 @@
             $('#layout-legend').on('change', '.legend-toggle', function () {
                 post({ type: 'layout-update', item: $(this).attr('data-item'), changes: { visible: this.checked } });
             });
-            $('#legend-all').on('click', () => {
-                const show = !legendEntries.some(entry => entry.visible);
+            $('#legend-eye').on('click', () => {
+                const show = nextEyeState(eyesState(legendEntries.map(entry => entry.visible))) === 'on';
                 legendEntries.forEach(entry => post({ type: 'layout-update', item: `layer:${entry.id}`, changes: { visible: show } }));
             });
+            $('#legend-arrange').on('click', () => post({ type: 'layout-legend-all', changes: { arrange: true } }));
+            $('#legend-details').on('click', function () {
+                post({ type: 'layout-legend-all', changes: { detail: !$(this).hasClass('on') } });
+            });
+            $('#page-eye').on('click', () => {
+                const $boxes = $('#layout-list input[type="checkbox"]');
+                const show = nextEyeState(eyesState($boxes.toArray().map(box => box.checked))) === 'on';
+                $boxes.each(function () {
+                    if (this.checked !== show) $(this).prop('checked', show).trigger('change');
+                });
+                syncPageEye();
+            });
+            $('#layout-list').on('change', 'input[type="checkbox"]', syncPageEye);
+            $('#page-reset').on('click', () => post({ type: 'layout-reset' }));
             $('#editor-text').on('input', function () { updateItem({ text: this.value }); });
-            $('#editor-color').on('input', function () { updateItem({ textColor: this.value }); });
-            $('#editor-bg').on('input', function () { updateItem({ background: this.value }); });
-            $('#editor-opacity').on('input', function () {
-                $('#editor-opacity-value').text(`${this.value}%`);
-                updateItem({ backgroundOpacity: this.value / 100 });
+            // The pickers carry alpha: #rrggbbaa
+            $('#editor-color').on('sl-input', function () { updateItem({ textColor: this.getFormattedValue('hexa') }); });
+            $('#editor-bg').on('sl-input', function () {
+                const { hex, alpha } = fromHexa(this.getFormattedValue('hexa'));
+                $('#editor-opacity-value').text(`${Math.round(alpha * 100)}%`);
+                updateItem({ background: hex, backgroundOpacity: alpha });
             });
             $('#editor-anchor').on('click', 'button', function () { updateItem({ anchor: $(this).data('anchor') }); });
             $('#editor-x, #editor-y').on('input', function () {
                 const value = parseFloat(this.value);
                 if (!isNaN(value)) updateItem({ [this.id === 'editor-x' ? 'x' : 'y']: value });
+            });
+        }
+
+        function toHexa(hex, alpha = 1) {
+            return `${hex}${Math.round(alpha * 255).toString(16).padStart(2, '0')}`;
+        }
+
+        function fromHexa(value) {
+            const match = /^#?([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(value || '');
+            return match ? { hex: `#${match[1]}`, alpha: match[2] ? parseInt(match[2], 16) / 255 : 1 } : { hex: '#ffffff', alpha: 1 };
+        }
+
+        /** Whether a set of eyes is all on, all off, or part - and what clicking does: part and off show all, on hides all. */
+        function eyesState(states) {
+            const on = states.filter(Boolean).length;
+            if (!states.length || on === 0) return 'off';
+            return on === states.length ? 'on' : 'part';
+        }
+
+        function nextEyeState(state) {
+            return state === 'on' ? 'off' : 'on';
+        }
+
+        function setGroupEye($button, state, noun) {
+            $button.removeClass('on part off').addClass(state)
+                .attr('title', state === 'on' ? `Hide ${noun}` : state === 'part' ? `Some are hidden - show ${noun}` : `Show ${noun}`)
+                .find('sl-icon').attr('name', state === 'off' ? 'eye-slash' : 'eye');
+        }
+
+        function syncPageEye() {
+            const states = $('#layout-list input[type="checkbox"]').toArray().map(box => box.checked);
+            setGroupEye($('#page-eye'), eyesState(states), 'everything on the page');
+            $('#page-count').text(`(${states.length})`);
+        }
+
+        // Each row's preview of its element's value (js/export-layout.js summaries())
+        function renderSummary(items = {}) {
+            Object.entries(items).forEach(([item, text]) => {
+                $(`[data-sub="${item}"]`).text(text || '');
             });
         }
 
@@ -1422,10 +1612,8 @@
             setIfIdle('#editor-text', state.text ?? '');
             $('#editor-color-row').toggle(!!state.textColor);
             if (state.textColor) setIfIdle('#editor-color', state.textColor);
-            setIfIdle('#editor-bg', state.background);
-            const opacity = Math.round(state.backgroundOpacity * 100);
-            setIfIdle('#editor-opacity', opacity);
-            $('#editor-opacity-value').text(`${opacity}%`);
+            setIfIdle('#editor-bg', toHexa(state.background, state.backgroundOpacity));
+            $('#editor-opacity-value').text(`${Math.round(state.backgroundOpacity * 100)}%`);
 
             const p = state.position;
             $('#editor-anchor button').each(function () {
@@ -1461,12 +1649,21 @@
             legendEntries = entries || [];
             const $list = $('#layout-legend').empty();
             $('#layout-legend-wrap').prop('hidden', !!editorItem || !legendEntries.length);
-            $('#legend-all').text(legendEntries.some(entry => entry.visible) ? 'Hide all' : 'Show all');
+            $('#legend-count').text(`(${legendEntries.length})`);
+            setGroupEye($('#legend-eye'), eyesState(legendEntries.map(entry => entry.visible)), 'every legend');
+            const detailed = legendEntries.filter(entry => entry.hasDetail);
+            const allDetailed = detailed.length && detailed.every(entry => entry.detail);
+            $('#legend-details').toggleClass('on', !!allDetailed).prop('hidden', !detailed.length)
+                .attr('title', allDetailed ? 'Show only the maps’ names, without their detailed legends' : 'Show every map’s detailed legend');
             legendEntries.forEach(entry => {
                 const item = `layer:${entry.id}`;
+                const text = $('<span class="toggle-text">').append(
+                    $('<span class="toggle-name">').text(entry.title),
+                    $('<span class="toggle-sub">').text([entry.attribution, entry.detail ? 'Detailed legend' : ''].filter(Boolean).join(' · '))
+                );
                 const select = $('<button type="button" class="row-select">')
                     .attr({ 'data-item': item, title: `Edit the legend of ${entry.title}` })
-                    .append('<sl-icon name="list-ul"></sl-icon>', $('<span class="toggle-name">').text(entry.title), '<sl-icon class="row-chevron" name="chevron-right"></sl-icon>');
+                    .append('<sl-icon name="list-ul"></sl-icon>', text, '<sl-icon class="row-chevron" name="chevron-right"></sl-icon>');
                 const eye = $('<label class="eye" title="Show or hide this legend">').append(
                     $('<input type="checkbox" class="legend-toggle">').attr('data-item', item).prop('checked', entry.visible),
                     '<sl-icon class="eye-on" name="eye"></sl-icon><sl-icon class="eye-off" name="eye-slash"></sl-icon>'

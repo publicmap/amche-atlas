@@ -41,7 +41,7 @@ export class LayerThumbnail {
         container.style.cssText = `
             width: ${size}px;
             height: ${size}px;
-            border-radius: 6px;
+            border-radius: 0;
             overflow: hidden;
             position: relative;
             flex-shrink: 0;

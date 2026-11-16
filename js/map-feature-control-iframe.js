@@ -192,6 +192,8 @@ export class MapFeatureControl {
                 this._updateLayerOpacity(event.data.layerId, event.data.opacity);
             } else if (event.data.type === 'update-layer-paint') {
                 this._updateLayerPaint(event.data.layerId, event.data.paint);
+            } else if (event.data.type === 'update-layer-pixels') {
+                this._updateLayerPixels(event.data.layerId, event.data.edits);
             } else if (event.data.type === 'update-layer-style') {
                 this._updateLayerStyle(event.data.layerId, event.data.style, event.data.resetProperties, event.data.isDefaultStyle, event.data);
             } else if (event.data.type === 'update-layer') {
@@ -943,6 +945,36 @@ export class MapFeatureControl {
         if (window.urlManager) {
             window.urlManager.updateURL({ updateLayers: true });
         }
+    }
+
+    /**
+     * A raster layer's pixel edits (js/raster-color-key.js): `colorKey` turns one
+     * color transparent, `recolor` draws it in greys and/or inverted. Each field
+     * given is set, or cleared when null. Redrawing reloads the layer's tiles,
+     * so a dragged control is applied once it settles.
+     */
+    _updateLayerPixels(layerId, edits = {}) {
+        const layerData = this._getActiveLayersFromConfig().get(layerId);
+        if (!layerData) return;
+        const config = layerData.config;
+        ['colorKey', 'recolor'].filter(field => field in edits).forEach(field => {
+            if (edits[field]) {
+                config[field] = edits[field];
+                markEditedFields(config, [field]);
+            } else {
+                delete config[field];
+                markEditedFields(config, [], [field]);
+            }
+        });
+        this._refreshCustomLayerJson(config);
+
+        this._pixelTimers = this._pixelTimers || new Map();
+        clearTimeout(this._pixelTimers.get(layerId));
+        this._pixelTimers.set(layerId, setTimeout(() => {
+            this._pixelTimers.delete(layerId);
+            this._getMapboxAPI()?.updateLayerColorKey(layerId, config);
+            if (window.urlManager) window.urlManager.updateURL({ updateLayers: true });
+        }, 200));
     }
 
     /**
