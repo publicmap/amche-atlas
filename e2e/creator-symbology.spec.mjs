@@ -11,8 +11,7 @@ async function openCreator(page) {
     await page.goto('/?atlas=index', { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.layerControl && !!window.browserControl);
     await page.evaluate(() => {
-        window.browserControl.openBrowser();
-        window.browserControl._switchToCreator();
+        window.browserControl.openCreator();
     });
     let frame;
     for (let i = 0; i < 20; i++) {

@@ -2129,7 +2129,7 @@ export class MapboxAPI {
                 dataSource = config.geojson ? this._processGeoJSONData(config.geojson) : { type: 'FeatureCollection', features: [] };
             } else if (config.dataSource === 'localStorage') {
                 // Retrieve GeoJSON from localStorage cache; fall back to URL if absent
-                const storedData = LayerConfigGenerator.retrieveGeoJSONData(config.id);
+                const storedData = await LayerConfigGenerator.retrieveGeoJSONData(config.id);
                 if (storedData) {
                     dataSource = this._processGeoJSONData(storedData);
                 } else if (config.url) {
@@ -2370,7 +2370,7 @@ export class MapboxAPI {
         } else if (config.geojson !== undefined) {
             geojson = config.geojson ? this._processGeoJSONData(config.geojson) : { type: 'FeatureCollection', features: [] };
         } else if (config.dataSource === 'localStorage') {
-            const storedData = LayerConfigGenerator.retrieveGeoJSONData(config.id);
+            const storedData = await LayerConfigGenerator.retrieveGeoJSONData(config.id);
             if (storedData) {
                 geojson = this._processGeoJSONData(storedData);
             } else if (config.url) {
@@ -3174,7 +3174,7 @@ export class MapboxAPI {
                 if (config.data) {
                     geojson = this._processCSVData(config.data, config.csvParser);
                 } else if (config.dataSource === 'localStorage') {
-                    const storedData = LayerConfigGenerator.retrieveGeoJSONData(config.id);
+                    const storedData = await LayerConfigGenerator.retrieveGeoJSONData(config.id);
                     if (storedData) {
                         geojson = this._processGeoJSONData(storedData);
                     } else if (config.url) {

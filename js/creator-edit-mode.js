@@ -10,6 +10,10 @@
  */
 
 import { LayerConfigGenerator } from './layer-creator-ui.js';
+import { emptyCollection } from './feature-table-data.js';
+
+export const DRAWN_SOURCE = 'drawn';
+export const UNTITLED = 'Untitled map';
 
 const UNSUPPORTED_TYPES = new Set(['style', 'layer-group', 'wmts', 'img', 'raster-style-layer', 'js', 'atlas', 'osm']);
 
@@ -35,6 +39,7 @@ export function stripInternal(layer) {
  * @returns {{kind: 'url'|'overpass'|'local'|'inline'|'unsupported', value?: string, data?: Object, resolveOptions?: Object}}
  */
 export function describeLayerSource(layer) {
+    if (layer && layer._new) return { kind: 'blank' };
     if (!layer || UNSUPPORTED_TYPES.has(layer.type)) return { kind: 'unsupported' };
     if (layer.type === 'overpass' && layer.query) return { kind: 'overpass', value: layer.query };
     if (layer.dataSource === 'localStorage') return { kind: 'local' };
@@ -127,6 +132,7 @@ export class CreatorEditMode {
         this.source = { kind: 'unsupported' };
         this.sourceChanged = false;
         this.supported = true;
+        this.isNew = false;
         this._seeding = false;
         this._timer = null;
     }
@@ -141,9 +147,17 @@ export class CreatorEditMode {
         this.layer = stripInternal(layer);
         this.source = describeLayerSource(layer);
         this.supported = this.source.kind !== 'unsupported';
+        this.isNew = this.source.kind === 'blank';
         this._applyChrome();
 
         switch (this.source.kind) {
+            case 'blank':
+                $('#layer-title').val(this.layer.title);
+                $('#layer-id').val(this.layer.id);
+                creator.processGeoJSON(emptyCollection(), DRAWN_SOURCE);
+                creator._previewFitted = true;
+                $('#add-to-map-btn').prop('disabled', true);
+                break;
             case 'url':
                 $('#url-input').val(this.source.value);
                 $('#clear-url-btn').removeClass('hidden');
@@ -156,9 +170,11 @@ export class CreatorEditMode {
                 creator.handleOverpassImport(this.source.value, { withPreview: true });
                 break;
             case 'local': {
-                const data = LayerConfigGenerator.retrieveGeoJSONData(layer.id);
-                if (data) creator.processGeoJSON(data, 'edit-local');
-                else this._startUnsupported('The data for this layer is no longer stored in this browser.');
+                creator.localFile.restore(layer.id);
+                LayerConfigGenerator.retrieveGeoJSONData(layer.id).then(data => {
+                    if (data) creator.processGeoJSON(data, 'edit-local');
+                    else this._startUnsupported('The data for this layer is no longer stored in this browser.');
+                });
                 break;
             }
             case 'inline':
@@ -168,8 +184,9 @@ export class CreatorEditMode {
                 this._startUnsupported();
         }
 
-        // A layer that already has data shows it as a collapsed card.
-        creator.dataCard.enterEditMode(this.supported);
+        // A layer that already has data shows it as a collapsed card; a new one opens on it.
+        creator.dataCard.enterEditMode(this.supported && !this.isNew);
+        if (this.isNew) creator.dataCard.setCollapsed(false);
     }
 
     // A layer with no source the creator can load (a base-map style layer, a
@@ -187,8 +204,7 @@ export class CreatorEditMode {
 
     _applyChrome() {
         $('#add-to-map-btn').text('Save Layer');
-        $('#remove-other-maps-btn').hide();
-        document.title = 'Edit Layer';
+        document.title = this.isNew ? 'New Layer' : 'Edit Layer';
     }
 
     /** Called whenever a source finishes loading. Seeding waits a tick so the load's own follow-up steps finish first. */
@@ -199,10 +215,10 @@ export class CreatorEditMode {
     }
 
     _sourceChanged() {
-        const fileChosen = $('#file-input')[0] && $('#file-input')[0].files.length > 0;
-        if (fileChosen) return true;
+        if (this.creator._loadedFiles.length > 0) return true;
         const typed = $('#url-input').val().trim();
         switch (this.source.kind) {
+            case 'blank': return typed !== '' || this.creator.currentDataSource !== DRAWN_SOURCE;
             case 'url': return typed !== '' && typed !== this.source.value;
             case 'overpass': return $('#overpass-query').val().trim() !== String(this.source.value).trim();
             default: return typed !== '';
@@ -226,8 +242,9 @@ export class CreatorEditMode {
         this._seeding = true;
         creator.styleEditor?.reset();
         try {
+            if (this.isNew) this.layer = this._blankLayer();
             this.sourceChanged = this._sourceChanged();
-            $('#edit-style-choice').toggleClass('hidden', !this.sourceChanged);
+            $('#edit-style-choice').toggleClass('hidden', !this.sourceChanged || this.isNew);
 
             const fields = this._availableFields();
             const keepStyle = this._keepStyle();
@@ -242,6 +259,21 @@ export class CreatorEditMode {
             this._seeding = false;
         }
         creator.layerPage.onEditSeeded();
+    }
+
+    // A new layer is what its form holds; until it is named, the data it loads names it.
+    _blankLayer() {
+        const fields = { title: '#layer-title', id: '#layer-id', description: '#layer-description', attribution: '#layer-attribution', license: '#layer-license' };
+        const layer = {};
+        Object.entries(fields).forEach(([key, selector]) => {
+            const value = String($(selector).val() || '').trim();
+            if (value) layer[key] = value;
+        });
+        if (layer.title === UNTITLED) {
+            delete layer.title;
+            delete layer.id;
+        }
+        return layer;
     }
 
     _syncStyleTypes(style) {
@@ -287,7 +319,7 @@ export class CreatorEditMode {
         const layer = this.layer;
 
         $('#layer-title').val(layer.title || $('#layer-title').val());
-        $('#layer-id').val(layer.id);
+        if (layer.id) $('#layer-id').val(layer.id);
         $('#layer-description').val(layer.description || '');
         if (!this.sourceChanged || !$('#layer-attribution').val()) $('#layer-attribution').val(layer.attribution || '');
         if (!this.sourceChanged || !$('#layer-license').val()) $('#layer-license').val(layer.license || '');
@@ -344,6 +376,8 @@ export class CreatorEditMode {
         clearTimeout(this._timer);
         clearTimeout(this.creator._previewTimer);
         this.active = false;
+        this.isNew = false;
+        document.title = 'Edit Layer';
         this._seeding = false;
         this.sourceChanged = false;
         this.creator._resolveOptions = null;
@@ -351,7 +385,7 @@ export class CreatorEditMode {
     }
 
     /** Save Layer: the live draft becomes the layer (or, for a layer the creator can't preview, its JSON is applied). */
-    apply() {
+    async apply() {
         const creator = this.creator;
         if (!this.supported) {
             let config;
@@ -368,7 +402,9 @@ export class CreatorEditMode {
         }
 
         clearTimeout(creator._previewTimer);
-        creator.sendPreview();
+        await creator.sendPreview();
+        creator.keepStoredData();
+        creator.localFile.remember(String($('#layer-id').val() || '').trim());
         window.parent.postMessage({ type: 'finalize-creator-layer', keepOpen: true, edit: true }, '*');
         creator.layerPage.finishEdit();
     }

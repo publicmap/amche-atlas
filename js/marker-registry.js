@@ -25,7 +25,7 @@
  * and can be told apart from a name wherever it lands - name and description
  * keep their own positions whether or not an offset follows them.
  *
- * `@c<rrggbb>` is a colour picked for the marker's pin (see
+ * `@c<rrggbb>` (or `@c<rrggbbaa>`, with opacity) is a colour picked for the marker's pin (see
  * MapMarkerManager.setMarkerColor), without the `#` a link would have to
  * escape - present only once one is picked.
  *
@@ -37,7 +37,16 @@
 
 const OFFSET_ARG_RE = /^@(-?\d+)x(-?\d+)$/;
 const PINNED_ARG = '@pin';
-const COLOR_ARG_RE = /^@c([0-9a-f]{6})$/i;
+const COLOR_ARG_RE = /^@c([0-9a-f]{6}(?:[0-9a-f]{2})?)$/i;
+// A pin's colour: #rrggbb, or #rrggbbaa when it is see-through.
+export const PIN_COLOR_RE = /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i;
+
+/** A picked colour as a pin keeps it: #rrggbb when opaque, #rrggbbaa when not. */
+export function pinColorValue(value) {
+    const hex = String(value || '').trim().toLowerCase().match(/^#([0-9a-f]{6})([0-9a-f]{2})?$/);
+    if (!hex) return null;
+    return !hex[2] || hex[2] === 'ff' ? `#${hex[1]}` : `#${hex[1]}${hex[2]}`;
+}
 
 // Dropped from what we write, still accepted from what we read. An id may
 // itself contain a `-`, so an id that literally starts with `marker-` reads
@@ -143,7 +152,7 @@ export function buildMarkersParam(entries) {
         if (dx || dy) parts.push(`@${dx}x${dy}`);
 
         if (pinned) parts.push(PINNED_ARG);
-        if (/^#[0-9a-f]{6}$/i.test(color || '')) parts.push(`@c${color.slice(1).toLowerCase()}`);
+        if (PIN_COLOR_RE.test(color || '')) parts.push(`@c${color.slice(1).toLowerCase()}`);
 
         return `${encodeId(id)}(${parts.join(',')})`;
     }).join(',');

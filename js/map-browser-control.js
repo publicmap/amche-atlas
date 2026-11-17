@@ -29,7 +29,7 @@ export class MapBrowserControl {
         this._pendingFileData = null;
         // Id of the layer live-added to the real map/registry while the
         // creator's preview is showing it (see _handleCreatorLivePreview) —
-        // null once it's finalized via "Add Map Layer" or removed via Cancel.
+        // null once it's saved (Save Layer) or removed via Cancel.
         this._creatorDraftLayerId = null;
         this._creatorLivePreviewPromise = null;
         this._overpassPreviewQuery = null;
@@ -225,14 +225,6 @@ export class MapBrowserControl {
                 this.closeBrowser();
             }
 
-            if (event.data.type === 'open-creator') {
-                this._switchToCreator();
-            }
-
-            if (event.data.type === 'creator-use-layer') {
-                this._useRegistryLayer(event.data.layerId, !!event.data.customize);
-            }
-
             if (event.data.type === 'open-splash') {
                 this.closeBrowser();
                 if (window.splashManager) {
@@ -284,10 +276,6 @@ export class MapBrowserControl {
 
             if (event.data.type === 'legend-filter-clear') {
                 this._clearLegendFilter();
-            }
-
-            if (event.data.type === 'remove-other-maps') {
-                this.hideAllLayers();
             }
 
             if (event.data.type === 'open-layer-info') {
@@ -1058,11 +1046,11 @@ export class MapBrowserControl {
         });
     }
 
-    // "Add Map": the editor on a new layer with no data yet, ready to draw on
-    // or to import a link or file into (js/creator-features.js).
+    // "Add Map": the editor on a new, blank layer, ready to draw on or to
+    // import a link or files into (LayerPage.openNew in js/layer-page.js).
     openCreator() {
         if (!this._isOpen) this.openBrowser();
-        this._switchToCreator('?mode=draw');
+        this._switchToCreator('?mode=new');
     }
 
     _postToCreator(message) {
@@ -1160,8 +1148,9 @@ export class MapBrowserControl {
     closeBrowser() {
         this._drawTool?.stop();
         this._clearLegendFilter();
-        // Closing mid-edit without applying puts the layer back.
+        // Closing mid-edit without saving puts the layer back, or drops a new one.
         if (this._editSession) this._restoreEditSession();
+        else if (this._creatorDraftLayerId) this._removeCreatorDraftLayer();
         window.layerControl?.isolation?.clear();
 
         this._hideLoadingOverlay();
@@ -1216,17 +1205,6 @@ export class MapBrowserControl {
         // No longer updating atlas name - button always shows "Maps"
     }
 
-    /**
-     * A layer picked in the creator's "Choose from Atlas" list: turn it on, then
-     * open the layer panel on it - its Overview, or its Edit tab when customizing.
-     */
-    async _useRegistryLayer(layerId, customize) {
-        const layer = window.layerRegistry?._registry.get(layerId);
-        if (!layer) return;
-        await this._handleLayerToggle(layerId, true);
-        this.openLayerEditor({ ...layer, id: layerId }, { tab: customize ? 'edit' : 'view' });
-    }
-
     _switchToCreator(query = '') {
         this._drawTool?.stop();
         this._ensureIframe();
@@ -1245,13 +1223,10 @@ export class MapBrowserControl {
         if (!url) return;
         this._pendingUrl = url;
         if (!this._isOpen) this.openBrowser();
-        this._switchToCreator();
+        this._switchToCreator('?mode=new');
     }
 
-    /**
-     * Read dropped files and hand them to the creator, which walks them one at a
-     * time so each becomes its own layer.
-     */
+    /** Read dropped files and hand them to the creator, where they become one new layer. */
     async openCreatorWithFiles(files) {
         const readFile = (file) => new Promise((resolve, reject) => {
             const ext = file.name.split('.').pop().toLowerCase();
@@ -1280,7 +1255,7 @@ export class MapBrowserControl {
         if (!this._isOpen) {
             this.openBrowser();
         }
-        this._switchToCreator();
+        this._switchToCreator('?mode=new');
     }
 
     _handleZoomToBounds(bounds, toggle = false, zoomToLayerId = null) {
@@ -1462,7 +1437,7 @@ export class MapBrowserControl {
 
     // Live preview for geojson/csv/vector/tms/wms/cog/overpass layers being
     // configured in the creator: adds the config as a REAL layer (same
-    // _addLayerDirectly path "Add Map Layer" uses) rather than a separate
+    // _addLayerDirectly path Save Layer uses) rather than a separate
     // throwaway rendering, so it's inspectable via MapMarkerManager and
     // reflected in the URL just like it was already added. Each tick fully
     // replaces the previous draft — MapboxAPI has no generic "restyle" path,
@@ -1544,7 +1519,7 @@ export class MapBrowserControl {
         this._creatorDraftLayerId = null;
     }
 
-    // "Add Map Layer" for a layer type that's already live via
+    // "Save Layer" for a layer type that's already live via
     // _handleCreatorLivePreview: the layer is already added, so this just
     // stops treating it as a discardable draft and shows the usual "Added
     // map" confirmation, closing the creator unless more queued files remain.

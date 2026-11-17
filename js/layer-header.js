@@ -59,7 +59,7 @@ export class LayerHeader {
     }
 
     /** Show a layer, and isolate it on the map. */
-    render(layer, { feature = null } = {}) {
+    render(layer, { feature = null, isNew = false } = {}) {
         this.layer = layer;
         this.layerId = layer.id || null;
         this.feature = feature;
@@ -69,8 +69,13 @@ export class LayerHeader {
         renderFeatureCard(this.layerId, feature);
 
         this._renderBadges(layer);
-        this._renderStar(layer);
-        this._renderVisibility(layer);
+        // A new layer is not on the map, or anywhere to star, until it is saved.
+        if (isNew) {
+            $('#lh-star, #lh-visible').hide();
+        } else {
+            this._renderStar(layer);
+            this._renderVisibility(layer);
+        }
         this._updateOpacityUI(layer.opacity);
         $('#lh-raster').toggle(RasterAdjust.isRaster(layer));
         this.raster.render(layer);

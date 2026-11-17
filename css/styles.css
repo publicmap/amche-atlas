@@ -6405,10 +6405,12 @@ body.map-export-open .map-console {
 .marker-id-color-input {
     position: absolute;
     inset: 0;
+}
+
+/* The picker's own swatch is hidden under the pin, which is what is clicked */
+.marker-id-color-input::part(trigger) {
     width: 100%;
     height: 100%;
-    padding: 0;
-    border: 0;
     opacity: 0;
     cursor: pointer;
 }

@@ -11,7 +11,9 @@
  * and the title bar offers Undo / Redo (js/edit-history.js) and Save Layer (back
  * to view mode); closing the panel with × cancels: the original is restored and
  * nothing is saved.
- * A new layer is always in edit mode.
+ * A new layer is the same page opened straight into an edit of a blank layer:
+ * nothing is on the map until its first preview, Save Layer keeps it and ×
+ * discards it.
  *
  * The header's live actions (js/layer-header.js) work in both modes.
  */
@@ -23,6 +25,7 @@ import { EditHistory } from './edit-history.js';
 import { renderOverview } from './layer-overview.js';
 import { collectFilters, describeExpression, LAYER_FILTER_KEY } from './style-rules.js';
 import { ruleFilter } from './rule-legend.js';
+import { UNTITLED } from './creator-edit-mode.js';
 
 const RECORD_DELAY = 400;
 const RESTORE_SETTLE = 900;
@@ -32,6 +35,7 @@ export class LayerPage {
         this.creator = creator;
         this.active = false;
         this.layer = null;
+        this.isNew = false;
         this.mode = 'edit';
         this.description = new DescriptionCard();
         this.history = new EditHistory();
@@ -72,12 +76,26 @@ export class LayerPage {
      */
     open(layer, { tab = 'view', feature = null } = {}) {
         this.active = true;
+        this.isNew = false;
         // Opened straight into editing (Edit in the map console): closing goes back there
         this.openedForEdit = tab !== 'view';
         $('#edit-tab, #nav-actions, #layer-actions, #lh-remove').removeClass('hidden');
         this.header.render(layer, { feature });
         this._show(layer);
         if (tab !== 'view') this.enterEdit({ style: tab === 'style', data: tab === 'data' });
+    }
+
+    /** "Add Map": a blank layer, drawing on, ready for a link or files. */
+    openNew() {
+        const layer = { id: this.creator.generateId(UNTITLED), title: UNTITLED, type: 'geojson' };
+        this.active = true;
+        this.isNew = true;
+        this.openedForEdit = true;
+        $('#edit-tab, #nav-actions, #layer-actions').removeClass('hidden');
+        $('#lh-remove').addClass('hidden');
+        this.header.render(layer, { isNew: true });
+        this._show(layer);
+        this.enterEdit({ draw: true });
     }
 
     // The layer as it stands, read-only.
@@ -105,7 +123,6 @@ export class LayerPage {
         $('.lh-title-input, .lh-id-input').prop('readonly', viewing);
         $('#edit-btn').toggleClass('hidden', !viewing);
         $('#add-to-map-btn').toggleClass('hidden', viewing);
-        $('#remove-other-maps-btn').toggleClass('hidden', viewing || this.active);
         $('#edit-history, #save-settings-btn').toggleClass('hidden', viewing || !this.active);
         this.updateHistoryButtons();
         this.creator.features?.render();
@@ -114,11 +131,11 @@ export class LayerPage {
 
     // -- edit session ----------------------------------------------------------
 
-    enterEdit({ style = false, data = false, rule = null, clearFilter = null } = {}) {
+    enterEdit({ style = false, data = false, rule = null, clearFilter = null, draw = false } = {}) {
         if (this.editing && this.creator.edit.active) return;
-        this._pending = { style, data, rule, clearFilter };
+        this._pending = { style, data, rule, clearFilter, draw };
         this.setMode('edit');
-        this.creator.edit.start(this.layer);
+        this.creator.edit.start(this.isNew ? { ...this.layer, _new: true } : this.layer);
     }
 
     /** The source has loaded and the form is filled in: the layer as the edit begins. */
@@ -134,6 +151,7 @@ export class LayerPage {
         if (pending.style) this.openStyleAt(pending.rule);
         if (pending.data) this.creator.dataCard.setCollapsed(false);
         if (pending.clearFilter) this.clearFilter(pending.clearFilter);
+        if (pending.draw) this.creator.features.setDrawing(true);
     }
 
     /** Cancel: the original layer comes back and nothing is saved. */
@@ -149,6 +167,10 @@ export class LayerPage {
         clearTimeout(this._recordTimer);
         const edited = config || this._parsedConfig();
         this.creator.edit.stop();
+        if (this.isNew) {
+            this.isNew = false;
+            $('#lh-remove').removeClass('hidden');
+        }
         this._leaveEdit(edited ? this._withRuntimeState(edited) : this.layer);
     }
 

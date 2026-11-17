@@ -141,7 +141,7 @@
         }
 
         /* The title bar looks the same viewing and editing: one amber primary
-           action (Edit Layer / Save Layer / Add Map Layer), quiet outlined secondaries */
+           action (Edit Layer / Save Layer), quiet outlined secondaries */
         .nav-primary {
             padding: 0 12px;
             font-weight: 600;
@@ -407,235 +407,6 @@
         .load-data-btn:disabled { opacity: 0.6; cursor: default; }
         .load-data-btn sl-spinner { font-size: 12px; --track-width: 2px; }
         .is-viewing #source-settings, .is-viewing #popup-settings { display: none; }
-
-        /* Map Maker home screen: shown while nothing is loaded (see js/creator-home.js) */
-        #creator-home {
-            display: none;
-            position: absolute;
-            inset: 0;
-            z-index: 50;
-            background: #0b1220;
-            overflow: hidden;
-        }
-
-        body.home-active #creator-home {
-            display: block;
-        }
-
-        .ch-bg {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-        }
-
-        .ch-grid-line { stroke: #1f2a3d; stroke-width: 1; }
-
-
-        /* The wordmark: every letter feature is a filled area; hovering or selecting one shows its wireframe (js/creator-home-title.js) */
-        .ch-letter .ch-area { fill-opacity: 0.55; transition: fill-opacity 0.15s; }
-        .ch-letter .ch-way { fill: none; stroke-width: 1.6; stroke-linejoin: round; vector-effect: non-scaling-stroke; opacity: 0; }
-        .ch-letter .ch-node { fill: #0b1220; stroke-width: 1.4; vector-effect: non-scaling-stroke; opacity: 0; transform-box: fill-box; transform-origin: center; transition: transform 0.12s; }
-
-        /* Hover or select a feature: its wireframe (way and nodes) appears; the node under the cursor is picked out */
-        #ch-title { touch-action: none; user-select: none; }
-        .ch-part { cursor: grab; }
-        .ch-part .ch-node { cursor: move; }
-        .ch-bg.ch-grabbing, .ch-bg.ch-grabbing * { cursor: grabbing !important; }
-        .ch-part:hover .ch-area, .ch-part.selected .ch-area, .ch-part.dragging .ch-area { fill-opacity: 0.3; }
-        .ch-part:hover .ch-way, .ch-part.selected .ch-way, .ch-part.dragging .ch-way { stroke: #fff; opacity: 1; }
-        .ch-part:hover .ch-node, .ch-part.selected .ch-node, .ch-part.dragging .ch-node { opacity: 1; }
-        .ch-part.selected { filter: drop-shadow(0 0 7px currentColor); }
-        .ch-part .ch-node:hover { fill: #fff; stroke: currentColor; stroke-width: 2.4; transform: scale(2); }
-
-
-
-        #ch-close {
-            position: absolute;
-            top: 12px;
-            right: 16px;
-            z-index: 2;
-            color: #fff;
-            font-size: 28px;
-            line-height: 1;
-            background: none;
-            border: 0;
-            cursor: pointer;
-            opacity: 0.8;
-        }
-
-        #ch-close:hover { opacity: 1; }
-
-        .ch-content {
-            pointer-events: none;
-            position: relative;
-            z-index: 1;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            padding: 0 24px 15vh;
-            gap: 14px;
-        }
-
-        .ch-secondary {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            width: 100%;
-            padding: 10px 16px;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #d1d5db;
-            background: rgba(31, 41, 55, 0.7);
-            border: 1px solid #374151;
-            cursor: pointer;
-        }
-
-        .ch-secondary:hover { background: #2a3547; color: #fff; }
-        .ch-secondary[aria-expanded="true"] .ch-chev { transform: rotate(180deg); }
-        .ch-atlas { position: relative; }
-
-        #ch-atlas-panel {
-            display: none;
-            position: absolute;
-            left: 0;
-            right: 0;
-            bottom: calc(100% + 6px);
-            max-height: 58vh;
-            overflow-y: auto;
-            background: #111827;
-            border: 1px solid #374151;
-            border-radius: 8px;
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-            z-index: 5;
-        }
-
-        #ch-atlas-panel.open { display: block; }
-        .ch-atlas-head { position: sticky; top: 0; padding: 10px 12px; background: #111827; border-bottom: 1px solid #1f2937; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #9ca3af; z-index: 1; }
-        #ch-atlas-count { color: #6b7280; margin-left: 6px; text-transform: none; letter-spacing: 0; }
-        .ch-ds-empty { padding: 18px 14px; font-size: 13px; color: #9ca3af; }
-        .ch-ds { border-bottom: 1px solid #1f2937; }
-        .ch-ds.open { background: #162033; }
-        .ch-ds-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 12px; background: none; border: 0; color: #e5e7eb; text-align: left; cursor: pointer; }
-        .ch-ds-head:hover { background: #1b2740; }
-        .ch-ds-thumbs { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
-        .ch-ds-more { font-size: 11px; color: #9ca3af; padding: 0 2px; }
-        .ch-ds-text { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
-        .ch-ds-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .ch-ds-meta { font-size: 11px; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .ch-ds-actions { padding: 2px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
-        .ch-ds-layers { display: flex; flex-wrap: wrap; gap: 6px; }
-        .ch-ds-layer { padding: 4px 10px; font-size: 12px; border-radius: 999px; background: #1f2937; border: 1px solid #374151; color: #d1d5db; cursor: pointer; }
-        .ch-ds-layer.selected { background: #1e3a5f; border-color: #3b82f6; color: #fff; }
-        .ch-ds-buttons { display: flex; gap: 8px; }
-        .ch-ds-btn { display: flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 13px; font-weight: 600; border-radius: 5px; background: #374151; border: 1px solid #4b5563; color: #fff; cursor: pointer; }
-        .ch-ds-btn:hover:not(:disabled) { background: #4b5563; }
-        .ch-ds-btn:disabled { opacity: 0.55; cursor: default; }
-        .ch-ds-btn.primary { background: #2563eb; border-color: #2563eb; }
-        .ch-ds-btn.primary:hover { background: #1d4ed8; }
-
-        .ch-content > * { pointer-events: auto; }
-
-        .ch-or {
-            text-align: center;
-            font-size: 12px;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-        }
-
-        .ch-import { position: relative; display: flex; gap: 0; box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.45), 0 8px 28px rgba(37, 99, 235, 0.18); border-radius: 6px; }
-
-        .ch-import input {
-            flex: 1;
-            min-width: 0;
-            padding: 15px 14px;
-            background: rgba(17, 24, 39, 0.96);
-            border: 1px solid #374151;
-            border-left: 0;
-            border-right: 0;
-            color: #f3f4f6;
-            font-size: 14px;
-            outline: none;
-        }
-
-        .ch-import input:focus { box-shadow: inset 0 -2px 0 #3b82f6; }
-
-        #ch-format-btn {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 0 10px 0 12px;
-            background: #1f2937;
-            border: 1px solid #374151;
-            border-radius: 6px 0 0 6px;
-            color: #d1d5db;
-            font-size: 13px;
-            white-space: nowrap;
-            cursor: pointer;
-        }
-
-        #ch-format-btn:hover { background: #2a3547; }
-        #ch-format-btn.is-detected { color: #93c5fd; border-color: #2563eb; }
-        #ch-format-btn.is-unsupported { color: #fca5a5; }
-
-        #ch-import-btn {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 0 16px;
-            white-space: nowrap;
-            background: #374151;
-            border: 1px solid #4b5563;
-            border-radius: 0 6px 6px 0;
-            color: #fff;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        #ch-import-btn:hover { background: #4b5563; }
-
-        #ch-format-panel {
-            display: none;
-            position: absolute;
-            left: 0;
-            right: 0;
-            bottom: calc(100% + 6px);
-            max-height: 52vh;
-            overflow-y: auto;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 8px;
-            padding: 8px;
-            background: #111827;
-            border: 1px solid #374151;
-            border-radius: 8px;
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-            z-index: 5;
-        }
-
-        #ch-format-panel.open { display: grid; }
-        #ch-format-panel .format-card { cursor: pointer; }
-        #ch-format-panel .format-card:hover { background: #2a3547; }
-        #ch-format-panel .format-card.active-format { background: #1e3a5f; }
-
-        #ch-privacy {
-            font-size: 12px;
-            color: #9ca3af;
-            text-align: center;
-        }
-
-        #ch-privacy a { color: #9ca3af; text-decoration: underline; }
-        #ch-privacy a:hover { color: #e5e7eb; }
-        #ch-error { min-height: 0; font-size: 12px; color: #fca5a5; text-align: center; }
-        #ch-error:empty { display: none; }
-
-        @media (max-width: 520px) {
-            #ch-format-panel { grid-template-columns: 1fr; }
-        }
 
         /* Supported formats: neutral cards told apart by icon, not colour */
         .formats-help {
@@ -1565,7 +1336,7 @@
                     </button>
                 </div>
                 <button id="add-to-map-btn" class="nav-primary" disabled>
-                    Add Map Layer
+                    Save Layer
                 </button>
                 <button id="save-settings-btn" type="button" class="hidden nav-secondary"
                     title="Save settings: where this map's changes are kept - Google Sheet, link, export" aria-label="Save settings">
@@ -1674,11 +1445,15 @@
                     </label>
                 </sl-tooltip>
                 <span id="layer-share-note" class="lo-note"></span>
-                <span class="flex-1"></span>
-                <button id="remove-other-maps-btn" type="button" class="lo-btn"
-                    title="Turn off every currently active map except the basemap, for a fresh inspector">
-                    <sl-icon name="layers"></sl-icon> <span>Remove other maps</span>
+                <button type="button" id="save-to-gist-btn" class="lo-btn" style="display:none;"
+                    title="Save this layer's data as a secret gist on your GitHub account and use its link as the data source, so the layer can be shared">
+                    <sl-icon name="github"></sl-icon> <span>Save to GitHub gist</span>
                 </button>
+                <button type="button" id="save-to-file-btn" class="lo-btn" style="display:none;"
+                    title="Save this layer's features as a GeoJSON file on this computer - back into the file it was opened from, where the browser allows">
+                    <sl-icon name="download"></sl-icon> <span>Save to file</span>
+                </button>
+                <span class="flex-1"></span>
                 <button type="button" id="config-toggle" class="lo-btn" aria-expanded="false" aria-controls="config-panel"
                     title="The layer's configuration as JSON">
                     <sl-icon name="braces"></sl-icon> <span>JSON</span>
@@ -1783,11 +1558,19 @@
                                         </button>
                                     </div>
                                 </div>
-                                <button type="button" id="upload-file-btn"
-                                    class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm font-medium whitespace-nowrap flex items-center gap-1 border border-gray-600"
-                                    title="Upload one or more local files - each becomes its own layer">
-                                    <sl-icon name="upload"></sl-icon> Upload Files
-                                </button>
+                                <div id="upload-file-group"
+                                    class="flex items-stretch min-w-0 bg-gray-700 text-white rounded text-sm font-medium border border-gray-600"
+                                    style="max-width:55%;">
+                                    <button type="button" id="upload-file-btn"
+                                        class="px-3 py-2 hover:bg-gray-600 rounded whitespace-nowrap flex items-center gap-1 min-w-0"
+                                        title="Upload one or more local files - each becomes its own layer">
+                                        <sl-icon name="upload" class="shrink-0"></sl-icon>
+                                        <span id="upload-file-label" class="truncate">Upload Files</span>
+                                    </button>
+                                    <button type="button" id="clear-file-btn"
+                                        class="hidden px-2 text-gray-300 hover:text-white hover:bg-gray-600 rounded-r border-l border-gray-600"
+                                        title="Clear the uploaded file" aria-label="Clear the uploaded file">✕</button>
+                                </div>
                                 <input type="file" id="file-input" multiple
                                     accept=".csv,.geojson,.json,.kml,.geojsonl,.ndjson,.jsonl,.gpkg,.zip,.tif,.tiff,.png,.jpg,.jpeg"
                                     class="hidden">
@@ -1943,14 +1726,6 @@
                                 </span>
                             </div>
                             </div>
-
-                        <div id="selected-file-info" class="hidden mb-2 px-3 py-2 rounded text-xs flex items-center justify-between gap-2"
-                            style="background:#111827;border:1px solid #374151;color:#d1d5db;">
-                            <span class="min-w-0 truncate"><strong class="text-white">File:</strong> <span id="selected-file-name"></span></span>
-                            <span id="file-queue-progress" class="hidden px-2 py-0.5 rounded whitespace-nowrap"
-                                style="background:rgba(59,130,246,0.18);border:1px solid rgba(59,130,246,0.45);color:#bfdbfe;"></span>
-                            <button type="button" id="clear-file-btn" class="text-gray-400 hover:text-gray-200 ml-auto" title="Clear">✕</button>
-                        </div>
 
                         <!-- Notice: uploaded files are temporary -->
                         <div id="upload-temp-notice" class="hidden mb-3 p-3 rounded-lg"
@@ -2513,47 +2288,6 @@
                     </div>
                 </div>
             </section>
-            </div>
-        </div>
-
-        <!-- Home screen: choose how to start (hidden once a layer is loading or being edited) -->
-        <div id="creator-home">
-            <svg class="ch-bg" viewBox="0 0 720 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Map Maker">
-                <defs>
-                    <linearGradient id="ch-fade" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0" stop-color="#0b1220" stop-opacity="0"/>
-                        <stop offset="1" stop-color="#0b1220" stop-opacity="0.85"/>
-                    </linearGradient>
-                </defs>
-                <g>
-                    <path class="ch-grid-line" d="M0 150H720M0 300H720M0 450H720M0 600H720M0 750H720M120 0V900M240 0V900M360 0V900M480 0V900M600 0V900"/>
-                </g>
-                <rect width="720" height="900" fill="url(#ch-fade)" pointer-events="none"/>
-                <g id="ch-title"></g>
-            </svg>
-            <button id="ch-close" type="button" title="Close" aria-label="Close">&times;</button>
-            <div class="ch-content">
-                <div class="ch-import">
-                    <div id="ch-format-panel" role="listbox" aria-label="Supported formats"></div>
-                    <button id="ch-format-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
-                        <span class="ch-format-label">Autodetect</span> <sl-icon name="chevron-up"></sl-icon>
-                    </button>
-                    <input id="ch-url" type="text" autocomplete="off" spellcheck="false"
-                        placeholder="Paste a link to a map, data file or service" aria-label="Paste a link">
-                    <button id="ch-import-btn" type="button"><sl-icon name="folder2-open"></sl-icon> Open file</button>
-                </div>
-                <div id="ch-error"></div>
-                <div id="ch-privacy">Your data remains private on your computer and is not uploaded. See <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a></div>
-                <div class="ch-or">or</div>
-                <div class="ch-atlas">
-                    <div id="ch-atlas-panel">
-                        <div class="ch-atlas-head">Data sources in this view <span id="ch-atlas-count"></span></div>
-                        <div id="ch-atlas-list"></div>
-                    </div>
-                    <button id="ch-atlas-btn" type="button" class="ch-secondary" aria-haspopup="true" aria-expanded="false">
-                        <sl-icon name="collection"></sl-icon> Choose from Atlas <sl-icon name="chevron-up" class="ch-chev"></sl-icon>
-                    </button>
-                </div>
             </div>
         </div>
 

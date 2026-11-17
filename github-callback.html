@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GitHub Sign-in</title>
+    <style>
+        :root { color-scheme: dark; }
+        body { margin: 0; padding: 24px 16px; background: #111827; color: #e5e7eb; font: 14px/1.5 system-ui, sans-serif; }
+    </style>
+</head>
+<body>
+    <p id="message">Signing in to GitHub…</p>
+    <script type="module">
+        const params = new URLSearchParams(window.location.search);
+        const result = {
+            type: 'github-oauth',
+            code: params.get('code'),
+            state: params.get('state'),
+            error: params.get('error_description') || params.get('error')
+        };
+        try {
+            new BroadcastChannel('amche-github-oauth').postMessage(result);
+        } catch {
+            // Older browsers: the opener message below still reaches the editor
+        }
+        try {
+            window.opener?.postMessage(result, window.location.origin);
+        } catch {
+            // The editor may have been closed
+        }
+        document.getElementById('message').textContent = result.code
+            ? 'Signed in to GitHub. You can close this window.'
+            : `GitHub sign-in did not finish: ${result.error || 'no code returned'}`;
+        if (result.code) setTimeout(() => window.close(), 600);
+    </script>
+</body>
+</html>

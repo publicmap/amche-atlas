@@ -106,8 +106,8 @@ export class DataCard {
         const url = $('#url-input').val().trim();
         if (url) return url;
 
-        const files = $('#file-input')[0] && $('#file-input')[0].files;
-        if (files && files.length) return files.length === 1 ? files[0].name : `${files.length} files`;
+        const files = creator._loadedFiles;
+        if (files.length) return files.length === 1 ? files[0].name : `${files.length} files`;
 
         if (!$('#overpass-section').hasClass('hidden') && $('#overpass-query').val().trim()) {
             return $('#overpass-query').val().trim().split('\n')[0];
@@ -130,7 +130,7 @@ export class DataCard {
         return creator.currentLayerType === 'geojson-url' ? 'geojson' : creator.currentLayerType;
     }
 
-    // A link the creator can load (the same test the home screen uses).
+    // A link the creator can load.
     _loadable(text) {
         const creator = this.creator;
         const url = creator.normalizeGoogleSheetsUrl(text);
@@ -150,7 +150,7 @@ export class DataCard {
         $('#data-card-subtitle').text(subtitle);
 
         // Upload is the way in only while there is no link.
-        $('#upload-file-btn').toggleClass('hidden', url !== '');
+        $('#upload-file-group').toggleClass('hidden', url !== '');
         $('#data-card-clear').toggleClass('hidden', viewing || !this.creator.features?.canClear);
 
         const typed = viewing ? '' : $('#url-input').val().trim();

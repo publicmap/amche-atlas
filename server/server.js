@@ -321,6 +321,45 @@ app.get('/test-gatishakti', async (req, res) => {
     }
 });
 
+// GitHub sign-in (OAuth web flow) for saving layer data as gists. The app's
+// client secret stays here; the browser only ever sees the client id and the
+// user's token. A local dev server (localhost) needs its own OAuth app, since
+// GitHub only redirects to the callback URL's own host.
+const GITHUB_APPS = [
+    { local: false, id: process.env.GITHUB_CLIENT_ID, secret: process.env.GITHUB_CLIENT_SECRET },
+    { local: true, id: process.env.GITHUB_DEV_CLIENT_ID, secret: process.env.GITHUB_DEV_CLIENT_SECRET }
+];
+
+function githubApp(req) {
+    const local = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(req.get('origin') || '');
+    return GITHUB_APPS.find(entry => entry.local === local && entry.id && entry.secret);
+}
+
+app.get('/github/config', (req, res) => {
+    const github = githubApp(req);
+    if (!github) return res.status(503).json({ error: 'GitHub sign-in is not set up on this server' });
+    res.json({ client_id: github.id });
+});
+
+app.post('/github/token', express.json(), async (req, res) => {
+    const github = githubApp(req);
+    if (!github) return res.status(503).json({ error: 'GitHub sign-in is not set up on this server' });
+    const { code, redirect_uri } = req.body || {};
+    if (!code) return res.status(400).json({ error: 'Missing code' });
+    try {
+        const response = await fetch('https://github.com/login/oauth/access_token', {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ client_id: github.id, client_secret: github.secret, code, redirect_uri })
+        });
+        const data = await response.json();
+        if (!data.access_token) return res.status(400).json({ error: data.error_description || data.error || 'GitHub did not return a token' });
+        res.json({ access_token: data.access_token, scope: data.scope });
+    } catch (error) {
+        res.status(502).json({ error: error.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`[Proxy] Server running on port ${PORT}`);
     console.log(`[Proxy] Generic endpoint: http://localhost:${PORT}/proxy?url=<target>&referer=<optional>&cache=<optional>`);

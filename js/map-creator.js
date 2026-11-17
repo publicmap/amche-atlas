@@ -13,9 +13,28 @@ import { CreatorEditMode } from './creator-edit-mode.js';
 import { DataCard } from './data-card.js';
 import { LayerPage } from './layer-page.js';
 import { CreatorSaveSettings } from './creator-save-settings.js';
-import { CreatorHome, FORMAT_KEYS } from './creator-home.js';
 import { CreatorFeatures, DRAWN_SOURCE, UNTITLED } from './creator-features.js';
 import { CreatorSteps } from './creator-steps.js';
+import { saveDataToGist } from './creator-gist.js';
+import { CreatorLocalFile } from './creator-local-file.js';
+
+export const FORMAT_KEYS = {
+    'CSV': 'csv',
+    'GeoJSON': 'geojson',
+    'KML': 'kml',
+    'Vector Tiles': 'vector-tiles',
+    'Raster Tiles': 'raster-tiles',
+    'PMTiles': 'pmtiles',
+    'MapWarper': 'mapwarper',
+    'Allmaps': 'allmaps',
+    'OSM': 'osm',
+    'Amche Atlas JSON': 'atlas-json',
+    'WMS': 'wms',
+    'Bharatlas': 'bharatlas',
+    'Overpass': 'overpass',
+    'WFS': 'wfs',
+    'ArcGIS': 'arcgis'
+};
 
 // Re-exported for the Style controls' own callers (and their tests), which have
 // always imported these from here; they now live in js/layer-style-utils.js so
@@ -24,6 +43,15 @@ import { CreatorSteps } from './creator-steps.js';
 const swatchColor = (selector) => pickedColor($(selector).val()) || $(selector).attr('value');
 
 export { styleLiteral, toHexColor, colorAlpha };
+
+const INLINE_GEOJSON_MAX = 100 * 1024;
+
+export function formatFileSize(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    const mb = bytes / (1024 * 1024);
+    return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+}
 
 export class MapCreator {
     constructor() {
@@ -51,10 +79,10 @@ export class MapCreator {
         // style checkboxes/pickers stop overwriting config.style until the
         // user touches one of them again (see setupEventListeners).
         this._styleManuallyEdited = false;
-        // Files picked together are walked one at a time so each keeps its own
-        // title, style and inspect settings and lands as a separate layer.
-        this._fileQueue = [];
-        this._fileQueueIndex = 0;
+        // The files the layer's data was read from (more files uploaded into it are appended).
+        this._loadedFiles = [];
+        // The file on this computer the layer's data is saved back to (see creator-local-file.js).
+        this.localFile = new CreatorLocalFile(this);
         // ArcGIS REST / WFS: tree browser + output-format picker (see
         // service-import.js). While active, a geojson-type config is a URL
         // layer (currentLayerType 'geojson-url'), not local data.
@@ -82,25 +110,21 @@ export class MapCreator {
         this.dataCard.init();
         this.features.init();
         this.steps.init();
-        this.home = new CreatorHome(this);
-        this.home.init();
-        if (new URLSearchParams(window.location.search).get('mode') === 'draw') this.features.startBlank();
         this.styleEditor.init();
         this.setupEventListeners();
         this.setupColorPickers();
         this.setupMessageListener();
+        if (new URLSearchParams(window.location.search).get('mode') === 'new') this.layerPage.openNew();
         window.parent.postMessage({ type: 'creator-ready' }, '*');
     }
 
     setupMessageListener() {
         window.addEventListener('message', async (event) => {
             if (event.data.type === 'edit-layer') {
-                this.home?.hide();
                 this.layerPage.open(event.data.layer, { tab: event.data.tab, feature: event.data.feature });
                 return;
             }
             if (event.data.type === 'load-url') {
-                this.home?.hide();
                 $('#url-input').val(event.data.url).trigger('input');
                 clearTimeout(this._urlInputTimeout);
                 this.handleLoadData();
@@ -111,88 +135,34 @@ export class MapCreator {
                 return;
             }
             if (event.data.type === 'load-file-data') {
-                this.home?.hide();
                 // Rebuild File objects from the transferred contents so dropped
-                // files go through exactly the same queue and parsing path as
-                // files picked from the upload dialog.
-                this._fileQueue = (event.data.files || []).map(({ fileName, content, arrayBuffer }) =>
+                // files go through the same parsing path as files picked from the upload dialog.
+                const files = (event.data.files || []).map(({ fileName, content, arrayBuffer }) =>
                     new File([arrayBuffer || content || ''], fileName)
                 );
-                this._fileQueueIndex = 0;
-
-                if (this._fileQueue.length > 0) {
-                    this.resetLayerSettings();
-                    await this.processFile(this._fileQueue[0]);
-                }
+                await this.loadFiles(files);
             }
         });
     }
 
-    showSelectedFile(fileName) {
-        $('#selected-file-name').text(fileName);
-        $('#selected-file-info').removeClass('hidden');
-
-        const total = this._fileQueue.length;
-        if (total > 1) {
-            $('#file-queue-progress')
-                .text(`File ${this._fileQueueIndex + 1} of ${total}`)
-                .removeClass('hidden');
-        } else {
-            $('#file-queue-progress').addClass('hidden');
-        }
-
-        if (!this.edit.active) $('#add-to-map-btn').text(this.hasMoreQueuedFiles() ? 'Add Layer & Next File' : 'Add Map Layer');
+    showSelectedFiles(files) {
+        const size = files.reduce((total, file) => total + file.size, 0);
+        const label = files.length === 1 ? `${files[0].name} · ${formatFileSize(size)}` : `${files.length} files · ${formatFileSize(size)}`;
+        $('#upload-file-label').text(label);
+        $('#upload-file-btn').attr('title', `${label} - click to add more files to this layer`);
+        $('#clear-file-btn').removeClass('hidden');
         this.dataCard.refresh();
     }
 
     clearSelectedFile() {
         $('#file-input').val('');
-        $('#selected-file-info').addClass('hidden');
-        $('#selected-file-name').text('');
-        $('#file-queue-progress').addClass('hidden');
+        $('#upload-file-label').text('Upload Files');
+        $('#upload-file-btn').attr('title', 'Upload one or more local files into this layer');
+        $('#clear-file-btn').addClass('hidden');
         $('#georef-notice').addClass('hidden');
-        if (!this.edit.active) $('#add-to-map-btn').text('Add Map Layer');
-        this._fileQueue = [];
-        this._fileQueueIndex = 0;
+        this._loadedFiles = [];
+        this.localFile.clear();
         this.dataCard.refresh();
-    }
-
-    /**
-     * True while files from the same selection are still waiting their turn.
-     */
-    hasMoreQueuedFiles() {
-        return this._fileQueueIndex < this._fileQueue.length - 1;
-    }
-
-    /**
-     * Clear the per-layer settings so the next file gets its own generated
-     * title and id. showConfigSection() only fills in a default title when the
-     * field is empty, so without this a file would inherit the previous one's
-     * name — both between queued files and when the creator is reopened, since
-     * the iframe keeps its state between visits.
-     */
-    resetLayerSettings() {
-        this.service.reset();
-        $('#layer-title').val('');
-        $('#layer-id').val('');
-        $('#layer-description').val('');
-        $('#layer-attribution').val('');
-        $('#layer-license').val('');
-        $('#data-preview-details').hide();
-        $('#settings-section').hide();
-        $('#add-to-map-btn').prop('disabled', true);
-        this.setLoadingState('default');
-        this._resetConfigEditorState();
-        this.clearPreview();
-    }
-
-    /**
-     * Move on to the next queued file.
-     */
-    advanceFileQueue() {
-        this._fileQueueIndex++;
-        this.resetLayerSettings();
-        return this.processFile(this._fileQueue[this._fileQueueIndex]);
     }
 
     setupEventListeners() {
@@ -260,9 +230,13 @@ export class MapCreator {
             this.handleLoadData();
         });
 
-        $('#upload-file-btn').on('click', () => {
-            $('#file-input').trigger('click');
+        $('#save-to-gist-btn').on('click', () => saveDataToGist(this));
+
+        $('#upload-file-btn').on('click', async () => {
+            const files = await this.localFile.pick();
+            if (files) this._onFilesPicked(files);
         });
+        $('#save-to-file-btn').on('click', () => this.localFile.save());
 
         $('#clear-file-btn').on('click', () => {
             this.service.reset();
@@ -276,14 +250,9 @@ export class MapCreator {
         });
 
         $('#file-input').on('change', (e) => {
-            if (e.target.files.length > 0) {
-                $('#url-input').val('');
-                $('#clear-url-btn').addClass('hidden');
-                $('#url-validation').html('');
-                $('.format-chip').removeClass('active-format');
-                this.hideGoogleSheetSelector();
-            }
-            this.handleFileUpload(e);
+            const files = Array.from(e.target.files || []);
+            e.target.value = '';
+            this._onFilesPicked(files);
         });
 
         $('#preview-geojson-io-btn').on('click', () => this.previewOnGeojsonIO());
@@ -356,11 +325,10 @@ export class MapCreator {
         // Mid-edit, × cancels back to viewing the layer - unless the editor was
         // opened to edit, when it cancels and goes back to the map console
         $('#close-btn').on('click', () => {
-            if (!(this.layerPage.active && this.edit.active)) return this.closeBrowser();
+            if (!(this.layerPage.active && this.edit.active) || this.layerPage.isNew) return this.closeBrowser();
             this.layerPage.cancelEdit();
             if (this.layerPage.openedForEdit) this.closeBrowser();
         });
-        $('#remove-other-maps-btn').on('click', () => this.removeOtherMaps());
 
         $('.format-chip').on('click', (e) => {
             const $chip = $(e.currentTarget);
@@ -670,8 +638,8 @@ export class MapCreator {
             // Layer" always had (MapboxAPI._createOverpassLayer), just live
             // now instead of only appearing once actually added.
             $('#overpass-status').html(withPreview
-                ? `<span style="color:#a7f3d0;">✓ Previewing live on the map. Click <strong>Add Map Layer</strong> to keep it, or <strong>Cancel</strong> to discard.</span>`
-                : `<span style="color:#a7f3d0;">✓ Query loaded. Click <strong>Load Data →</strong> to preview, or <strong>Add Map Layer</strong> to add it.</span>`);
+                ? `<span style="color:#a7f3d0;">✓ Previewing live on the map. Click <strong>Save Layer</strong> to keep it, or <strong>Cancel</strong> to discard.</span>`
+                : `<span style="color:#a7f3d0;">✓ Query loaded. Click <strong>Load Data →</strong> to preview, or <strong>Save Layer</strong> to add it.</span>`);
         } catch (error) {
             console.error('[MapCreator] Overpass import failed:', error);
             $('#overpass-status').html(`<span style="color:#fca5a5;">${error.message}</span>`);
@@ -693,16 +661,14 @@ export class MapCreator {
         // (resetting a service tree the user has already started browsing).
         clearTimeout(this._urlInputTimeout);
         const url = $('#url-input').val().trim();
-        const fileInput = $('#file-input')[0];
-        const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
+        const hasFile = this._loadedFiles.length > 0;
         const overpassText = $('#overpass-query').val().trim();
         const overpassSectionOpen = !$('#overpass-section').hasClass('hidden');
 
         if (url) {
             this.handleURLImport();
         } else if (hasFile) {
-            // Re-run the file the user is currently on, not the start of the queue.
-            this.processFile(this._fileQueue[this._fileQueueIndex] || fileInput.files[0]);
+            this.loadFiles(this._loadedFiles, { replace: true });
         } else if (overpassSectionOpen && overpassText) {
             this.handleOverpassImport(overpassText, { withPreview: true });
         } else {
@@ -1043,7 +1009,7 @@ export class MapCreator {
         }
         $('#layer-type').val('atlas');
 
-        // Enable the Add Map Layer button
+        // Enable the Save Layer button
         $('#add-to-map-btn').prop('disabled', false);
 
         // Handle layer selection changes
@@ -1303,94 +1269,83 @@ export class MapCreator {
         this.dataCard.refresh();
     }
 
-    async handleFileUpload(event) {
-        const files = Array.from(event.target.files || []);
-        if (files.length === 0) return;
-
-        this._fileQueue = files;
-        this._fileQueueIndex = 0;
-        this.resetLayerSettings();
-
-        await this.processFile(this._fileQueue[0]);
+    _onFilesPicked(files) {
+        if (!files.length) return;
+        if (!this._appendsFiles()) {
+            $('#url-input').val('');
+            $('#clear-url-btn').addClass('hidden');
+            $('#url-validation').html('');
+            $('.format-chip').removeClass('active-format');
+            this.hideGoogleSheetSelector();
+        }
+        this.loadFiles(files);
     }
 
-    async processFile(file) {
-        if (!file) return;
+    // Files uploaded into a layer that already holds features of its own add to them.
+    _appendsFiles() {
+        return this.features.editable && !!this.features.collection?.features.length;
+    }
 
-        this.showSelectedFile(file.name);
+    /**
+     * Read files into the layer: appended to the features it holds, or else as
+     * its data (several files at once become one layer).
+     */
+    async loadFiles(files, { replace = false } = {}) {
+        if (!files.length) return;
+        const appending = !replace && this._appendsFiles();
+        this.setLoadingState('loading');
+        const features = [];
+        for (const file of files) {
+            try {
+                const geojson = await this.readFileAsGeoJSON(file);
+                features.push(...(geojson.type === 'Feature' ? [geojson] : geojson.features || []));
+            } catch (error) {
+                alert(`${file.name}: ${error.message}`);
+                console.error(error);
+            }
+        }
+        if (!features.length) {
+            this.setLoadingState('error');
+            return;
+        }
+        if (appending) {
+            this.features.append(features);
+            this.setLoadingState('default');
+            return;
+        }
+        this._loadedFiles = files;
+        this.showSelectedFiles(files);
+        this.processGeoJSON({ type: 'FeatureCollection', features }, files[0].name);
+    }
 
+    async readFileAsGeoJSON(file) {
         const ext = file.name.split('.').pop().toLowerCase();
 
         if (ext === 'gpkg') {
-            this.setLoadingState('loading');
-            try {
-                const geojson = await this.parseGPKGStreaming(file, (count) => {
-                    const spin = '<svg class="animate-spin h-4 w-4 inline" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
-                    $('#load-data-btn').html(`<span class="inline-flex items-center gap-2">${spin} Reading… ${count.toLocaleString()} features</span>`);
-                });
-                this.processGeoJSON(geojson, file.name);
-            } catch (error) {
-                alert('GeoPackage error: ' + error.message);
-                console.error(error);
-                this.setLoadingState('error');
-            }
-            return;
+            return this.parseGPKGStreaming(file, (count) => {
+                $('#load-data-btn').html(`<span class="inline-flex items-center gap-2"><sl-spinner></sl-spinner> Reading… ${count.toLocaleString()} features</span>`);
+            });
         }
-
-        if (ext === 'zip') {
-            this.setLoadingState('loading');
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                try {
-                    const geojson = await SourceResolver.parseShapefile(e.target.result);
-                    this.processGeoJSON(geojson, file.name);
-                } catch (error) {
-                    alert('Shapefile error: ' + error.message);
-                    console.error(error);
-                    this.setLoadingState('error');
-                }
-            };
-            reader.readAsArrayBuffer(file);
-            return;
-        }
+        if (ext === 'zip') return SourceResolver.parseShapefile(await file.arrayBuffer());
 
         if (file.size > 5 * 1024 * 1024) {
-            alert('Warning: Large file may cause performance issues');
+            alert(`Warning: ${formatFileSize(file.size)} file. To improve performance, convert to vector tiles (.pmtiles, .pbf or .mvt), e.g. with tippecanoe`);
         }
 
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const content = e.target.result;
+        const content = await file.text();
+        if (ext === 'kml') return KMLConverter.kmlToGeoJson(content);
+        if (ext === 'csv') {
+            const rows = DataUtils.parseCSV(content);
+            if (!rows || rows.length === 0) throw new Error('CSV file is empty');
+            const geojson = GeoUtils.rowsToGeoJSON(rows);
+            if (!geojson) throw new Error('Could not find lat/lng columns in CSV');
+            return geojson;
+        }
+        if (ext === 'geojsonl' || ext === 'ndjson' || ext === 'jsonl') return SourceResolver.parseGeoJSONL(content);
 
-                let geojson;
-                if (ext === 'kml') {
-                    geojson = await KMLConverter.kmlToGeoJson(content);
-                } else if (ext === 'csv') {
-                    const rows = DataUtils.parseCSV(content);
-                    if (!rows || rows.length === 0) {
-                        throw new Error('CSV file is empty');
-                    }
-                    geojson = GeoUtils.rowsToGeoJSON(rows);
-                    if (!geojson) {
-                        throw new Error('Could not find lat/lng columns in CSV');
-                    }
-                } else if (ext === 'geojsonl' || ext === 'ndjson' || ext === 'jsonl') {
-                    geojson = SourceResolver.parseGeoJSONL(content);
-                } else {
-                    geojson = JSON.parse(content);
-                    if (!geojson.type || (geojson.type !== 'FeatureCollection' && geojson.type !== 'Feature')) {
-                        throw new Error('Invalid GeoJSON format');
-                    }
-                }
-
-                this.processGeoJSON(geojson, file.name);
-            } catch (error) {
-                alert('Parse error: ' + error.message);
-                console.error(error);
-            }
-        };
-        reader.readAsText(file);
+        const geojson = JSON.parse(content);
+        if (geojson.type !== 'FeatureCollection' && geojson.type !== 'Feature') throw new Error('Invalid GeoJSON format');
+        return geojson;
     }
 
     previewOnGeojsonIO() {
@@ -2271,12 +2226,12 @@ export class MapCreator {
     // Builds the live-preview config for geojson/csv/vector/tms/wms/cog/overpass
     // layer types and posts it to the parent to be added as a REAL layer (see
     // MapBrowserControl._handleCreatorLivePreview) — live previewing one of
-    // these is now equivalent to having already clicked "Add Map Layer": it's
+    // these is now equivalent to having already clicked "Save Layer": it's
     // a real, inspectable layer and the URL updates to match. 'atlas' and
     // 'osm' aren't covered here (see addToMap()) — atlas imports go through
     // their own load-atlas/add-custom-layer flow, and OSM's embedded geometry
     // is rendered via the older lightweight creator-preview path instead.
-    sendPreview() {
+    async sendPreview() {
         let config = null;
         let bbox = null;
         let fitBounds = false;
@@ -2285,9 +2240,14 @@ export class MapCreator {
             const geojson = this.currentLayerType === 'geojson' ? this.currentData : this.currentData?.geojson;
             // A layer being drawn is shown from its first feature to its last one deleted.
             if (!geojson || !geojson.features || (geojson.features.length === 0 && !this.features.editable)) return;
+            // A new layer is on the map from its first feature, and off it again once it has none.
+            if (geojson.features.length === 0 && this.edit.isNew) {
+                window.parent.postMessage({ type: 'creator-clear-preview' }, '*');
+                return;
+            }
 
             config = this.currentLayerType === 'geojson' ? this.generateLayerConfig() : this.generateCSVLayerConfig();
-            this._persistLocalGeoJSON(config);
+            await this._persistLocalGeoJSON(config);
 
             bbox = this.calculateBBox(geojson);
             fitBounds = !this._previewFitted;
@@ -2326,8 +2286,8 @@ export class MapCreator {
             config,
             bbox,
             fitBounds,
-            // Editing: the preview replaces this layer rather than adding another.
-            editOriginalId: this.edit.active ? this.edit.originalId : undefined
+            // Editing: the preview replaces this layer rather than adding another (a new one has none to replace).
+            editOriginalId: this.edit.active && !this.edit.isNew ? this.edit.originalId : undefined
         }, '*');
     }
 
@@ -2336,17 +2296,36 @@ export class MapCreator {
     // time too, since the live-added draft must carry the same
     // dataSource:'localStorage' config a finalized layer would (rather than
     // embedding the full geojson inline, which would bloat the shareable URL).
-    _persistLocalGeoJSON(config) {
+    async _persistLocalGeoJSON(config) {
         const inline = !!config.data && !config.url;
         if (config.dataSource !== 'localStorage' && !inline) return;
         const geojsonData = this.currentLayerType === 'csv' ? this.currentData.geojson : this.currentData;
+        const previous = this._storedLocal;
+        if (previous && previous.id === config.id && previous.data === geojsonData) return;
         try {
-            LayerConfigGenerator.storeGeoJSONData(config.id, geojsonData);
+            await LayerConfigGenerator.storeGeoJSONData(config.id, geojsonData);
+            this._storedLocal = { id: config.id, data: geojsonData };
+            if (previous && previous.id !== config.id && previous.id !== this.edit.originalId) {
+                LayerConfigGenerator.deleteGeoJSONData(previous.id);
+            }
         } catch (e) {
             if (inline) return;
+            if (config.url) {
+                delete config.dataSource;
+                return;
+            }
+            if (JSON.stringify(geojsonData).length > INLINE_GEOJSON_MAX) {
+                if (!this._storeFailureShown) alert('This data could not be stored in this browser, so the layer will not reload with the page.');
+                this._storeFailureShown = true;
+                return;
+            }
             delete config.dataSource;
-            if (!config.url) config.geojson = geojsonData;
+            config.geojson = geojsonData;
         }
+    }
+
+    keepStoredData() {
+        this._storedLocal = null;
     }
 
     clearPreview() {
@@ -2557,13 +2536,16 @@ export class MapCreator {
         return base ? `${base}-${random}` : `layer-${random}`;
     }
 
-    addToMap() {
+    async addToMap() {
         console.log('[MapCreator] addToMap called, layer type:', this.currentLayerType);
 
-        if (this.edit.active) {
+        // A new layer that imports an atlas or is added in one go (OSM, ...) is added
+        // as such; everything else is the edit's draft, saved.
+        if (this.edit.active && !(this.edit.isNew && !this._isLivePreviewed())) {
             this.edit.apply();
             return;
         }
+        this.edit.stop();
 
         if (this.currentLayerType === 'atlas') {
             const selectedValue = $('#atlas-layer-select').val();
@@ -2605,24 +2587,25 @@ export class MapCreator {
         // .handleCreatorLivePreview) — flush any pending debounced update so
         // the draft reflects the latest edits, then just finalize it instead
         // of adding it a second time.
-        const isLivePreviewed = this.currentLayerType === 'geojson' || this.currentLayerType === 'csv' ||
-            (['vector', 'tms', 'wms', 'cog'].includes(this.currentData?.type) && !!this.currentData?.url) ||
-            (this.currentLayerType !== 'geojson' && ['arcgis', 'geojson'].includes(this.currentData?.type) && !!this.currentData?.url) ||
-            (this.currentData?.type === 'overpass' && !!this.currentData?.query);
-
-        if (isLivePreviewed) {
+        if (this._isLivePreviewed()) {
             clearTimeout(this._previewTimer);
-            this.sendPreview();
-
-            const hasMore = this.hasMoreQueuedFiles();
-            window.parent.postMessage({ type: 'finalize-creator-layer', keepOpen: hasMore }, '*');
-            if (hasMore) this.advanceFileQueue();
+            await this.sendPreview();
+            this.keepStoredData();
+            window.parent.postMessage({ type: 'finalize-creator-layer' }, '*');
             return;
         }
 
         // Everything else (OSM 'static' mode, ...) isn't live
         // previewed — build its config and add it in one shot, as before.
         this._sendAddCustomLayer(this.currentData);
+    }
+
+    _isLivePreviewed() {
+        if (this.currentLayerType === 'atlas' || (this.currentLayerType === 'osm' && this._dataMode === 'dynamic')) return false;
+        return this.currentLayerType === 'geojson' || this.currentLayerType === 'csv' ||
+            (['vector', 'tms', 'wms', 'cog'].includes(this.currentData?.type) && !!this.currentData?.url) ||
+            (this.currentLayerType !== 'geojson' && ['arcgis', 'geojson'].includes(this.currentData?.type) && !!this.currentData?.url) ||
+            (this.currentData?.type === 'overpass' && !!this.currentData?.query);
     }
 
     _sendAddCustomLayer(config) {
@@ -2633,22 +2616,8 @@ export class MapCreator {
             return;
         }
 
-        // Keep the creator open while files from the same selection are still
-        // queued, so the user configures each one in turn instead of having to
-        // reopen the creator per file.
-        const hasMore = this.hasMoreQueuedFiles();
-
-        console.log('[MapCreator] Sending add-custom-layer message to parent');
         this.clearPreview();
-        window.parent.postMessage({
-            type: 'add-custom-layer',
-            config: config,
-            keepOpen: hasMore
-        }, '*');
-
-        if (hasMore) {
-            this.advanceFileQueue();
-        }
+        window.parent.postMessage({ type: 'add-custom-layer', config }, '*');
     }
 
     returnToBrowser() {
@@ -2667,16 +2636,6 @@ export class MapCreator {
         this.clearPreview();
         window.parent.postMessage({
             type: 'close-browser'
-        }, '*');
-    }
-
-    // Turns off every currently active map except the basemap — mirrors the
-    // "Hide all maps" atlas-header button (see MapBrowserControl.hideAllLayers)
-    // so a layer being tested here doesn't stay buried under everything else
-    // already on the map.
-    removeOtherMaps() {
-        window.parent.postMessage({
-            type: 'remove-other-maps'
         }, '*');
     }
 

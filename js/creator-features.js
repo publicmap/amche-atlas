@@ -1,8 +1,8 @@
 /**
  * The layer editor's Features section (map-creator.html): a layer's features
  * as a table (js/creator-feature-table.js), with drawing on the map
- * (js/feature-draw.js) for a layer whose data the editor holds. "Add Map" and
- * the Data card's Clear start one with no data; each drawn feature gets `fid`,
+ * (js/feature-draw.js) for a layer whose data the editor holds. A new layer
+ * (js/creator-edit-mode.js) and the Data card's Clear start one with no data; each drawn feature gets `fid`,
  * `$rowid` and `name` and a key / value form (js/creator-feature-form.js).
  * Data read from a link is read only, with "Make an editable copy"
  * (js/creator-feature-copy.js); Shareable is js/creator-feature-share.js.
@@ -15,11 +15,10 @@ import {
     emptyCollection, defaultProperties, addFeature, removeFeature, removeColumn, addColumn,
     setProperty, setProperties, parseCellValue, compactCollection, geometryBbox, roundGeometry
 } from './feature-table-data.js';
-import { SOURCE_KEYS } from './creator-edit-mode.js';
+import { SOURCE_KEYS, DRAWN_SOURCE, UNTITLED } from './creator-edit-mode.js';
 import { makeEditableCopy, COPY_SOURCE } from './creator-feature-copy.js';
 
-export const DRAWN_SOURCE = 'drawn';
-export const UNTITLED = 'Untitled map';
+export { DRAWN_SOURCE, UNTITLED };
 
 const FORM_KEYS = new Set(['id', 'title', 'type', 'description', 'attribution', 'license', 'bbox', 'initiallyChecked', 'inspect', 'shareable']);
 const HINTS = [
@@ -126,18 +125,6 @@ export class CreatorFeatures {
 
     // -- starting points ---------------------------------------------------------
 
-    /** "Add Map": a new layer with no data, drawing on. */
-    startBlank() {
-        const creator = this.creator;
-        $('#layer-title').val(UNTITLED);
-        $('#layer-id').val(creator.generateId(UNTITLED));
-        creator.processGeoJSON(emptyCollection(), DRAWN_SOURCE);
-        creator._previewFitted = true;
-        $('#add-to-map-btn').prop('disabled', true);
-        this.setDrawing(true);
-        creator.steps.refresh();
-    }
-
     /** Clear in the Data card: drop the layer's data source and keep its description and style. */
     clearSource() {
         const creator = this.creator;
@@ -148,9 +135,8 @@ export class CreatorFeatures {
         creator.service.reset();
         creator.hideOverpassSection();
         $('#url-input').val('');
-        $('#clear-url-btn, #selected-file-info, #edit-unsupported-note, #edit-style-choice').addClass('hidden');
-        const fileInput = $('#file-input')[0];
-        if (fileInput) fileInput.value = '';
+        $('#clear-url-btn, #edit-unsupported-note, #edit-style-choice').addClass('hidden');
+        creator.clearSelectedFile();
         creator._resolveOptions = null;
         if (creator.edit.active) {
             creator.edit.source = { kind: 'local' };
@@ -188,6 +174,17 @@ export class CreatorFeatures {
 
     // -- edits -----------------------------------------------------------------------
 
+    /** Files uploaded into a layer that already holds features: theirs are added to its own. */
+    append(features) {
+        const collection = this.collection;
+        if (!this.editable || !collection) return;
+        features.forEach(feature => {
+            if (feature?.geometry) addFeature(collection, feature.geometry, feature.properties || {});
+        });
+        this.form.close();
+        this.changed();
+    }
+
     _onDrawn(geometry) {
         const collection = this.collection;
         if (!this.editable || !geometry || !collection) return;
@@ -207,7 +204,7 @@ export class CreatorFeatures {
         creator.populateLabelFieldOptions(fields);
         creator.updateDataPreview(collection);
         creator.showStyleSection(collection);
-        if (!creator.edit.active) $('#add-to-map-btn').prop('disabled', !collection.features.length);
+        if (this.isDrawn) $('#add-to-map-btn').prop('disabled', !collection.features.length);
         clearTimeout(this._timer);
         if (debounce) this._timer = setTimeout(() => creator.updateConfigPreview(), 300);
         else creator.updateConfigPreview();

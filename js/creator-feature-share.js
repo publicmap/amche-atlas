@@ -19,8 +19,9 @@ import { urlUsage, URL_MAX_LENGTH } from './layer-customizations.js';
 const RAW_SIZE_LIMIT = 200000;
 const TIP = 'This layer\'s features ride in the map link, so anyone you share it with sees them. They are also kept in this browser.';
 const LINKED_TIP = 'Anyone with the map link sees this layer: the link carries where its data comes from and its settings.';
-const LOCAL_TIP = 'This layer\'s features are kept in this browser only. Edit the layer to put them in the map link.';
-const TOO_LARGE_TIP = 'This layer\'s features are too large for the map link, so they are kept in this browser only.';
+const GIST_HINT = ' To share it, save it to a GitHub gist: its link then becomes the data source.';
+const LOCAL_TIP = 'This layer\'s features are kept in this browser only. Edit the layer to put them in the map link.' + GIST_HINT;
+const TOO_LARGE_TIP = 'This layer\'s features are too large for the map link, so they are kept in this browser only.' + GIST_HINT;
 
 const plural = (n, word) => `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
 
@@ -69,8 +70,9 @@ export class FeatureShare {
         const total = linkLengthWith(config, collection, usage);
         const count = collection?.features?.length || 0;
         this.canShare = total <= URL_MAX_LENGTH;
-        const size = Number.isFinite(total) ? `about ${total.toLocaleString()}` : 'far more than';
-        this.note = `Too large for the map link: with ${plural(count, 'feature')} it would be ${size} characters, over the ${URL_MAX_LENGTH.toLocaleString()} that browsers and servers accept. The features are kept in this browser only.`;
+        const limit = `${URL_MAX_LENGTH.toLocaleString()} characters that browsers and servers accept`;
+        const size = Number.isFinite(total) ? `about ${total.toLocaleString()} characters, over the ${limit}` : `far over the ${limit}`;
+        this.note = `Too large for the map link: with ${plural(count, 'feature')} it would be ${size}. The features are kept in this browser only, and Shareable can't be turned on.${GIST_HINT}`;
 
         if (this.shareable && this.canShare) config.data = compactCollection(collection);
         else config.dataSource = 'localStorage';
@@ -98,5 +100,7 @@ export class FeatureShare {
         $('#layer-shareable').prop('checked', checked).prop('disabled', disabled);
         $('#layer-share-tip').attr('content', tip);
         $('#layer-share-note').text(local && !checked ? 'Only in this browser' : '');
+        $('#save-to-gist-btn').toggle(local && !checked && editing);
+        $('#save-to-file-btn').toggle(local && editing && !!holdsData);
     }
 }

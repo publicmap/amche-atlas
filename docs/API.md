@@ -415,7 +415,7 @@ Restore export (print/image) settings serialized as a JSON object. Set automatic
 
 Compact encoding of the locations on the map (the [`locations`](#reserved-layer-ids) layer) — each marker its own `<id>(...)` call, comma-separated, since every marker now has a short id (see below). Set automatically when you select features, drop a marker, or share the URL.
 
-**Format:** `?markers=<id>(<lng>,<lat>[,<name>[,<description>]][,@<dx>x<dy>][,@pin][,@c<rrggbb>]),<next marker>...`
+**Format:** `?markers=<id>(<lng>,<lat>[,<name>[,<description>]][,@<dx>x<dy>][,@pin][,@c<rrggbb[aa]>]),<next marker>...`
 
 **Example:**
 ```
@@ -436,7 +436,7 @@ A marker dropped by clicking the map is numbered serially ("1", "2", ...); one c
 
 **Pinned:** the pin toggle beside a selected marker's move handle keeps its panel open — feature details and all — regardless of focus or hover, instead of collapsing to a bare id chip the moment you click away from it. That state is written as the literal token `@pin`, present only once a marker has been pinned. Pinning also saves the marker's id, the same as naming it, so it survives being replaced the next time you click elsewhere on the map. A pinned marker's expanded panel is also what map export (`map-export.html`) captures: the export overlay clones each marker exactly as it currently renders on screen, so a pinned marker's feature details export just as shown, with no extra step needed to expand them first.
 
-**Pin colour:** the pin at the start of a location panel's header is the location's pin on the map, in its colour, followed by its label. Clicking it opens a colour picker; the pin on the map follows as you pick, and the colour is kept as `@c<rrggbb>` (the hex colour without its `#`, which a link would have to escape). Picking a colour saves the location, as pinning does. Without one a location is orange.
+**Pin colour:** the pin at the start of a location panel's header is the location's pin on the map, in its colour, followed by its label. Clicking it opens a colour picker with an opacity slider; the pin on the map follows as you pick, and the colour is kept as `@c<rrggbb>` (the hex colour without its `#`, which a link would have to escape), or `@c<rrggbbaa>` for a see-through pin, the last two digits being its opacity (`@ce3201780` is half see-through). Picking a colour saves the location, as pinning does. Without one a location is orange.
 
 **Restoration behavior:** on load, once a marker's layers are ready, its location is re-queried exactly as if the user clicked there — this recovers the same selected features without the URL needing to spell out which `layerId`/`featureId` pairs they were (that would just duplicate what the location already implies, and is what `?selected` used to carry — see above).
 
@@ -1663,9 +1663,9 @@ The editor reads top to bottom in the order a layer is built:
 4. **Features** - the feature table and drawing, then **Feature popup** (feature id, name and the fields shown on click) and the raw **GeoJSON**, both collapsed.
 5. **Style** - the legend; **Edit** opens the style editor.
 
-Each step shows only once it applies: a new layer starts with just its data source (and drawing), Filter waits for a feature, rasters have no Filter or Features, and while viewing a layer only its data source, any filter and its style are listed. The title bar looks the same viewing and editing: one amber primary action (Edit Layer, Save Layer, Add Map Layer) and outlined secondary ones.
+Each step shows only once it applies: a new layer starts with just its data source (and drawing), Filter waits for a feature, rasters have no Filter or Features, and while viewing a layer only its data source, any filter and its style are listed. The title bar looks the same viewing and editing: one amber primary action (Edit Layer, Save Layer) and outlined secondary ones.
 
-Adding a layer and editing one are the same screen, `map-creator.html`. A new layer starts empty: choose a data source, then customize it. Editing opens the editor on an existing layer, so everything the layer already carries is filled in: the data source (loaded again from its URL, query or stored data), title, description and attribution, the inspect fields (feature id, name and the fields shown), the style, filters and every other setting, in the Configuration JSON. The layer stack's edit action and the attribution bar's edit link all open it.
+Adding a layer and editing one are the same screen, `map-creator.html`. **Add Map** (and a data link from search, or files dropped on the map) opens it straight into an edit of a blank "Untitled map" with drawing on: draw on the map, paste a link or upload files, then customize it. Until **Save Layer** the new layer is only a preview, and **×** discards it. Editing opens the editor on an existing layer, so everything the layer already carries is filled in: the data source (loaded again from its URL, query or stored data), title, description and attribution, the inspect fields (feature id, name and the fields shown), the style, filters and every other setting, in the Configuration JSON. The layer stack's edit action and the attribution bar's edit link all open it.
 
 - **Live preview.** While editing, the layer on the map is replaced by a live preview of your changes, in the same place in the stack. **Save Layer** keeps it (the URL then carries the edited layer, not the original reference); the panel returns to view mode. **Undo** and **Redo** step through the changes made so far, and the **×** cancels the edit: the original comes back untouched.
 - **View and edit modes.** An existing layer opens read-only; the title bar starts with `#<layer-id>` (a link to the current scene with this layer open) and an **Edit Layer** button. Only in edit mode do the thumbnail (style), the data card (data source) and the description open for editing.
@@ -1674,6 +1674,8 @@ Adding a layer and editing one are the same screen, `map-creator.html`. A new la
   - **Keep current styling** (default): the layer's style, filters, zoom range and other settings stay. Inspect settings narrow to the fields the new data actually has, and attribution follows the new source.
   - **Restyle layer**: the style a new layer would get from that data: from its geometry, the service's own styling when it has one (ArcGIS), and the atlas defaults in `config/_defaults.json`, which sit under every style.
   Switching between the two re-applies the new source each way.
+- **Uploading files.** Several files picked at once become one layer. Files uploaded into a layer that already holds features of its own (drawn, uploaded, an editable copy) add their features to it; a layer read from a link has its source replaced.
+- **Save to file.** Beside **Save to GitHub gist**, for a layer whose features the editor holds: saves them as GeoJSON on this computer. Where the browser has the File System Access API (Chrome, Edge), a single `.geojson` file opened with Upload Files is written back in place, any other layer is saved to a file chosen the first time and to that file after, and the file stays with the layer in this browser across reloads. Other browsers download a copy.
 - **What can be edited.** Layers with a URL, an Overpass query, or stored or inline GeoJSON have a source to reload. A layer with no data source of its own (a base-map `style` layer, a `layer-group`, `wmts`, `img`) opens with its settings editable as JSON.
 
 #### Adding ArcGIS REST and WFS layers in the layer creator

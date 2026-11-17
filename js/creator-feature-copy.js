@@ -37,7 +37,7 @@ export function copyConfig(config, id) {
 }
 
 /** @param {import('./creator-features.js').CreatorFeatures} features */
-export function makeEditableCopy(features) {
+export async function makeEditableCopy(features) {
     const creator = features.creator;
     const collection = features.collection;
     if (!collection) return;
@@ -55,7 +55,7 @@ export function makeEditableCopy(features) {
     const copy = copyConfig(config, uniqueId(`${config.id || 'layer'}-copy`));
     features.attachData(copy, geojson);
     try {
-        LayerConfigGenerator.storeGeoJSONData(copy.id, geojson);
+        await LayerConfigGenerator.storeGeoJSONData(copy.id, geojson);
     } catch (error) {
         if (copy.dataSource === 'localStorage') {
             alert('This layer\'s data is too large to copy into this browser.');

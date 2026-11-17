@@ -34,11 +34,11 @@
         // alongside the URLs below.
         window.amche.RENDERER_ASSETS = {
             mapbox: {
-                version: '3.33.0-rc.1',
+                version: '3.35.0',
                 homepage: 'https://docs.mapbox.com/mapbox-gl-js/guides/',
                 releases: 'https://github.com/mapbox/mapbox-gl-js/releases/tag/v',
-                js: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v3.33.0-rc.1/dist/mapbox-gl.min.js',
-                css: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v3.33.0-rc.1/dist/mapbox-gl.min.css'
+                js: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v3.35.0/dist/mapbox-gl.min.js',
+                css: 'https://cdn.jsdelivr.net/npm/mapbox-gl@v3.35.0/dist/mapbox-gl.min.css'
             },
             maplibre: {
                 version: '6.15.0',
@@ -672,7 +672,7 @@
             margin: 0;
         }
 
-        .splash-credits p + p {
+        .splash-credits p+p {
             margin-top: 6px;
         }
 
@@ -962,7 +962,8 @@
         </script>
         <div class="splash-card" role="dialog" aria-label="amche.in">
             <!-- Close Button (shown only when manually opened) -->
-            <button id="loading-overlay-close" class="splash-close" aria-label="Close" style="display: none;">&times;</button>
+            <button id="loading-overlay-close" class="splash-close" aria-label="Close"
+                style="display: none;">&times;</button>
 
             <div class="splash-art">
                 <div class="splash-art-image"></div>
@@ -971,9 +972,10 @@
                         <img id="splash-logo-img" class="splash-logo" src="assets/img/icon-192x192.png" alt="amche.in">
                         <div class="splash-brand-text">
                             <div class="splash-brand-row">
-                                <a href="/" id="splash-brand-link" class="splash-brand-link" title="Reset to the home map">amche.in</a>
-                                <a href="https://github.com/publicmap/amche-atlas/commits/dev" target="_blank" id="splash-dev-badge"
-                                    class="splash-dev-badge" style="display: none;">DEV</a>
+                                <a href="/" id="splash-brand-link" class="splash-brand-link"
+                                    title="Reset to the home map">amche.in</a>
+                                <a href="https://github.com/publicmap/amche-atlas/commits/dev" target="_blank"
+                                    id="splash-dev-badge" class="splash-dev-badge" style="display: none;">DEV</a>
                             </div>
                             <!-- What the name means; hidden for an atlas's own site.brand (js/splash-screen-manager.js) -->
                             <div id="splash-meaning" class="splash-meaning">
@@ -984,7 +986,8 @@
                         </div>
                     </div>
                     <p id="splash-description" class="splash-description">Amche Atlas is an opensource geospatial data
-                        explorer for the web built by citizens from Goa <span role="img" aria-label="India">🇮🇳</span></p>
+                        explorer for the web built by citizens from Goa <span role="img" aria-label="India">🇮🇳</span>
+                    </p>
                     <div id="splash-links" class="splash-links">
                         <a href="https://github.com/publicmap/amche-goa" target="_blank">
                             <svg fill="currentColor" viewBox="0 0 24 24">
@@ -1051,7 +1054,8 @@
                         <div class="splash-spinner"></div>
                         <span>Loading map atlas of</span>
                         <span id="splash-atlas-name" class="splash-atlas-name">Map</span>
-                        <select id="splash-atlas-dropdown" class="splash-atlas-dropdown" style="display: none;"></select>
+                        <select id="splash-atlas-dropdown" class="splash-atlas-dropdown"
+                            style="display: none;"></select>
                         <button id="splash-change-atlas-btn" class="splash-change-btn" type="button">Change</button>
                     </div>
                 </div>
@@ -1554,7 +1558,8 @@
         <div id="nav-menu-container"
             style="position: absolute; top: 0; left: 0; width: 360px; max-width: 100%; height: 100%; background: #1f2937; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); overflow-y: auto;">
             <!-- Hero Header: opens the splash card (description, credits, source code, privacy) -->
-            <div id="nav-menu-hero" class="splash-art nav-menu-hero" role="button" tabindex="0" title="Click for project details">
+            <div id="nav-menu-hero" class="splash-art nav-menu-hero" role="button" tabindex="0"
+                title="Click for project details">
                 <div class="splash-art-image"></div>
                 <div class="splash-art-content">
                     <div class="splash-brand">

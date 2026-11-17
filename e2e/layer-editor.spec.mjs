@@ -78,7 +78,6 @@ test('opens the editor on the layer with its source, details, inspect fields and
     const frame = await openEditor(page);
 
     await expect(frame.locator('#add-to-map-btn')).toHaveText('Save Layer');
-    await expect(frame.locator('#remove-other-maps-btn')).toBeHidden();
     expect(await frame.locator('#layer-title').inputValue()).toBe('Edit Test');
     expect(await frame.locator('#layer-description').inputValue()).toBe('A layer to edit');
     expect(await frame.locator('#layer-attribution').inputValue()).toBe('src.example.org');
@@ -151,11 +150,42 @@ test('× mid-edit puts the original layer back, unchanged and in place', async (
     await expect.poll(async () => { const t = await indexOf(page, 'edit-test'); return t > 0 && (await indexOf(page, 'edit-other')) < t; }, { timeout: 20000 }).toBe(true);
 });
 
+test('files uploaded into a layer that holds features are added to them', async ({ page }) => {
+    await boot(page);
+    const frame = await openEditor(page);
+    await frame.locator('#file-input').setInputFiles(writeGeoJSON([{ id: 3, name: 'C', kind: 'park' }]));
+    await expect(frame.locator('#features-count')).toHaveText('(3)', { timeout: 30000 });
+    await expect(frame.locator('#edit-style-choice')).toBeHidden();
+    expect((await configOf(frame)).style?.['fill-color']).toBe('#ff0000');
+});
+
+test('Add Map opens a blank layer in edit mode; several files make one layer, and × discards it', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(() => window.browserControl.openCreator());
+    const frame = await creatorFrame(page);
+    await expect(frame.locator('#layer-title')).toHaveValue('Untitled map');
+    await expect(frame.locator('#add-to-map-btn')).toHaveText('Save Layer');
+    await expect(frame.locator('#edit-history')).toBeVisible();
+    await expect(frame.locator('#features-draw-btn')).toHaveClass(/is-on/);
+    expect(await page.evaluate(() => window.browserControl._creatorDraftLayerId)).toBeNull();
+
+    await frame.locator('#file-input').setInputFiles([writeGeoJSON([{ id: 1, name: 'A' }]), writeGeoJSON([{ id: 2, name: 'B' }, { id: 3, name: 'C' }])]);
+    await expect(frame.locator('#features-count')).toHaveText('(3)', { timeout: 30000 });
+    await expect.poll(() => page.evaluate(() => window.browserControl._creatorDraftLayerId), { timeout: 20000 }).not.toBeNull();
+    const id = await page.evaluate(() => window.browserControl._creatorDraftLayerId);
+    expect(await groupsWith(page, id)).toBe(1);
+
+    await frame.locator('#close-btn').click();
+    await expect.poll(() => groupsWith(page, id), { timeout: 20000 }).toBe(0);
+});
+
 test('replacing the source offers to keep the styling or restyle', async ({ page }) => {
     await boot(page);
     const frame = await openEditor(page);
     await expect(frame.locator('#edit-style-choice')).toBeHidden();
 
+    // Files uploaded into a layer that holds features are appended, so the source is cleared first.
+    await frame.locator('#data-card-clear').click();
     await frame.locator('#file-input').setInputFiles(writeGeoJSON([{ id: 1, name: 'N', area: 40 }, { id: 2, name: 'M', area: 60 }]));
     await expect(frame.locator('#edit-style-choice')).toBeVisible({ timeout: 30000 });
 
@@ -489,9 +519,8 @@ test('the Data card shows the source as a link and layer type, and expands to ed
 
 test('"supported formats" opens help cards with an icon, description and example for each', async ({ page }) => {
     await boot(page);
-    await page.evaluate(() => { window.browserControl.openBrowser(); window.browserControl._switchToCreator(); });
+    await page.evaluate(() => window.browserControl.openCreator());
     const frame = await creatorFrame(page);
-    await frame.locator('body').evaluate(el => el.classList.remove('home-active'));
 
     // A new layer: the card starts expanded, with the hint and no colour-coded chips.
     await expect(frame.locator('#data-card')).not.toHaveClass(/is-collapsed/);

@@ -1015,7 +1015,7 @@ export class MapMarkerManager {
      */
     setMarkerColor(markerId, color, { commit = true } = {}) {
         const markerData = this._markers.get(markerId);
-        if (!markerData || !/^#[0-9a-f]{6}$/i.test(color || '')) return;
+        if (!markerData || !markerRegistry.PIN_COLOR_RE.test(color || '')) return;
         markerData.color = color.toLowerCase();
         this._locationPins?.sync();
         if (!commit) return;
@@ -1031,13 +1031,13 @@ export class MapMarkerManager {
         window.dispatchEvent(new CustomEvent('marker-saved', { detail: { urlId: markerData.urlId } }));
     }
 
-    /** The pin in a panel's header opens a colour picker: the pin follows it live, and keeps the colour on close. */
+    /** The pin in a panel's header opens a colour picker, with opacity: the pin follows it live, and keeps the colour on close. */
     _attachColorPicker(el, markerId) {
-        const input = el.querySelector('.marker-id-color-input');
-        if (!input) return;
-        ['click', 'mousedown', 'pointerdown'].forEach(type => input.addEventListener(type, (e) => e.stopPropagation()));
-        input.addEventListener('input', () => this.setMarkerColor(markerId, input.value, { commit: false }));
-        input.addEventListener('change', () => this.setMarkerColor(markerId, input.value));
+        const picker = el.querySelector('.marker-id-color-input');
+        if (!picker) return;
+        ['click', 'mousedown', 'pointerdown'].forEach(type => picker.addEventListener(type, (e) => e.stopPropagation()));
+        picker.addEventListener('sl-input', () => this.setMarkerColor(markerId, markerRegistry.pinColorValue(picker.value), { commit: false }));
+        picker.addEventListener('sl-change', () => this.setMarkerColor(markerId, markerRegistry.pinColorValue(picker.value)));
     }
 
     /** Puts a restored panel back where the link left it. */
@@ -2153,7 +2153,8 @@ export class MapMarkerManager {
             <div class="marker-menu-header" style="display: flex; align-items: center; gap: 4px; padding: 8px 10px;">
                 <label class="marker-id-color" title="Change the pin colour" style="${color ? `--pin-color: ${color};` : ''}">
                     ${pinSvg(16, 21)}
-                    <input type="color" class="marker-id-color-input" value="${color || '#f97316'}" aria-label="Pin colour">
+                    <sl-color-picker class="marker-id-color-input" size="small" format="hex" opacity hoist no-format-toggle
+                        value="${color || '#f97316'}" label="Pin colour"></sl-color-picker>
                 </label>
                 <button type="button" class="marker-id-badge" title="${this._escapeAttr(badgeLabel)}"
                     style="${labelStyle} display: flex; flex-direction: column; align-items: flex-start; white-space: normal; overflow-wrap: break-word; text-align: left; cursor: pointer;

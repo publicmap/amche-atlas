@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { parseMarkersParam, buildMarkersParam, setAll, get, has, allIds, set, remove } from '../marker-registry.js';
+import { parseMarkersParam, buildMarkersParam, pinColorValue, setAll, get, has, allIds, set, remove } from '../marker-registry.js';
 
 describe('marker-registry', () => {
     describe('parseMarkersParam', () => {
@@ -158,6 +158,19 @@ describe('marker-registry', () => {
         it('round-trips', () => {
             const param = 'h(73.8,15.5,Home,@5x-42,@pin,@ce32017)';
             expect(buildMarkersParam(parseMarkersParam(param))).toBe(param);
+        });
+
+        it('keeps a see-through colour as `@c<rrggbbaa>`', () => {
+            expect(parseMarkersParam('h(73.8,15.5,@ce3201780)')[0].color).toBe('#e3201780');
+            const param = 'h(73.8,15.5,@ce3201780)';
+            expect(buildMarkersParam(parseMarkersParam(param))).toBe(param);
+        });
+
+        it('takes the picker\'s colour as #rrggbb when opaque and #rrggbbaa when not', () => {
+            expect(pinColorValue('#E32017FF')).toBe('#e32017');
+            expect(pinColorValue('#e32017')).toBe('#e32017');
+            expect(pinColorValue('#e3201780')).toBe('#e3201780');
+            expect(pinColorValue('rgb(1, 2, 3)')).toBeNull();
         });
     });
 });

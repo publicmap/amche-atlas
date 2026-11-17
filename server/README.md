@@ -252,3 +252,16 @@ railway status
 ## License
 
 Same as parent project (amche-atlas)
+
+## GitHub sign-in (Save to GitHub gist)
+
+The layer editor's **Save to GitHub gist** saves a layer's local data as a secret gist. The browser signs in with GitHub's OAuth web flow; this server swaps the returned code for a token so the client secret stays here.
+
+- `GET /github/config` - the OAuth app's client id
+- `POST /github/token` - `{ code, redirect_uri }` → `{ access_token }`
+
+Set up:
+
+1. Create an OAuth app at https://github.com/settings/applications/new with **Authorization callback URL** `https://amche.in/` (covers `/github-callback.html` and `/dev/github-callback.html`).
+2. Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` on the Railway service.
+3. For local development, create a second OAuth app with callback URL `http://localhost:4035/` and set `GITHUB_DEV_CLIENT_ID` and `GITHUB_DEV_CLIENT_SECRET`. Requests from `localhost` use this app.

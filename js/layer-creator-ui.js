@@ -2,11 +2,14 @@
  * Layer Creator UI and Configuration Generator.
  *
  * File-upload parsing (KML/CSV/GeoJSON pasted or dropped in directly) and the
- * localStorage bridge for inline-data layers live here. URL-based source
+ * browser-storage bridge (IndexedDB, js/geojson-store.js) for inline-data
+ * layers live here. URL-based source
  * detection/resolution (paste a link, guess its type, fetch+build a config)
  * lives in js/layer-source-resolver.js instead — see handleURLImport() in
  * js/map-creator.js for how the two are used together.
  */
+
+import { putGeoJSON, getGeoJSON, deleteGeoJSON } from './geojson-store.js';
 
 export class LayerConfigGenerator {
     /**
@@ -71,42 +74,38 @@ export class LayerConfigGenerator {
     }
 
     /**
-     * Store GeoJSON data in localStorage
+     * Store GeoJSON data in this browser (IndexedDB)
      * @param {string} id - Unique identifier for the data
      * @param {Object} geojson - GeoJSON data
      */
-    static storeGeoJSONData(id, geojson) {
+    static async storeGeoJSONData(id, geojson) {
         try {
-            const key = `geojson_${id}`;
-            localStorage.setItem(key, JSON.stringify(geojson));
+            await putGeoJSON(id, geojson);
         } catch (error) {
-            console.error('Failed to store GeoJSON in localStorage:', error);
+            console.error('Failed to store GeoJSON in this browser:', error);
             throw new Error('GeoJSON data too large to store locally');
         }
     }
 
     /**
-     * Retrieve GeoJSON data from localStorage
+     * Retrieve GeoJSON data stored in this browser
      * @param {string} id - Unique identifier for the data
-     * @returns {Object|null} GeoJSON data or null if not found
+     * @returns {Promise<Object|null>} GeoJSON data or null if not found
      */
     static retrieveGeoJSONData(id) {
-        try {
-            const key = `geojson_${id}`;
-            const data = localStorage.getItem(key);
-            return data ? JSON.parse(data) : null;
-        } catch (error) {
-            console.error('Failed to retrieve GeoJSON from localStorage:', error);
-            return null;
-        }
+        return getGeoJSON(id);
+    }
+
+    static deleteGeoJSONData(id) {
+        return deleteGeoJSON(id);
     }
 
     /**
-     * Get GeoJSON data for a layer, from localStorage or embedded in config
+     * Get GeoJSON data for a layer, from browser storage or embedded in config
      * @param {Object} layerConfig - Layer configuration
-     * @returns {Object|null} GeoJSON data or null if not available
+     * @returns {Promise<Object|null>} GeoJSON data or null if not available
      */
-    static getLayerGeoJSON(layerConfig) {
+    static async getLayerGeoJSON(layerConfig) {
         if (layerConfig.geojson) {
             return layerConfig.geojson;
         }
@@ -152,7 +151,7 @@ export class LayerConfigGenerator {
         const cleanTitle = fileName.replace(/\.(geojson|json|kml|csv)$/i, '');
         const layerId = 'upload-' + cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now();
 
-        this.storeGeoJSONData(layerId, geojson);
+        await this.storeGeoJSONData(layerId, geojson);
 
         const bbox = this.calculateBBox(geojson);
 
