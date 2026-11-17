@@ -106,15 +106,20 @@ export class MapSearchToggle {
         });
     }
 
-    /** Empties the field and drops its results and preview pins, keeping any selection. */
-    clear() {
+    /**
+     * Empties the field and `?q` and drops its results and preview pins, keeping any selection.
+     * @param {{keepMarker?: boolean}} [options] - keepMarker: leave a picked result's marker on the map
+     */
+    clear({ keepMarker = false } = {}) {
         const control = window.searchControl;
         if (!control || !this.value) return;
         // Emptied first: resetSearchState() redraws Find from the field's value
         control.updateSearchBoxInput('', { silent: true });
         control.resetSearchState();
-        control.removeSearchMarker();
-        control.directionsProvider?.cancel();
+        if (!keepMarker) {
+            control.removeSearchMarker();
+            control.directionsProvider?.cancel();
+        }
         window.urlManager?.updateSearchParam('');
     }
 }

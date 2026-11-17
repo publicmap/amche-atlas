@@ -116,8 +116,9 @@ describe('StylePropertyEditor', () => {
     it('gives a colour property a picker and a number property a bounded box', () => {
         const { editor } = mount(layer);
 
-        const swatch = rowFor(editor, 'fill-color').querySelector('input[type="color"]');
+        const swatch = rowFor(editor, 'fill-color').querySelector('sl-color-picker');
         expect(swatch.value).toBe('#ff0000');
+        expect(swatch.hasAttribute('opacity')).toBe(true);
 
         const number = rowFor(editor, 'fill-opacity').querySelector('input[type="number"]');
         expect(number.value).toBe('0.5');
@@ -156,14 +157,20 @@ describe('StylePropertyEditor', () => {
         expect(editor.getStyle()['fill-opacity']).toBe(0.8);
     });
 
-    it('reports a colour picked from the swatch, keeping any alpha', () => {
+    it('shows a colour with its alpha and reports the alpha picked on the swatch', () => {
         const { editor, onChange } = mount({ type: 'geojson', style: { 'fill-color': 'rgba(255, 0, 0, 0.4)' } });
-        const swatch = rowFor(editor, 'fill-color').querySelector('input[type="color"]');
+        const swatch = rowFor(editor, 'fill-color').querySelector('sl-color-picker');
+        expect(swatch.value).toBe('rgba(255, 0, 0, 0.4)');
 
-        swatch.value = '#0000ff';
-        swatch.dispatchEvent(new Event('input'));
-        expect(editor.getStyle()['fill-color']).toBe('rgba(0, 0, 255, 0.4)');
+        swatch.value = '#0000ff80';
+        swatch.dispatchEvent(new Event('sl-input'));
+        expect(editor.getStyle()['fill-color']).toBe('rgba(0, 0, 255, 0.5)');
+        expect(rowFor(editor, 'fill-color').querySelector('input[type="text"]').value).toBe('rgba(0, 0, 255, 0.5)');
         expect(onChange).toHaveBeenCalled();
+
+        swatch.value = '#00ff00ff';
+        swatch.dispatchEvent(new Event('sl-input'));
+        expect(editor.getStyle()['fill-color']).toBe('#00ff00');
     });
 
     it('rejects a colour Mapbox would not understand', () => {
@@ -187,7 +194,7 @@ describe('StylePropertyEditor', () => {
         expect(JSON.parse(row.querySelector('textarea').value)).toBe('#ff0000');
 
         modeButton(row, 'value').click();
-        expect(rowFor(editor, 'fill-color').querySelector('input[type="color"]')).not.toBeNull();
+        expect(rowFor(editor, 'fill-color').querySelector('sl-color-picker')).not.toBeNull();
     });
 
     it('applies a JSON edit and reports invalid JSON without applying it', () => {

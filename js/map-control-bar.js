@@ -18,8 +18,8 @@
  *   attribution, and the list is every atlas to browse.
  *
  * Esc, the close button, a map click or picking a place result return to
- * explore. The close button and a map click keep the query, so the atlas
- * card reopens Find where it was. `window.mapConsole` is this instance.
+ * explore, which clears the search field and `?q`; a picked result keeps
+ * its marker. `window.mapConsole` is this instance.
  *
  * The bar row keeps the `.map-control-bar-head` / `.map-control-bar-main`
  * classes: map-marker-manager.js docks marker panels beneath the console.
@@ -60,7 +60,7 @@ export class MapControlBar {
         // that click adds a stop to the route (map-marker-manager.js's _addClickedMarker)
         this._onMapClick = () => {
             if (this._mode !== 'find' || this.editingRoute()) return;
-            this.setMode('explore', { keepQuery: true });
+            this.setMode('explore', { keepMarker: true });
         };
         this._onKeydown = (e) => {
             if (e.key !== 'Escape' || e.defaultPrevented) return;
@@ -83,7 +83,7 @@ export class MapControlBar {
         this._head = new ConsoleHead({
             onMenu: () => window.amche?.openNavMenu?.(),
             onAtlas: () => (this._mode === 'find' ? this.find.toggleAtlas() : this.setMode('find', { view: 'atlas', focus: false })),
-            onClose: () => this.setMode('explore', { keepQuery: true })
+            onClose: () => this.setMode('explore', { keepMarker: true })
         });
         applyConsoleBrand(this._head.menu);
 
@@ -118,12 +118,12 @@ export class MapControlBar {
         this.find = new FindPanel({
             onSelect: (item) => {
                 window.searchControl?._selectSuggestion(item);
-                this.setMode('explore', { keepQuery: true });
+                this.setMode('explore', { keepMarker: true });
             },
             onHover: (item, hovering) => window.searchControl?.handleSuggestionHover(item, hovering),
             onShareLocations: () => this.openShare(),
             clearQuery: () => this._searchToggle?.clear(),
-            onDone: () => this.setMode('explore', { keepQuery: true }),
+            onDone: () => this.setMode('explore', { keepMarker: true }),
             onAtlasToggle: (open) => {
                 this._head.setPickerOpen(open);
                 this._el.classList.toggle('picking-atlas', open);
@@ -181,12 +181,12 @@ export class MapControlBar {
 
     /**
      * @param {'explore'|'find'} mode
-     * @param {{view?: string, filter?: string, focus?: boolean, keepQuery?: boolean}} [options]
+     * @param {{view?: string, filter?: string, focus?: boolean, keepMarker?: boolean}} [options]
      *   view - Find's view to open on (atlas, locations, routes; `filter`
      *   takes Find's old filter names); focus - move focus to the field;
-     *   keepQuery - leave a picked result's name in the field when closing
+     *   keepMarker - leave a picked result's marker on the map when closing
      */
-    setMode(mode, { view = null, filter = null, focus = true, keepQuery = false } = {}) {
+    setMode(mode, { view = null, filter = null, focus = true, keepMarker = false } = {}) {
         if (!this._el) return;
         if (mode === 'find') {
             const next = view || filter;
@@ -203,7 +203,7 @@ export class MapControlBar {
         }
         if (this._mode === 'explore') return;
         this._mode = 'explore';
-        if (!keepQuery) this._searchToggle?.clear();
+        this._searchToggle?.clear({ keepMarker });
         this.find.setQuery('');
         this.find.setVisible(false);
         this._apply();
@@ -212,7 +212,7 @@ export class MapControlBar {
 
     /** Where to keep the locations on the map: the share link or the atlas config. */
     openShare() {
-        if (this._mode !== 'explore') this.setMode('explore', { keepQuery: true });
+        if (this._mode !== 'explore') this.setMode('explore', { keepMarker: true });
         this.share.open();
     }
 
@@ -266,14 +266,11 @@ export class MapControlBar {
 
     /** Find scrolled to a section (atlas is the Map section), or closed if it is open already. */
     toggleFind(view = 'atlas') {
-        if (this._mode === 'find') this.setMode('explore', { keepQuery: true });
+        if (this._mode === 'find') this.setMode('explore', { keepMarker: true });
         else this.setMode('find', { view: viewFor(view), focus: false });
     }
 
-    /**
-     * Back into Find from the collapsed console, with the query still in the
-     * field searched again.
-     */
+    /** Back into Find from the collapsed console. */
     reopen() {
         this.setMode('find');
     }

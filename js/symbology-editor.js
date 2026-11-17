@@ -14,7 +14,8 @@ import {
     parseSymbology, serializeSymbology, uniqueValues, numericValues, classBreaks,
     COLOR_RAMPS, CATEGORICAL_PALETTES, sampleRamp, sampleNumbers, paletteColor
 } from './style-expressions.js';
-import { toHexColor, colorAlpha } from './layer-style-utils.js';
+import { toHexColor } from './layer-style-utils.js';
+import { createColorSwatch } from './color-swatch.js';
 import { HATCH_KINDS, hatchImageName } from './hatch-patterns.js';
 import { hatchPreview, openHatchEditor } from './hatch-editor.js';
 
@@ -31,13 +32,6 @@ function el(tag, className, props = {}) {
     const node = Object.assign(document.createElement(tag), props);
     if (className) node.className = className;
     return node;
-}
-
-function withAlpha(hex, original) {
-    const alpha = colorAlpha(typeof original === 'string' ? original : '');
-    if (alpha === undefined || alpha >= 1) return hex;
-    const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 function option(value, text, selected) {
@@ -70,9 +64,7 @@ export function createValueControl(valueKind, range, value, onInput) {
     }
 
     if (valueKind === 'color') {
-        const input = el('input', 'sym-swatch', { type: 'color', value: toHexColor(value) || FALLBACK_COLOR });
-        input.addEventListener('input', () => onInput(withAlpha(input.value, value)));
-        return input;
+        return createColorSwatch(toHexColor(value) ? value : FALLBACK_COLOR, onInput, { className: 'sym-swatch' });
     }
 
     const { min, max, step } = range || {};
@@ -517,7 +509,8 @@ function injectStyles() {
         .sym-input:disabled { color: #9ca3af; }
         .sym-number { width: 72px; }
         .sym-grow { flex: 1; width: auto; }
-        .sym-swatch { width: 30px; height: 24px; padding: 0; border: 1px solid #374151; border-radius: 5px; background: #0b1220; cursor: pointer; flex-shrink: 0; }
+        .sym-swatch { flex-shrink: 0; }
+        .sym-swatch::part(trigger) { width: 28px; height: 24px; border-radius: 5px; }
         .sym-btn { font-size: 11px; color: #d1d5db; background: #1f2937; border: 1px solid #374151; border-radius: 5px; padding: 3px 8px; cursor: pointer; }
         .sym-btn:hover { color: #fff; border-color: #6b7280; }
         .sym-list { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; max-height: 260px; overflow-y: auto; }

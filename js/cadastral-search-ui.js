@@ -477,7 +477,7 @@ export class CadastralSearchUI {
         this.searchControl.suppressSuggestions()
         // Back to the map, as for any other result, so the plot's marker
         // shows its label docked under the console
-        window.mapConsole?.setMode('explore', { keepQuery: true })
+        window.mapConsole?.setMode('explore', { keepMarker: true })
     }
 
     _selectVillage(entry) {

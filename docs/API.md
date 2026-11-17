@@ -1234,9 +1234,10 @@ In the Map Creator, PARIVESH `https://parivesh.nic.in/dms/okm/downloadDocument?.
 | Field | Notes |
 |---|---|
 | `url` | Remote GeoJSON or KML URL. |
-| `data` | Inline GeoJSON object (mutually exclusive with `url`). |
+| `data` | Inline GeoJSON object (mutually exclusive with `url`). A layer drawn or imported in the layer editor carries its features here while it is shareable (see **Shareable layers** below). |
 | `geojson` | Alternative inline GeoJSON property (`null` is treated as an empty FeatureCollection). |
 | `dataSource` | `"localStorage"` to read from the in-browser cache populated by the layer creator UI (`url` is used as fallback). |
+| `shareable` | `false` when the layer editor's **Shareable** box was unticked: the features stay in this browser (`dataSource: "localStorage"`) and the link carries only the layer's settings. Absent means shareable. |
 | `clustered` | Enable point clustering. |
 | `clusterMaxZoom`, `clusterRadius` | Standard Mapbox clustering options. |
 | `clusterSeparateBy` | Property name used to split clusters into one source per value. |
@@ -1637,7 +1638,32 @@ In the style editor a `fill-pattern` row has the same `value`, `by data` and `{ 
 
 Variants stack in reverse key order, so keys written first draw on top. Hover and selected highlights come from the plain fill underneath. Legends and thumbnails show the plain fill, so a hatched class appears as an outline only.
 
+#### Drawing a layer and editing its features
+
+**Add Map** (the console's map actions) opens the layer editor on a new layer with no data source, named "Untitled map". Its Data card still takes a link or a file to import; until one is loaded the layer is drawn on the map. **Clear** in the Data card (edit mode) does the same for any layer: the data source is dropped and the layer's description and style are kept.
+
+- **Drawing.** With **Draw** on (it starts on for a layer with no data), map clicks add vertices instead of selecting features (`js/feature-draw.js`). Click the first vertex again to place a point. Otherwise keep clicking to draw a line: click the last vertex to end it, or the first vertex (of three or more) to close an area. **Esc** drops the sketch and **Backspace** its last vertex.
+- **Properties.** A finished feature gets `fid` (one past the highest), `$rowid` (its row) and `name` ("Point 1", "Line 2", "Area 1"), and a key / value form opens on it. Changes apply as they are typed; **Delete** drops the feature. A default whose column was removed from every feature isn't added again.
+- **Features table.** The Features section lists every feature of a layer whose data the editor holds (`js/creator-features.js`): drawn, uploaded, stored with the layer (`data` / `dataSource: "localStorage"`) or copied. In edit mode each cell is editable (numbers and booleans keep their type), each row has a delete button, each column header a button that removes it from every feature, and **+** adds a column. A row's icon zooms the map to it. Coordinates are kept to 6 decimals.
+- **Read-only data.** A GeoJSON or CSV layer read from a link shows its loaded features read only, with **Make an editable copy**: for a new layer the loaded data replaces the link; for an existing layer the original is left as it was and a copy (`<id>-copy`, "(copy)" title, same settings and style, the loaded features as its own data) is added beside it and opened for editing. Tile layers (vector, raster, WMS, ...) have no Features section.
+
+#### Shareable layers
+
+**Shareable** sits beside the layer's title in the editor, with the layer's other options. A layer read from a link is always shareable: the map link carries the link and the layer's settings, so the box is ticked and fixed. A layer whose data the editor holds has it ticked by default and can untick it. Shareable, the features ride in the map link as the layer's `data` (coordinates to 6 decimals) and are also kept in this browser, so anyone with the link sees them. Unticked, the layer is saved with `dataSource: "localStorage"` and `shareable: false`, and only this browser has the features.
+
+The box is disabled when the link with the features in it would pass 8,000 characters, what browsers and servers commonly accept (`URL_MAX_LENGTH` in `js/layer-customizations.js`); its tooltip gives the size. The layer then reads its features from this browser until they are few enough to fit. Customizations of any layer (style, filter, opacity, ...) always ride in the link; see the editor's Save settings for how much of it they use.
+
 #### One editor for adding and editing layers
+
+The editor reads top to bottom in the order a layer is built:
+
+1. **Layer** - thumbnail, title, description and attribution; for a layer on the map its live tools (opacity, order, zoom, export, compare, isolate, mask) as one row of icons; then **Shareable** and **JSON**, which opens the layer's Configuration JSON and metadata.
+2. **Data source** - the Data card. **Load** shows only for a link not loaded yet or an Overpass query; a loaded link has a small reload button. **Source settings** (layer type, bounding box) stays collapsed.
+3. **Filter** - which features are shown; **Add filter** / **Edit** opens the style editor's Rules.
+4. **Features** - the feature table and drawing, then **Feature popup** (feature id, name and the fields shown on click) and the raw **GeoJSON**, both collapsed.
+5. **Style** - the legend; **Edit** opens the style editor.
+
+Each step shows only once it applies: a new layer starts with just its data source (and drawing), Filter waits for a feature, rasters have no Filter or Features, and while viewing a layer only its data source, any filter and its style are listed. The title bar looks the same viewing and editing: one amber primary action (Edit Layer, Save Layer, Add Map Layer) and outlined secondary ones.
 
 Adding a layer and editing one are the same screen, `map-creator.html`. A new layer starts empty: choose a data source, then customize it. Editing opens the editor on an existing layer, so everything the layer already carries is filled in: the data source (loaded again from its URL, query or stored data), title, description and attribution, the inspect fields (feature id, name and the fields shown), the style, filters and every other setting, in the Configuration JSON. The layer stack's edit action and the attribution bar's edit link all open it.
 

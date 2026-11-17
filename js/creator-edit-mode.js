@@ -15,7 +15,7 @@ const UNSUPPORTED_TYPES = new Set(['style', 'layer-group', 'wmts', 'img', 'raste
 
 // What makes a layer's data, as opposed to how it is described and styled:
 // replacing the source takes these from the new source.
-const SOURCE_KEYS = new Set([
+export const SOURCE_KEYS = new Set([
     'type', 'url', 'query', 'data', 'geojson', 'dataSource', 'pageSize', 'orderBy', 'where', 'outFields',
     'maxFeatures', 'sourceLayer', 'tiles', 'tileSize', 'srs', 'proxyUrl', 'endpoint', 'endpoints',
     'timeout', 'bboxBuffer', 'debounce'
@@ -224,6 +224,7 @@ export class CreatorEditMode {
     _seed() {
         const creator = this.creator;
         this._seeding = true;
+        creator.styleEditor?.reset();
         try {
             this.sourceChanged = this._sourceChanged();
             $('#edit-style-choice').toggleClass('hidden', !this.sourceChanged);
@@ -255,8 +256,8 @@ export class CreatorEditMode {
     // style while it was kept) and the sections follow the data's geometry.
     _resetStyleControls() {
         const creator = this.creator;
-        $('.style-color-input, .style-control').each((_, el) => { el.value = el.defaultValue; });
-        $('.style-color-input').each((_, el) => { $(el).siblings('.color-preview').css('background-color', el.value); });
+        $('.style-control').each((_, el) => { el.value = el.defaultValue; });
+        $('.style-color-input').each((_, el) => { el.value = el.getAttribute('value'); });
         $('.style-control').each((_, el) => { $(`#${el.id}-value`).text(el.value); });
         $('#icon-image').val('');
         $('#style-type-circle, #style-type-icon').prop('checked', false);
@@ -295,7 +296,8 @@ export class CreatorEditMode {
 
         this.applyInspect(fields);
 
-        const handled = new Set(['id', 'title', 'type', 'description', 'attribution', 'license', 'inspect', 'bbox', 'initiallyChecked', 'saveUrl', 'style']);
+        creator.features.setShareable(layer.shareable !== false);
+        const handled = new Set(['id', 'title', 'type', 'description', 'attribution', 'license', 'inspect', 'bbox', 'initiallyChecked', 'saveUrl', 'style', 'shareable']);
         const extras = {};
         Object.keys(layer).forEach(key => { if (!handled.has(key) && !SOURCE_KEYS.has(key)) extras[key] = layer[key]; });
         creator._layerConfigOverride = { ...extras, ...(layer.inspect ? { inspect: layer.inspect } : {}) };

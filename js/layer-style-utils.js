@@ -385,6 +385,23 @@ function looksLikeIconPath(value) {
         value.startsWith('images/');
 }
 
+/**
+ * The value a style expression falls back to, as one literal: the default
+ * branch of a match or case, the last value of a coalesce, the base output of
+ * a step and the first stop of an interpolation. What the simple style
+ * controls take from an advanced style.
+ */
+export function fallbackLiteral(value) {
+    if (typeof value === 'number' || typeof value === 'string') return value;
+    if (!Array.isArray(value) || !value.length || typeof value[0] !== 'string') return undefined;
+    const [op] = value;
+    if (op === 'literal') return fallbackLiteral(value[1]);
+    if (op === 'match' || op === 'case' || op === 'coalesce') return fallbackLiteral(value[value.length - 1]);
+    if (op === 'step') return fallbackLiteral(value[2]);
+    if (ZOOM_STOP_OPERATORS.has(op)) return fallbackLiteral(value[4]);
+    return undefined;
+}
+
 // A style value can be either a plain literal or the
 // ['coalesce', ['get', …], …, literal] form buildStyleFromControls() emits for
 // data-driven colours — both resolve to the trailing literal.

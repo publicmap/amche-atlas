@@ -57,7 +57,8 @@ export class CreatorHome {
         this.buildFormatCards();
         this.bind();
         this.listenForLayerData();
-        this.show();
+        // "Add Map" opens straight onto a new layer to draw on (js/creator-features.js).
+        if (new URLSearchParams(window.location.search).get('mode') !== 'draw') this.show();
     }
 
     show() {

@@ -15,6 +15,7 @@
 
 import { getSpecProperties, guessPropertyKind, lookupPropertyKind } from './mapbox-style-spec.js';
 import { toHexColor, colorAlpha, styleLiteral, resolveValue, formatLabel } from './layer-style-utils.js';
+import { createColorSwatch, setSwatchColor } from './color-swatch.js';
 import { SymbologyEditor } from './symbology-editor.js';
 import { parseSymbology } from './style-expressions.js';
 import { hatchImageName } from './hatch-patterns.js';
@@ -688,22 +689,17 @@ export class StylePropertyEditor {
             wrap.appendChild(text);
         } else if (controlKind === 'color') {
             const hex = cssColorToHex(literal) || '#3b82f6';
-            const alpha = colorAlpha(typeof literal === 'string' ? literal : '');
-            const swatch = el('input', 'spe-swatch', { type: 'color', value: hex });
+            const shown = typeof literal === 'string' && toHexColor(literal) ? literal : hex;
             const text = el('input', 'spe-input spe-text', {
                 type: 'text',
                 value: typeof literal === 'string' ? literal : hex,
                 placeholder: '#rrggbb, rgba(...) or a CSS colour name'
             });
-
-            swatch.addEventListener('input', () => {
-                // A colour that carried its own alpha keeps it, so picking a new
-                // hue doesn't silently make a half-transparent fill opaque.
-                const next = alpha !== undefined && alpha < 1 ? rgbaFromHex(swatch.value, alpha) : swatch.value;
+            const swatch = createColorSwatch(shown, (next) => {
                 text.value = next;
                 this._clearError(error, text);
                 this._setValue(key, next, { rerender: false });
-            });
+            }, { className: 'spe-swatch', label: property });
 
             text.addEventListener('input', () => {
                 const parsed = cssColorToHex(text.value);
@@ -711,7 +707,7 @@ export class StylePropertyEditor {
                     this._setError(error, text, 'Not a colour Mapbox understands');
                     return;
                 }
-                swatch.value = parsed;
+                setSwatchColor(swatch, toHexColor(text.value) ? text.value : parsed);
                 this._clearError(error, text);
                 this._setValue(key, text.value.trim(), { rerender: false });
             });
@@ -931,8 +927,8 @@ function injectStyles() {
         .spe-input:focus { outline: none; border-color: #3b82f6; }
         .spe-invalid { border-color: #ef4444; }
         .spe-json { min-height: 48px; font-family: 'Courier New', monospace; resize: vertical; }
-        .spe-swatch { width: 34px; height: 26px; padding: 0; border: 1px solid #374151; border-radius: 6px;
-            background: #0b1220; flex-shrink: 0; cursor: pointer; }
+        .spe-swatch { flex-shrink: 0; }
+        .spe-swatch::part(trigger) { width: 30px; height: 26px; border-radius: 6px; }
         .spe-number { max-width: 120px; }
         .spe-note { font-size: 10px; color: #9ca3af; font-style: italic; }
         .spe-error { display: none; font-size: 10px; color: #f87171; margin-top: 3px; }

@@ -49,16 +49,15 @@ export class LayerPage {
         this.header.bind();
         this.description.init();
         $('#lh-thumbnail').on('click', () => this.setStyleOpen(!this.styleOpen));
-        $('#style-done').on('click', () => this.setStyleOpen(false));
         $('#edit-btn').on('click', () => this.enterEdit());
         $('#undo-btn').on('click', () => this._step(-1));
         $('#redo-btn').on('click', () => this._step(1));
         // Renaming the layer in the form: keep isolation and ordering on the right layer.
         $('#layer-id').on('change', (event) => this.header.setLayerId(event.target.value.trim()));
 
-        // A new layer has nothing to look at yet, so its style editor starts open.
+        // A new layer starts on its data source; the style editor opens from the Style step.
         this.setMode('edit');
-        this.setStyleOpen(true);
+        this.setStyleOpen(false);
         this.refresh();
     }
 
@@ -109,6 +108,8 @@ export class LayerPage {
         $('#remove-other-maps-btn').toggleClass('hidden', viewing || this.active);
         $('#edit-history, #save-settings-btn').toggleClass('hidden', viewing || !this.active);
         this.updateHistoryButtons();
+        this.creator.features?.render();
+        this.creator.steps?.refresh();
     }
 
     // -- edit session ----------------------------------------------------------
@@ -146,9 +147,23 @@ export class LayerPage {
     /** Save Layer: the draft is now the layer; back to view mode on it. */
     finishEdit(config) {
         clearTimeout(this._recordTimer);
-        const applied = config || this._parsedConfig() || this.layer;
+        const edited = config || this._parsedConfig();
         this.creator.edit.stop();
-        this._leaveEdit(applied);
+        this._leaveEdit(edited ? this._withRuntimeState(edited) : this.layer);
+    }
+
+    // The edited config is the layer's definition; what the map adds at runtime
+    // (its atlas, that it is on) is the layer's as it was opened, so the page
+    // after Save looks as it did before Edit.
+    _withRuntimeState(config) {
+        const runtime = {};
+        Object.keys(this.layer || {}).forEach(key => {
+            if (key.startsWith('_')) runtime[key] = this.layer[key];
+        });
+        if (this.layer && 'initiallyChecked' in this.layer) runtime.initiallyChecked = this.layer.initiallyChecked;
+        const kept = { ...runtime, ...config };
+        if ('initiallyChecked' in runtime) kept.initiallyChecked = runtime.initiallyChecked;
+        return kept;
     }
 
     _leaveEdit(layer) {
@@ -259,6 +274,7 @@ export class LayerPage {
         $('#style-section').toggleClass('hidden', !open);
         $('#lh-thumbnail').toggleClass('is-open', open);
         if (open) this.creator.styleEditor.sync();
+        this.creator.steps?.refresh();
     }
 
     /** Open the style editor on the Rules tab, at one rule when the legend item of a rule was clicked. */
@@ -268,11 +284,17 @@ export class LayerPage {
             return;
         }
         this.setStyleOpen(true);
-        const editor = this.creator.styleEditor.editor;
+        const styleEditor = this.creator.styleEditor;
+        const editor = styleEditor.editor;
         if (!editor) return;
-        if (ruleId) editor.openRule(ruleId);
-        else editor.setTab('rules');
-        document.getElementById('style-section').scrollIntoView({ block: 'nearest' });
+        // A rule is the Advanced tab's; otherwise the style opens on the tab it was left on
+        if (ruleId) {
+            styleEditor.setMode('advanced');
+            editor.openRule(ruleId);
+        } else if (styleEditor.mode === 'advanced') {
+            editor.setTab('rules');
+        }
+        document.getElementById('step-style').scrollIntoView({ block: 'start', behavior: 'smooth' });
     }
 
     // The layer as edited so far.
@@ -285,6 +307,7 @@ export class LayerPage {
     refresh() {
         this.description.refresh();
         if (this._baselined && !this._restoring && this.creator.edit.active) this._scheduleRecord();
+        this.creator.steps?.refresh();
         const config = this.currentConfig();
         const key = JSON.stringify(config);
         if (key === this._renderedKey) return;

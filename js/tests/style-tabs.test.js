@@ -200,10 +200,10 @@ describe('Rules tab', () => {
         rows(editor)[1].querySelector('.rv-head').click();
 
         const prop = [...editor.element.querySelectorAll('.rv-prop')].find(p => p.textContent.startsWith('line-color'));
-        const swatch = prop.querySelector('input[type="color"]');
+        const swatch = prop.querySelector('sl-color-picker');
         expect(swatch.value).toBe('#000000');
         swatch.value = '#ff0000';
-        swatch.dispatchEvent(new Event('input'));
+        swatch.dispatchEvent(new Event('sl-input'));
 
         const next = editor.getStyle()['line-color'];
         expect(next[next.indexOf('G1') + 1]).toBe('#ff0000');

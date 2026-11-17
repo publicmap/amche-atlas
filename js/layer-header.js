@@ -272,11 +272,7 @@ export class LayerHeader {
     }
 
     _setCompareButton(active) {
-        const $btn = $('#lh-compare').toggleClass('comparing', active);
-        $btn.find('.compare-icons').html(active
-            ? '<sl-icon name="caret-left"></sl-icon><sl-icon name="caret-right-fill"></sl-icon>'
-            : '<sl-icon name="caret-left"></sl-icon><sl-icon name="caret-right"></sl-icon>');
-        $btn.find('span').not('.compare-icons').text(active ? 'Comparing' : 'Compare');
+        $('#lh-compare').toggleClass('comparing', active).find('span').text(active ? 'Comparing' : 'Compare');
     }
 
     _updateCompareButton() {
@@ -298,7 +294,7 @@ export class LayerHeader {
     }
 
     _setMaskButton(active) {
-        $('#lh-mask').toggleClass('masking', active).find('span').text(active ? 'Masking' : 'Toggle Mask');
+        $('#lh-mask').toggleClass('masking', active).find('span').text(active ? 'Masking' : 'Mask');
     }
 
     _updateMaskButton() {
@@ -307,7 +303,7 @@ export class LayerHeader {
 
     // -- isolation -------------------------------------------------------------
 
-    /** Dim the other layers in this layer's section (on by default, toggled by "Hide Other Maps"). */
+    /** Dim the other layers in this layer's section (on by default, toggled by "Show only"). */
     applyIsolation() {
         this._setIsolateButton(this._isolateEnabled);
         if (!this.embedded || !this.layer) return;
@@ -336,7 +332,7 @@ export class LayerHeader {
     }
 
     _setIsolateButton(active) {
-        $('#lh-isolate').toggleClass('isolating', active).find('span').text(active ? 'Hiding Other Maps' : 'Hide Other Maps');
+        $('#lh-isolate').toggleClass('isolating', active).find('span').text(active ? 'Showing only' : 'Show only');
     }
 
     // -- layer order -----------------------------------------------------------

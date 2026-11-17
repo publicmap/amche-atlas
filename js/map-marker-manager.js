@@ -520,7 +520,7 @@ export class MapMarkerManager {
             return;
         }
         if (document.querySelector('.map-console')?.dataset.mode === 'find') {
-            window.mapConsole?.setMode('explore', { keepQuery: true });
+            window.mapConsole?.setMode('explore', { keepMarker: true });
         }
         this._selectMarker(markerId);
         this._layoutDockedPanels();

@@ -12,6 +12,10 @@ import { LayerOrderManager } from './layer-order-manager.js';
 import { atlasPinsUrl } from './atlas-pins.js';
 import { rememberAtlas, restoreAtlas } from './atlas-memory.js';
 import { activeMapHistory } from './active-map-history.js';
+import { FeatureDrawTool } from './feature-draw.js';
+
+// The layer editor floats like the map console, at Find's width
+const EDITOR_WIDTH = 420;
 
 export class MapBrowserControl {
     constructor() {
@@ -86,36 +90,22 @@ export class MapBrowserControl {
         this._browserContainer = document.createElement('div');
         this._browserContainer.style.cssText = `
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #1f2937;
+            top: var(--console-gap, 12px);
+            left: var(--console-gap, 12px);
+            bottom: var(--console-gap, 12px);
+            width: min(${EDITOR_WIDTH}px, calc(100% - 2 * var(--console-gap, 12px)));
+            background: var(--console-surface, #111827);
             overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            border-left: 1px solid #374151;
-            border-right: 1px solid #374151;
-            border-bottom: 1px solid #374151;
-            border-top: none;
+            border: 1px solid var(--console-line-strong, rgba(255, 255, 255, 0.26));
+            border-radius: var(--console-radius, 12px);
+            box-shadow: var(--console-shadow, 0 6px 22px rgba(0, 0, 0, 0.5));
             pointer-events: auto;
         `;
-
-        if (window.matchMedia('(min-width: 768px)').matches) {
-            this._browserContainer.style.width = '40%';
-        } else {
-            this._browserContainer.style.width = '75%';
-        }
 
         const updateLayout = () => {
             const header = document.querySelector('.header-nav');
             const headerHeight = header ? header.offsetHeight : 0;
             this._overlay.style.top = `${headerHeight}px`;
-
-            if (window.matchMedia('(min-width: 768px)').matches) {
-                this._browserContainer.style.width = '40%';
-            } else {
-                this._browserContainer.style.width = '75%';
-            }
         };
 
         window.addEventListener('resize', updateLayout);
@@ -341,6 +331,11 @@ export class MapBrowserControl {
                         editOriginalId: event.data.editOriginalId
                     }));
             }
+
+            if (event.data.type === 'draw-start') this._startDrawing();
+            if (event.data.type === 'draw-stop') this._drawTool?.stop();
+            if (event.data.type === 'draw-cancel-sketch') this._drawTool?.cancelSketch();
+            if (event.data.type === 'creator-duplicate-layer') this._duplicateCreatorLayer(event.data.config);
 
             if (event.data.type === 'creator-clear-preview') {
                 this._clearCreatorPreview();
@@ -1063,9 +1058,40 @@ export class MapBrowserControl {
         });
     }
 
+    // "Add Map": the editor on a new layer with no data yet, ready to draw on
+    // or to import a link or file into (js/creator-features.js).
     openCreator() {
         if (!this._isOpen) this.openBrowser();
-        this._switchToCreator();
+        this._switchToCreator('?mode=draw');
+    }
+
+    _postToCreator(message) {
+        this._iframe?.contentWindow?.postMessage(message, '*');
+    }
+
+    _startDrawing() {
+        if (!this._map) return;
+        if (!this._drawTool) this._drawTool = new FeatureDrawTool(this._map);
+        this._drawTool.start({
+            onComplete: (geometry) => this._postToCreator({ type: 'draw-complete', geometry }),
+            onChange: (count) => this._postToCreator({ type: 'draw-state', count })
+        });
+    }
+
+    // "Make an editable copy" of a layer being edited: the edit is dropped (the
+    // original goes back as it was) and the copy, holding the loaded data,
+    // is added beside it and opened for editing.
+    async _duplicateCreatorLayer(config) {
+        if (!config?.id || !window.layerControl) return;
+        this._drawTool?.stop();
+        await this._removeCreatorDraftLayer();
+        try {
+            await window.layerControl._addLayerDirectly(config);
+        } catch (error) {
+            console.warn('[MapBrowserControl] Could not add the copy of the layer:', error);
+            return;
+        }
+        this.openLayerEditor(config, { tab: 'edit' });
     }
 
     openBrowser() {
@@ -1074,7 +1100,7 @@ export class MapBrowserControl {
         this._ensureIframe();
         // Where Find was - a map's details, atlas mode - to go back to on close
         if (!this._isOpen) this._returnTo = window.mapConsole?.snapshot?.() || null;
-        window.mapConsole?.setMode('explore', { keepQuery: true });
+        window.mapConsole?.setMode('explore', { keepMarker: true });
         this._overlay.style.display = 'block';
         this._isOpen = true;
         this._updateButtonState(true);
@@ -1132,6 +1158,7 @@ export class MapBrowserControl {
     }
 
     closeBrowser() {
+        this._drawTool?.stop();
         this._clearLegendFilter();
         // Closing mid-edit without applying puts the layer back.
         if (this._editSession) this._restoreEditSession();
@@ -1201,6 +1228,7 @@ export class MapBrowserControl {
     }
 
     _switchToCreator(query = '') {
+        this._drawTool?.stop();
         this._ensureIframe();
         this._iframe.src = `map-creator.html${query}`;
         this._hideLoadingOverlay();

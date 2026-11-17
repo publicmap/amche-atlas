@@ -39,6 +39,13 @@ function writePolygons() {
     return filePath;
 }
 
+// The Style section opens from the layer's thumbnail; its Simple | Advanced tabs pick the editor
+async function openStyle(frame, mode) {
+    if (await frame.locator('#style-section').isHidden()) await frame.locator('#lh-thumbnail').click();
+    await frame.locator(`#style-mode-${mode}`).click();
+    await expect(frame.locator('#style-section')).toHaveAttribute('data-style-mode', mode);
+}
+
 const row = (frame, property) => frame.locator('.spe-row', { has: frame.locator(`.spe-name:text-is("${property}")`) });
 const configOf = async (frame) => JSON.parse(await frame.locator('#config-preview').inputValue());
 
@@ -55,6 +62,7 @@ test('tabs filter the properties, Rules consolidates the branches, and a propert
     const frame = await openCreator(page);
     await frame.locator('#file-input').setInputFiles(writePolygons());
     await page.waitForFunction(() => !!window.browserControl._creatorDraftLayerId, { timeout: 30000 });
+    await openStyle(frame, 'advanced');
 
     const tabs = frame.locator('#advanced-style-editor .spe-tab');
     expect(await tabs.evaluateAll(els => els.map(e => e.dataset.tab))).toEqual(['rules', 'point', 'line', 'area', 'label', 'circle', 'icon', 'all']);
@@ -89,12 +97,13 @@ test('editing a rule\'s value from the Rules tab changes just that branch on the
     const frame = await openCreator(page);
     await frame.locator('#file-input').setInputFiles(writePolygons());
     await page.waitForFunction(() => !!window.browserControl._creatorDraftLayerId, { timeout: 30000 });
+    await openStyle(frame, 'advanced');
     await categorize(frame);
 
     await frame.locator('.spe-tab[data-tab="rules"]').click();
     await frame.locator('.rv-row', { hasText: 'use = Road' }).locator('.rv-head').click();
-    const swatch = frame.locator('.rv-row.rv-open .rv-prop', { hasText: 'fill-color' }).locator('input[type="color"]');
-    await swatch.evaluate((el) => { el.value = '#123456'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    const swatch = frame.locator('.rv-row.rv-open .rv-prop', { hasText: 'fill-color' }).locator('sl-color-picker');
+    await swatch.evaluate((el) => { el.value = '#123456'; el.dispatchEvent(new Event('sl-input', { bubbles: true })); });
 
     const fill = (await configOf(frame)).style['fill-color'];
     expect(fill[fill.indexOf('Road') + 1]).toBe('#123456');
@@ -105,6 +114,7 @@ test('the Data filters section adds, edits and removes a layer filter that the m
     const frame = await openCreator(page);
     await frame.locator('#file-input').setInputFiles(writePolygons());
     await page.waitForFunction(() => !!window.browserControl._creatorDraftLayerId, { timeout: 30000 });
+    await openStyle(frame, 'advanced');
     await categorize(frame);
     await frame.locator('.spe-tab[data-tab="rules"]').click();
 
@@ -129,6 +139,7 @@ test('Circle and Icon controls write their properties into the style', async ({ 
     const frame = await openCreator(page);
     await frame.locator('#file-input').setInputFiles(writePolygons());
     await page.waitForFunction(() => !!window.browserControl._creatorDraftLayerId, { timeout: 30000 });
+    await openStyle(frame, 'simple');
 
     await frame.locator('#style-type-circle').check();
     await expect(frame.locator('#style-section-circle')).toBeVisible();
@@ -145,7 +156,8 @@ test('Circle and Icon controls write their properties into the style', async ({ 
     expect(style['icon-image']).toBe('marker-15');
     expect(style['icon-size']).toBe(1.5);
 
-    // They show up on the matching tabs.
+    // Advanced starts from what Simple built: they show up on the matching tabs.
+    await openStyle(frame, 'advanced');
     await frame.locator('.spe-tab[data-tab="circle"]').click();
     expect(await frame.locator('#advanced-style-editor .spe-name').allTextContents()).toContain('circle-blur');
     await frame.locator('.spe-tab[data-tab="icon"]').click();

@@ -39,6 +39,13 @@ function writePolygons() {
     return filePath;
 }
 
+// The Style section opens from the layer's thumbnail; its Simple | Advanced tabs pick the editor
+async function openStyle(frame, mode) {
+    if (await frame.locator('#style-section').isHidden()) await frame.locator('#lh-thumbnail').click();
+    await frame.locator(`#style-mode-${mode}`).click();
+    await expect(frame.locator('#style-section')).toHaveAttribute('data-style-mode', mode);
+}
+
 const row = (frame, property) => frame.locator('.spe-row', { has: frame.locator(`.spe-name:text-is("${property}")`) });
 
 async function configStyle(frame) {
@@ -50,6 +57,7 @@ test('categorized fill with hover and selected states reaches the map', async ({
     await frame.locator('#file-input').setInputFiles(writePolygons());
     await page.waitForFunction(() => !!window.browserControl._creatorDraftLayerId, { timeout: 10000 });
     const draftId = await page.evaluate(() => window.browserControl._creatorDraftLayerId);
+    await openStyle(frame, 'advanced');
 
     const fill = row(frame, 'fill-color');
     await expect(fill).toBeVisible();
@@ -91,6 +99,7 @@ test('graduated fill classifies a numeric field and keeps a fallback', async ({ 
     const frame = await openCreator(page);
     await frame.locator('#file-input').setInputFiles(writePolygons());
     await page.waitForFunction(() => !!window.browserControl._creatorDraftLayerId, { timeout: 10000 });
+    await openStyle(frame, 'advanced');
 
     const fill = row(frame, 'fill-color');
     await fill.locator('.spe-btn', { hasText: 'by data' }).click();
@@ -103,7 +112,7 @@ test('graduated fill classifies a numeric field and keeps a fallback', async ({ 
     expect(typeof expression[expression.length - 1]).toBe('string');
 
     const fallback = fill.locator('.sym-fallback .sym-swatch');
-    await fallback.evaluate((el) => { el.value = '#123456'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    await fallback.evaluate((el) => { el.value = '#123456'; el.dispatchEvent(new Event('sl-input', { bubbles: true })); });
     const updated = (await configStyle(frame))['fill-color'];
     expect(updated[updated.length - 1]).toBe('#123456');
 });
@@ -113,6 +122,7 @@ test('line-color linked to fill-color inherits the categorized mapping on the ma
     await frame.locator('#file-input').setInputFiles(writePolygons());
     await page.waitForFunction(() => !!window.browserControl._creatorDraftLayerId, { timeout: 10000 });
     const draftId = await page.evaluate(() => window.browserControl._creatorDraftLayerId);
+    await openStyle(frame, 'advanced');
 
     const fill = row(frame, 'fill-color');
     await fill.locator('.spe-btn', { hasText: 'by data' }).click();

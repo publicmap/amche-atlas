@@ -5,7 +5,8 @@ import { LayerConfigGenerator } from './layer-creator-ui.js';
 import { StreamingGPKGReader } from './streaming-gpkg-reader.js';
 import * as GoogleSheetsAPI from './google-sheets-api.js';
 import * as SourceResolver from './layer-source-resolver.js';
-import { styleLiteral, toHexColor, colorAlpha } from './layer-style-utils.js';
+import { styleLiteral, toHexColor, colorAlpha, fallbackLiteral } from './layer-style-utils.js';
+import { pickedColor } from './color-swatch.js';
 import { ServiceImport } from './service-import.js';
 import { CreatorStyleEditor } from './creator-style-editor.js';
 import { CreatorEditMode } from './creator-edit-mode.js';
@@ -13,10 +14,15 @@ import { DataCard } from './data-card.js';
 import { LayerPage } from './layer-page.js';
 import { CreatorSaveSettings } from './creator-save-settings.js';
 import { CreatorHome, FORMAT_KEYS } from './creator-home.js';
+import { CreatorFeatures, DRAWN_SOURCE, UNTITLED } from './creator-features.js';
+import { CreatorSteps } from './creator-steps.js';
 
 // Re-exported for the Style controls' own callers (and their tests), which have
 // always imported these from here; they now live in js/layer-style-utils.js so
 // the style editor can share them without pulling in the creator.
+// A simple style control's colour (sl-color-picker): #rrggbb, or rgba() with its alpha
+const swatchColor = (selector) => pickedColor($(selector).val()) || $(selector).attr('value');
+
 export { styleLiteral, toHexColor, colorAlpha };
 
 export class MapCreator {
@@ -60,6 +66,12 @@ export class MapCreator {
         // An existing layer: header, live actions and Overview / Edit tabs (see layer-page.js).
         this.layerPage = new LayerPage(this);
         this.saveSettings = new CreatorSaveSettings(this);
+        // The Features section: the layer's features as a table, and drawing (see creator-features.js).
+        this.features = new CreatorFeatures(this);
+        // Data source > Filter > Features > Style, each shown once it applies (see creator-steps.js).
+        this.steps = new CreatorSteps(this);
+        // The link last loaded, so the Data card offers Load only for a new one.
+        this._loadedInput = '';
         // Options for the next source resolve (edit mode pins an ArcGIS layer's output type).
         this._resolveOptions = null;
     }
@@ -68,8 +80,11 @@ export class MapCreator {
         this.layerPage.init();
         this.saveSettings.init();
         this.dataCard.init();
+        this.features.init();
+        this.steps.init();
         this.home = new CreatorHome(this);
         this.home.init();
+        if (new URLSearchParams(window.location.search).get('mode') === 'draw') this.features.startBlank();
         this.styleEditor.init();
         this.setupEventListeners();
         this.setupColorPickers();
@@ -274,8 +289,7 @@ export class MapCreator {
         $('#preview-geojson-io-btn').on('click', () => this.previewOnGeojsonIO());
         $('#download-geojson-btn').on('click', () => this.downloadGeoJSON());
 
-        $('.style-color-input').on('input', (e) => {
-            $(e.target).siblings('.color-preview').css('background-color', e.target.value);
+        $('.style-color-input').on('sl-input sl-change', () => {
             this._styleManuallyEdited = false;
             this.updateConfigPreview();
         });
@@ -299,7 +313,6 @@ export class MapCreator {
         });
 
         $('#label-field-select').on('change', () => {
-            this._styleManuallyEdited = false;
             const labelField = $('#label-field-select').val();
             if (labelField) {
                 const $nameSelect = $('#feature-name-field');
@@ -348,10 +361,6 @@ export class MapCreator {
             if (this.layerPage.openedForEdit) this.closeBrowser();
         });
         $('#remove-other-maps-btn').on('click', () => this.removeOtherMaps());
-
-        $('.color-preview').on('click', function() {
-            $(this).siblings('input[type="color"]').click();
-        });
 
         $('.format-chip').on('click', (e) => {
             const $chip = $(e.currentTarget);
@@ -474,6 +483,7 @@ export class MapCreator {
 
         if (this.currentLayerType === 'geojson' || this.currentLayerType === 'csv') {
             this._layerConfigOverride = parsed;
+            this.features.applySnapshotData(parsed);
         } else {
             this.currentData = parsed;
         }
@@ -504,6 +514,7 @@ export class MapCreator {
     _resetConfigEditorState() {
         this._layerConfigOverride = null;
         this._styleManuallyEdited = false;
+        this.styleEditor?.reset();
         this._styleTypesUserModified = false;
         this._lastLabelFieldsKey = undefined;
         this._lastDataFieldsKey = undefined;
@@ -618,10 +629,12 @@ export class MapCreator {
     showOverpassSection() {
         $('#overpass-section').removeClass('hidden');
         $('#data-preview-details').hide();
+        this.setLoadingState('default');
     }
 
     hideOverpassSection() {
         $('#overpass-section').addClass('hidden');
+        this.setLoadingState('default');
     }
 
     async handleOverpassImport(input, { withPreview = false } = {}) {
@@ -1275,36 +1288,19 @@ export class MapCreator {
 
     setLoadingState(state) {
         if (state === 'success') {
+            this._loadedInput = String($('#url-input').val() || '').trim();
             this.edit.onLoaded();
             this.dataCard.refresh();
+            this.features.onLoaded();
         }
         const $btn = $('#load-data-btn');
-
-        switch (state) {
-            case 'loading':
-                $btn.prop('disabled', true)
-                    .removeClass('bg-blue-600 bg-green-600 hover:bg-blue-700 hover:bg-green-700')
-                    .addClass('bg-blue-400')
-                    .html('<span class="inline-flex items-center gap-2"><svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Loading Data...</span>');
-                break;
-            case 'success':
-                $btn.prop('disabled', false)
-                    .removeClass('bg-blue-600 bg-blue-400 hover:bg-blue-700')
-                    .addClass('bg-green-600 hover:bg-green-700')
-                    .html('<span class="inline-flex items-center gap-2">↻ Refresh Data</span>');
-                break;
-            case 'error':
-                $btn.prop('disabled', false)
-                    .removeClass('bg-blue-400 bg-green-600 hover:bg-green-700')
-                    .addClass('bg-blue-600 hover:bg-blue-700')
-                    .text('Load Data');
-                break;
-            default:
-                $btn.prop('disabled', false)
-                    .removeClass('bg-blue-400 bg-green-600 hover:bg-green-700')
-                    .addClass('bg-blue-600 hover:bg-blue-700')
-                    .text('Load Data');
+        const label = $('#overpass-section').hasClass('hidden') ? 'Load data' : 'Run query';
+        if (state === 'loading') {
+            $btn.prop('disabled', true).html('<sl-spinner></sl-spinner> Loading…');
+        } else {
+            $btn.prop('disabled', false).html(`<sl-icon name="arrow-right-circle"></sl-icon> ${label}`);
         }
+        this.dataCard.refresh();
     }
 
     async handleFileUpload(event) {
@@ -1711,11 +1707,7 @@ export class MapCreator {
             .map(([type, count]) => `${count} ${type}${count !== 1 ? 's' : ''}`)
             .join(', ');
 
-        const totalFeatures = features.length;
-        $('#preview-summary').html(
-            `<span class="text-green-600">✓ ${totalFeatures} feature${totalFeatures !== 1 ? 's' : ''}</span>` +
-            (statsText ? ` - ${statsText}` : '')
-        );
+        $('#preview-summary').html(`GeoJSON <span class="step-more-note">${statsText}</span>`);
 
         $('#data-preview-details').show();
     }
@@ -1777,9 +1769,8 @@ export class MapCreator {
         if (!style || typeof style !== 'object') return;
 
         const setColor = (selector, value) => {
-            const hex = toHexColor(styleLiteral(value));
-            if (!hex) return;
-            $(selector).val(hex).siblings('.color-preview').css('background-color', hex);
+            const color = pickedColor(fallbackLiteral(value));
+            if (color) $(selector).val(color);
         };
 
         const setRange = (selector, value) => {
@@ -1796,31 +1787,33 @@ export class MapCreator {
         setColor('#point-fill-color', style['circle-color']);
         setColor('#point-stroke-color', style['circle-stroke-color']);
 
-        setRange('#area-stroke-width', styleLiteral(style['line-width']));
-        setRange('#line-width', styleLiteral(style['line-width']));
-        setRange('#point-radius', styleLiteral(style['circle-radius']));
+        setRange('#area-stroke-width', fallbackLiteral(style['line-width']));
+        setRange('#line-width', fallbackLiteral(style['line-width']));
+        setRange('#point-radius', fallbackLiteral(style['circle-radius']));
 
-        setRange('#circle-stroke-width', styleLiteral(style['circle-stroke-width']));
-        setRange('#circle-opacity', styleLiteral(style['circle-opacity']));
-        setRange('#circle-blur', styleLiteral(style['circle-blur']));
-        setRange('#icon-size', styleLiteral(style['icon-size']));
-        setRange('#icon-opacity', styleLiteral(style['icon-opacity']));
-        const iconImage = styleLiteral(style['icon-image']);
+        setRange('#circle-stroke-width', fallbackLiteral(style['circle-stroke-width']));
+        setRange('#circle-opacity', fallbackLiteral(style['circle-opacity']));
+        setRange('#circle-blur', fallbackLiteral(style['circle-blur']));
+        setRange('#icon-size', fallbackLiteral(style['icon-size']));
+        setRange('#icon-opacity', fallbackLiteral(style['icon-opacity']));
+        const iconImage = fallbackLiteral(style['icon-image']);
         if (typeof iconImage === 'string') $('#icon-image').val(iconImage);
 
-        const fillOpacity = styleLiteral(style['fill-opacity']);
+        // An alpha in the fill colour stays in the colour's swatch, so it isn't
+        // counted again in Fill Opacity
+        const fillOpacity = fallbackLiteral(style['fill-opacity']);
         setRange('#area-fill-opacity', typeof fillOpacity === 'number'
             ? fillOpacity
-            : colorAlpha(styleLiteral(style['fill-color'])));
+            : colorAlpha(fallbackLiteral(style['fill-color'])) !== undefined ? 1 : undefined);
     }
 
     buildStyleFromControls() {
         const style = {};
 
         if ($('#style-type-area').is(':checked')) {
-            const fillColor = $('#area-fill-color').val();
+            const fillColor = swatchColor('#area-fill-color');
             const fillOpacity = parseFloat($('#area-fill-opacity').val());
-            const strokeColor = $('#area-stroke-color').val();
+            const strokeColor = swatchColor('#area-stroke-color');
             const strokeWidth = parseFloat($('#area-stroke-width').val());
             style['fill-color'] = ['coalesce', ['get', 'fill-color'], ['get', 'color'], fillColor];
             style['fill-opacity'] = fillOpacity;
@@ -1829,7 +1822,7 @@ export class MapCreator {
         }
 
         if ($('#style-type-line').is(':checked')) {
-            const lineColor = $('#line-color').val();
+            const lineColor = swatchColor('#line-color');
             const lineWidth = parseFloat($('#line-width').val());
             style['line-color'] = ['coalesce', ['get', 'stroke-color'], ['get', 'color'], lineColor];
             style['line-width'] = lineWidth;
@@ -1837,8 +1830,8 @@ export class MapCreator {
 
         const circleOn = $('#style-type-circle').is(':checked');
         if ($('#style-type-point').is(':checked') || circleOn) {
-            const fillColor = $('#point-fill-color').val();
-            const strokeColor = $('#point-stroke-color').val();
+            const fillColor = swatchColor('#point-fill-color');
+            const strokeColor = swatchColor('#point-stroke-color');
             const radius = parseFloat($('#point-radius').val());
             style['circle-color'] = ['coalesce', ['get', 'fill-color'], ['get', 'color'], fillColor];
             style['circle-radius'] = radius;
@@ -1968,6 +1961,7 @@ export class MapCreator {
     }
 
     generateDefaultTitle() {
+        if (this.currentDataSource === DRAWN_SOURCE) return UNTITLED;
         if (typeof this.currentDataSource === 'string') {
             const filename = this.currentDataSource.split('/').pop().split('?')[0];
             return filename.replace(/\.(geojson|json|csv|kml|gpkg|geojsonl|ndjson|jsonl|zip)$/i, '').replace(/[-_]/g, ' ');
@@ -2025,11 +2019,10 @@ export class MapCreator {
         if (isExternalUrl) {
             config.url = this.currentDataSource;
         } else {
-            // No URL to fetch from (uploaded file / pasted data) — cache the
-            // GeoJSON in localStorage instead of embedding it in the shareable
-            // URL. Not needed when a URL exists: that's already the source of
-            // truth, and caching it would also risk masking upstream edits.
-            config.dataSource = 'localStorage';
+            // No URL to fetch from (drawn, uploaded or pasted data): the data
+            // rides in the link when the layer is shareable and it fits, and is
+            // kept in localStorage either way (see creator-feature-share.js).
+            this.features.attachData(config, this.currentData);
         }
 
         if (description) {
@@ -2290,7 +2283,8 @@ export class MapCreator {
 
         if (this.currentLayerType === 'geojson' || this.currentLayerType === 'csv') {
             const geojson = this.currentLayerType === 'geojson' ? this.currentData : this.currentData?.geojson;
-            if (!geojson || !geojson.features || geojson.features.length === 0) return;
+            // A layer being drawn is shown from its first feature to its last one deleted.
+            if (!geojson || !geojson.features || (geojson.features.length === 0 && !this.features.editable)) return;
 
             config = this.currentLayerType === 'geojson' ? this.generateLayerConfig() : this.generateCSVLayerConfig();
             this._persistLocalGeoJSON(config);
@@ -2343,11 +2337,13 @@ export class MapCreator {
     // dataSource:'localStorage' config a finalized layer would (rather than
     // embedding the full geojson inline, which would bloat the shareable URL).
     _persistLocalGeoJSON(config) {
-        if (config.dataSource !== 'localStorage') return;
+        const inline = !!config.data && !config.url;
+        if (config.dataSource !== 'localStorage' && !inline) return;
         const geojsonData = this.currentLayerType === 'csv' ? this.currentData.geojson : this.currentData;
         try {
             LayerConfigGenerator.storeGeoJSONData(config.id, geojsonData);
         } catch (e) {
+            if (inline) return;
             delete config.dataSource;
             if (!config.url) config.geojson = geojsonData;
         }

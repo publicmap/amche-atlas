@@ -44,25 +44,10 @@
             font-size: 11px;
         }
 
-        .color-picker-wrapper {
-            display: inline-block;
-            position: relative;
-        }
-
-        .color-preview {
-            width: 40px;
-            height: 40px;
-            border-radius: 4px;
-            border: 2px solid #4b5563;
-            cursor: pointer;
-        }
-
-        .color-picker-wrapper input[type="color"] {
-            position: absolute;
-            opacity: 0;
-            width: 40px;
-            height: 40px;
-            cursor: pointer;
+        .style-color-input::part(trigger) {
+            width: 36px;
+            height: 28px;
+            border-radius: 6px;
         }
 
         /* Sections are told apart by space and type, not by boxes. Borders are for buttons and fields in use. */
@@ -155,10 +140,38 @@
             color: #93c5fd;
         }
 
-        #add-to-map-btn:disabled {
-            background: #374151;
-            color: #9ca3af;
+        /* The title bar looks the same viewing and editing: one amber primary
+           action (Edit Layer / Save Layer / Add Map Layer), quiet outlined secondaries */
+        .nav-primary {
+            padding: 0 12px;
+            font-weight: 600;
+            color: #1a1405;
+            background: var(--c-amber);
+            border: 1px solid var(--c-amber);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .nav-primary:hover { filter: brightness(1.08); }
+        .nav-primary:disabled {
+            color: var(--c-ink-3);
+            background: transparent;
+            border-color: var(--c-line-strong);
+            filter: none;
             cursor: not-allowed;
+        }
+        .nav-secondary,
+        #nav-actions .history-btn {
+            padding: 0 10px;
+            color: var(--c-ink-2);
+            background: transparent;
+            border: 1px solid var(--c-line-strong);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .nav-secondary:hover,
+        #nav-actions .history-btn:not(:disabled):hover {
+            color: var(--c-ink);
+            background: var(--c-hover);
         }
 
         .step-pill {
@@ -268,6 +281,132 @@
             display: none;
         }
 
+
+        /* Features section: drawing, the feature form and table (js/creator-features.js) */
+        .fs-draw { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .fs-draw-btn {
+            display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+            font-size: 12px; font-weight: 600; color: #d1d5db; background: #1f2937;
+            border: 1px solid #4b5563; border-radius: 6px; padding: 5px 12px; cursor: pointer;
+        }
+        .fs-draw-btn:hover { color: #fff; border-color: #6b7280; }
+        .fs-draw-btn.is-on { color: #111827; background: var(--c-amber); border-color: var(--c-amber); }
+        .fs-hint { font-size: 11.5px; color: #9ca3af; line-height: 1.35; }
+        .fs-readonly { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 12px; color: #9ca3af; }
+
+        .ff-card { margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--c-amber); border-radius: 10px; background: var(--c-raised); }
+        .ff-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+        .ff-title { font-size: 13px; font-weight: 700; color: var(--c-ink); }
+        .ff-sub { font-size: 11px; color: var(--c-ink-3); }
+        .ff-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) 24px; gap: 6px; margin-bottom: 6px; }
+        .ff-row input, .ft-cell, .ft-col-name {
+            width: 100%; min-width: 0; padding: 4px 7px; font-size: 12px; color: #f3f4f6;
+            background: #0f172a; border: 1px solid #374151; border-radius: 5px;
+        }
+        .ff-row input:focus, .ft-cell:focus, .ft-col-name:focus { outline: none; border-color: var(--c-blue); }
+        .ff-key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+        .ff-remove, .ft-col-del, .ft-row-del, .ft-zoom, .ft-col-add {
+            display: inline-flex; align-items: center; justify-content: center;
+            color: #9ca3af; background: none; border: 0; border-radius: 4px; cursor: pointer;
+        }
+        .ff-remove:hover, .ft-col-del:hover, .ft-row-del:hover { color: #f87171; }
+        .ft-zoom:hover, .ft-col-add:hover { color: #fff; }
+        .ff-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+        .ff-add, .ff-done, .ff-delete {
+            display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 4px 10px;
+            border-radius: 6px; border: 1px solid #4b5563; background: #1f2937; color: #d1d5db; cursor: pointer;
+        }
+        .ff-done { background: #2563eb; border-color: #2563eb; color: #fff; }
+        .ff-delete:hover { color: #f87171; border-color: #f87171; }
+
+        .ft-scroll { overflow: auto; max-height: 360px; border: 1px solid var(--c-line); border-radius: 8px; }
+        .ft-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 12px; }
+        .ft-table th {
+            position: sticky; top: 0; z-index: 1; padding: 5px 6px; text-align: left; white-space: nowrap;
+            font-weight: 600; color: #d1d5db; background: #1f2937; border-bottom: 1px solid var(--c-line);
+        }
+        .ft-table th .ft-key { display: inline-block; max-width: 140px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+        .ft-table th .ft-col-del { margin-left: 2px; font-size: 10px; opacity: 0; vertical-align: middle; }
+        .ft-table th:hover .ft-col-del, .ft-table th .ft-col-del:focus { opacity: 1; }
+        .ft-table td { padding: 3px 6px; color: #e5e7eb; border-bottom: 1px solid var(--c-line); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ft-table.is-editable td { padding: 2px 3px; }
+        .ft-table .ft-cell { min-width: 90px; background: transparent; border-color: transparent; }
+        .ft-table .ft-cell:hover { border-color: #374151; }
+        .ft-table .ft-cell:focus { background: #0f172a; }
+        .ft-table tr.is-highlight td { background: rgba(255, 191, 0, 0.08); }
+        .ft-geom-col { width: 28px; text-align: center; }
+        .ft-row-actions { width: 28px; text-align: center; }
+        .ft-table tbody tr .ft-row-del { opacity: 0; }
+        .ft-table tbody tr:hover .ft-row-del, .ft-table tbody tr:focus-within .ft-row-del { opacity: 1; }
+        .ft-empty, .ft-more { padding: 8px 2px; font-size: 12px; color: #9ca3af; }
+
+        /* The layer's options: Shareable and its JSON (js/creator-steps.js) */
+        .layer-options { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 2px 0 14px; font-size: 12px; }
+        .lo-share { display: inline-flex; align-items: center; gap: 6px; color: #d1d5db; cursor: pointer; }
+        .lo-share:has(input:disabled) { color: #9ca3af; cursor: help; }
+        .lo-note { color: var(--c-ink-3); }
+        .lo-btn {
+            display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #9ca3af;
+            background: none; border: 1px solid transparent; border-radius: 6px; padding: 3px 8px; cursor: pointer;
+        }
+        .lo-btn:hover, .lo-btn[aria-expanded="true"] { color: #fff; border-color: #4b5563; }
+        .config-panel { margin: -6px 0 14px; padding: 12px; border: 1px solid var(--c-line); border-radius: 10px; background: #0f172a; }
+        .config-panel textarea[readonly] { opacity: 0.8; }
+
+        /* An existing layer's live tools, as one row of icons */
+        .lh-toolbar { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; margin-top: 12px; }
+        .lh-toolbar input[type="range"] { flex: 1 1 90px; min-width: 70px; max-width: 160px; margin: 0 4px; }
+        .lh-tool-icon { color: #9ca3af; font-size: 13px; flex-shrink: 0; }
+        .lh-opacity-value { width: 2.4rem; font-size: 11px; color: #9ca3af; }
+        .lh-sep { width: 1px; height: 18px; margin: 0 4px; background: var(--c-line); }
+        .lh-toolbar .info-header-action { padding: 5px 7px; }
+        .lh-toolbar .info-header-action > span:not(.compare-icons) { display: none; }
+
+        /* The steps: Data source, Filter, Features, Style (js/creator-steps.js) */
+        .steps { display: flex; flex-direction: column; gap: 10px; }
+        .step { border: 1px solid var(--c-line); border-radius: 10px; background: var(--c-raised); }
+        .step-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
+        .step-num {
+            display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+            width: 20px; height: 20px; border-radius: 50%; font-size: 11px; font-weight: 700;
+            background: rgba(255, 255, 255, 0.08); color: var(--c-ink-2);
+        }
+        .step-icon { color: var(--c-ink-3); font-size: 14px; flex-shrink: 0; }
+        .step-title { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: var(--c-ink); }
+        .step-count { font-weight: 400; color: var(--c-ink-3); }
+        .step-actions { display: flex; gap: 6px; }
+        .step-btn {
+            display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #d1d5db;
+            background: #1f2937; border: 1px solid #4b5563; border-radius: 6px; padding: 3px 10px; cursor: pointer;
+        }
+        .step-btn:hover { color: #fff; border-color: #6b7280; }
+        .step-body { padding: 0 12px 12px; }
+        .step-body > :first-child { margin-top: 0; }
+        .step-note { margin: 0 0 8px; font-size: 12px; color: var(--c-ink-3); }
+        .step #lh-filters { margin-top: 0; }
+        .step #lo-legend-section { margin: 0; }
+        .step #style-section { margin: 0; padding: 0; border: 0; }
+        .step #style-controls { margin-top: 0; padding-top: 0; border-top: 0; }
+        details.step-more { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--c-line); }
+        details.step-more > summary {
+            display: flex; align-items: center; gap: 6px; list-style: none; cursor: pointer;
+            font-size: 12px; font-weight: 600; color: var(--c-ink-2);
+        }
+        details.step-more > summary::-webkit-details-marker { display: none; }
+        details.step-more > summary::before { content: '▸'; color: var(--c-ink-3); font-size: 10px; }
+        details.step-more[open] > summary::before { content: '▾'; }
+        details.step-more > summary:hover { color: var(--c-ink); }
+        .step-more-note { font-weight: 400; color: var(--c-ink-3); }
+        .step-more-body { padding-top: 10px; }
+        #data-preview-details > summary { margin: 0; }
+        .load-data-btn {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 5px 12px;
+            font-size: 12px; font-weight: 600; color: #fff; background: #2563eb; border: 0; border-radius: 6px; cursor: pointer;
+        }
+        .load-data-btn:hover { background: #1d4ed8; }
+        .load-data-btn:disabled { opacity: 0.6; cursor: default; }
+        .load-data-btn sl-spinner { font-size: 12px; --track-width: 2px; }
+        .is-viewing #source-settings, .is-viewing #popup-settings { display: none; }
 
         /* Map Maker home screen: shown while nothing is loaded (see js/creator-home.js) */
         #creator-home {
@@ -1166,11 +1305,6 @@
             border-color: var(--c-line-strong);
         }
 
-        #edit-btn {
-            background: var(--c-amber) !important;
-            color: #1a1405 !important;
-            border-radius: 8px;
-        }
 
         .section-box input[type="text"],
         .section-box input[type="url"],
@@ -1210,6 +1344,202 @@
             -webkit-line-clamp: unset;
             overflow: visible;
         }
+
+        /* ---------- One page with the console's layer details (js/console/layer-details.js) ----------
+           The editor floats as the console does, with the same bar, row, opacity card, action
+           tiles and section labels, so opening Edit reads as the same page growing its tools. */
+        :root { --c-amber-soft: rgba(255, 191, 0, 0.14); }
+        #nav-bar {
+            min-height: 47px;
+            padding: 6px 6px 6px 12px;
+            background: var(--c-surface);
+        }
+        #nav-actions button:not(.hidden) { height: 30px; font-size: 13px; }
+        #nav-actions .history-btn,
+        #nav-actions #lh-remove,
+        #nav-actions #save-settings-btn { width: 30px; padding: 0; font-size: 15px; }
+        .nav-close {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            margin-left: auto;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--c-ink-2);
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .nav-close:hover { background: var(--c-raised); color: var(--c-ink); }
+        input.lh-id-input, a.lh-hash { font-size: 13px; }
+
+        #page-body { padding: 0 12px 24px; background: var(--c-surface); }
+
+        /* The layer's row: thumbnail, title, star and eye; tinted amber while it is on the map */
+        #layer-header { margin-bottom: 12px; padding-bottom: 0; border-bottom: 0; }
+        .lh-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0 -12px;
+            padding: 8px 8px 8px 12px;
+        }
+        .lh-row:has(#lh-visible.on) {
+            background: var(--c-amber-soft);
+            box-shadow: inset 3px 0 0 var(--c-amber);
+        }
+        .lh-thumb { width: 44px; height: 44px; border-radius: 6px; }
+        .section-box input.lh-title-input {
+            font-size: 15px;
+            font-weight: 600;
+            padding: 2px 6px 2px 2px;
+            background: transparent !important;
+            border-color: transparent !important;
+        }
+        body:not(.is-viewing) .section-box input.lh-title-input:hover { background: var(--c-raised) !important; }
+        body:not(.is-viewing) .section-box input.lh-title-input:focus { background: var(--c-raised) !important; border-color: var(--c-blue) !important; }
+        #nav-actions { flex: 0 1 auto; flex-wrap: nowrap; }
+        #lh-id-group { flex: 1 1 auto !important; max-width: none !important; }
+        #nav-actions > * { flex-shrink: 0; white-space: nowrap; }
+        #lh-id-group { flex-shrink: 1; overflow: hidden; }
+        input.lh-id-input { min-width: 0; text-overflow: ellipsis; }
+        .lh-row .mt-1\.5 { margin-top: 2px; }
+        .lh-star-btn { width: 30px; height: 30px; border-color: transparent; font-size: 15px; }
+        .lh-star-btn:hover { background: var(--c-raised); border-color: transparent; }
+        .lh-star-btn.on { border-color: transparent; background: transparent; }
+        .lh-visible-btn { border-color: var(--c-line-strong); }
+        .lh-visible-btn.on { border-color: var(--c-amber); background: var(--c-amber); }
+        .desc-card { margin: 10px 0 0; }
+        .desc-summary { padding: 0; }
+        .desc-summary:hover { background: transparent; }
+        body:not(.is-viewing) .desc-summary:hover { color: var(--c-ink); }
+
+        /* Opacity and stack order, as the console's opacity card */
+        .lh-opacity-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 8px 8px 12px;
+            border: 1px solid var(--c-line);
+            border-radius: 10px;
+            background: var(--c-raised);
+        }
+        .lh-opacity-label { font-size: 13px; font-weight: 600; white-space: nowrap; }
+        .lh-opacity-card #lh-opacity { flex: 1; min-width: 0; accent-color: var(--c-amber); }
+        .lh-opacity-value { width: 36px; text-align: right; font-size: 11.5px; color: var(--c-ink-3); font-variant-numeric: tabular-nums; }
+        .lh-opacity-card .lh-sep { width: 1px; height: 18px; margin: 0; background: var(--c-line); }
+        .lh-order-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border: 0;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--c-ink-2);
+            cursor: pointer;
+        }
+        .lh-order-btn:hover:not(:disabled) { background: var(--c-hover); color: var(--c-ink); }
+        .lh-order-btn:disabled { opacity: 0.35; cursor: default; }
+
+        /* The map actions, as the console's tiles */
+        .lh-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .lh-action {
+            min-width: 0;
+            min-height: 54px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 8px 4px;
+            border: 1px solid var(--c-line);
+            border-radius: 8px;
+            background: transparent;
+            color: var(--c-ink-2) !important;
+            font-size: 11.5px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .lh-action span { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .lh-action sl-icon { font-size: 17px; }
+        .lh-action:hover { background: var(--c-raised); color: var(--c-ink) !important; }
+        .lh-action.comparing,
+        .lh-action.masking,
+        .lh-action.isolating {
+            border-color: rgba(255, 191, 0, 0.55);
+            background: var(--c-amber-soft);
+            color: var(--c-amber) !important;
+        }
+        #lh-raster { margin-top: 10px; }
+
+        /* Sharing and JSON: a quiet line under the tools */
+        .layer-options { margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--c-line); }
+
+        /* The steps as the console's sections: an uppercase label over the content, no box */
+        .steps { gap: 0; margin-top: 4px; }
+        .step { border: 0; border-top: 1px solid var(--c-line); border-radius: 0; background: transparent; }
+        .step-head { gap: 6px; min-height: 40px; padding: 10px 0 4px; }
+        .step-num { display: none; }
+        .step-icon { display: none; }
+        .step-title {
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--c-ink-3);
+        }
+        .step-count { letter-spacing: 0; }
+        .step-body { padding: 4px 0 14px; }
+        .step-btn {
+            height: 26px;
+            padding: 0 9px;
+            border-color: var(--c-line-strong);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--c-ink-2);
+            font-size: 11.5px;
+            letter-spacing: 0;
+            text-transform: none;
+        }
+        .step-btn:hover { background: var(--c-raised); color: var(--c-ink); border-color: var(--c-line-strong); }
+        .data-card-toggle { border-color: var(--c-line-strong); background: transparent; color: var(--c-ink-2); }
+        .data-card-toggle:hover { background: var(--c-raised); color: var(--c-ink); }
+
+        /* Simple | Advanced style (js/creator-style-editor.js): one shows at a time */
+        .style-mode-tabs {
+            display: flex;
+            gap: 2px;
+            margin: 0 0 12px;
+            padding: 2px;
+            border: 1px solid var(--c-line);
+            border-radius: 8px;
+            background: var(--c-raised);
+        }
+        .style-mode-tabs button {
+            flex: 1;
+            height: 28px;
+            border: 0;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--c-ink-2);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .style-mode-tabs button:hover { color: var(--c-ink); }
+        .style-mode-tabs button[aria-selected="true"] { background: var(--c-hover); color: var(--c-ink); }
+        #style-section[data-style-mode="simple"] #advanced-style-section,
+        #style-section[data-style-mode="advanced"] #style-controls { display: none !important; }
     </style>
     <script defer type="module" src="js/analytics.js"></script>
 </head>
@@ -1217,14 +1547,13 @@
 <body class="bg-gray-900">
     <div class="flex flex-col h-screen max-w-[720px] w-full mx-auto relative">
         <!-- Title bar: the layer's link and id, then the edit actions -->
-        <div id="nav-bar" class="px-5 py-3 flex items-center gap-2" style="background:#111827;">
+        <div id="nav-bar" class="flex items-center gap-2">
             <div id="lh-id-group" class="flex items-center min-w-0" style="flex:0 1 auto;max-width:42%;">
                 <a id="lh-copy-link" class="lh-hash" href="#" title="Copy a link to this scene with this layer open">#</a>
                 <input type="text" id="layer-id" placeholder="layer-id" class="lh-id-input" aria-label="Layer ID">
             </div>
             <div id="nav-actions" class="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
-                <button id="edit-btn" type="button"
-                    class="hidden px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold text-sm">
+                <button id="edit-btn" type="button" class="hidden nav-primary">
                     <sl-icon name="pencil"></sl-icon> Edit Layer
                 </button>
                 <div id="edit-history" class="flex gap-1 hidden">
@@ -1235,19 +1564,12 @@
                         <sl-icon name="arrow-clockwise"></sl-icon>
                     </button>
                 </div>
-                <button id="remove-other-maps-btn"
-                    class="px-3 py-1.5 rounded text-sm transition-colors"
-                    style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;"
-                    title="Turn off every currently active map except the basemap, for a fresh inspector">
-                    Remove Other Maps
-                </button>
-                <button id="add-to-map-btn" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold text-sm" disabled>
+                <button id="add-to-map-btn" class="nav-primary" disabled>
                     Add Map Layer
                 </button>
-                <button id="save-settings-btn" type="button" class="hidden px-3 py-1.5 rounded text-sm"
-                    style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;"
-                    title="Where this map's changes are kept: Google Sheet, link, export">
-                    <sl-icon name="gear"></sl-icon> Save settings
+                <button id="save-settings-btn" type="button" class="hidden nav-secondary"
+                    title="Save settings: where this map's changes are kept - Google Sheet, link, export" aria-label="Save settings">
+                    <sl-icon name="gear"></sl-icon>
                 </button>
                 <sl-tooltip content="Remove Layer" placement="bottom" hoist>
                     <button type="button" class="info-header-action danger hidden" id="lh-remove" aria-label="Remove Layer">
@@ -1255,15 +1577,14 @@
                     </button>
                 </sl-tooltip>
             </div>
-            <button id="close-btn" class="text-white hover:text-gray-300 text-2xl leading-none" title="Close and go back to the map console, where this was opened from">&times;</button>
+            <button id="close-btn" type="button" class="nav-close" title="Close and go back to the map console, where this was opened from ( Esc )" aria-label="Close"><sl-icon name="x-lg"></sl-icon></button>
         </div>
 
         <!-- Content -->
-        <div class="flex-1 overflow-y-auto scrollbar-thin px-5 pt-2 pb-6" style="background:#111827;">
-            <!-- An existing layer: its identity and live actions, then Overview / Edit tabs -->
-            <!-- The layer: thumbnail (opens style), title, id; actions for an existing layer -->
+        <div id="page-body" class="flex-1 overflow-y-auto scrollbar-thin">
+            <!-- The layer: thumbnail, title, description; its live tools; sharing and JSON -->
             <div id="layer-header" class="section-box">
-                <div class="flex gap-3 items-start">
+                <div id="lh-row" class="lh-row">
                     <button type="button" id="lh-thumbnail" class="lh-thumb" title="Edit style"></button>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2">
@@ -1275,6 +1596,8 @@
                             <button type="button" class="atlas-badge-chip" id="lh-atlas-badge" title="Click to copy atlas config link" style="display: none;"></button>
                             <button type="button" class="license-chip" id="lh-license-badge" title="License for reuse - click to edit"></button>
                         </div>
+                    </div>
+                </div>
                 <div id="description-card" class="desc-card">
                     <div id="desc-summary" class="desc-summary" role="button" tabindex="0" title="Edit description and attribution">
                         <div id="desc-summary-text" class="desc-clamp-2"></div>
@@ -1297,807 +1620,76 @@
                         <button type="button" id="desc-done" class="section-done-btn mt-2"><sl-icon name="check2"></sl-icon> Done</button>
                     </div>
                 </div>
-                    </div>
-                </div>
-            <!-- The data source -->
-            <div class="mt-3">
-                <div id="edit-unsupported-note" class="hidden mb-3 p-3 rounded-lg text-xs"
-                    style="background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.4);color:#fde68a;"></div>
 
-                <!-- The data source, as one card: collapsed to its link and type when a layer
-                     already has data, expanded to edit it. -->
-                <div id="data-card" class="data-card">
-                    <div class="data-card-head">
-                        <sl-tooltip id="data-card-tooltip" content="Paste a link or upload a file. The data format is detected from the link." placement="top-start" hoist>
-                            <span class="data-card-icon"><sl-icon id="data-card-icon" name="link-45deg"></sl-icon></span>
-                        </sl-tooltip>
-                        <div class="min-w-0 flex-1">
-                            <div id="data-card-title" class="data-card-title">Paste a link or upload a file</div>
-                            <div id="data-card-subtitle" class="data-card-subtitle">Data source</div>
-                        </div>
-                        <button type="button" id="data-card-toggle" class="data-card-toggle hidden" title="Edit the data source">
-                            <sl-icon name="pencil"></sl-icon> <span>Edit</span>
-                        </button>
-                    </div>
-
-                    <div id="data-card-body" class="data-card-body">
-                        <div class="flex gap-2 mb-2">
-                            <div class="relative flex-1">
-                                <input type="text" id="url-input"
-                                    placeholder="Paste a link to GeoJSON, CSV, KML, tiles, MapWarper, WMS, WFS, ArcGIS REST…"
-                                    class="w-full px-3 py-2 pr-20 rounded">
-                                <div class="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
-                                    <span id="url-validation" class="text-xs"></span>
-                                    <button type="button" id="clear-url-btn" class="text-gray-400 hover:text-gray-200 hidden"
-                                        title="Clear">
-                                        ✕
-                                    </button>
-                                </div>
-                            </div>
-                            <button type="button" id="upload-file-btn"
-                                class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm font-medium whitespace-nowrap flex items-center gap-1 border border-gray-600"
-                                title="Upload one or more local files - each becomes its own layer">
-                                <sl-icon name="upload"></sl-icon> Upload Files
-                            </button>
-                            <input type="file" id="file-input" multiple
-                                accept=".csv,.geojson,.json,.kml,.geojsonl,.ndjson,.jsonl,.gpkg,.zip,.tif,.tiff,.png,.jpg,.jpeg"
-                                class="hidden">
-                        </div>
-                        <div class="text-xs mb-2" style="color:#9ca3af;">
-                            Autodetect data format from URL. See
-                            <a href="#" id="formats-toggle" aria-expanded="false" aria-controls="formats-help">supported formats</a>
-                        </div>
-
-                        <div id="formats-help" class="formats-help hidden">
-                        <button type="button" class="format-card format-chip" data-format="geojson" data-sample="https://gist.githubusercontent.com/planemad/e5ccc47bf2a1aa458a86d6839476f539/raw/goa-water-bodies.geojson">
-                            <sl-icon name="filetype-json" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">GeoJSON</span>
-                                <span class="fc-desc">Vector features in JSON: points, lines and polygons. A .geojson or .json link, or an uploaded file.</span>
-                                <code class="fc-example">https://gist.githubusercontent.com/planemad/e5ccc47bf2a1aa458a86d6839476f539/raw/goa-water-bodies.geojson</code>
-                            </span>
-                        </button>
-                        <button type="button" class="format-card format-chip" data-format="csv" data-sample="https://docs.google.com/spreadsheets/d/e/2PACX-1vRhTXMFezW8k996di0qKP7-9-0ro0djuEEtMPYDOMhXtNOiUK_25lv90AThy21X2PRPYI_st93CQVq2/pub?gid=1432085196&amp;single=true&amp;output=csv">
-                            <sl-icon name="filetype-csv" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">CSV / Google Sheet</span>
-                                <span class="fc-desc">Rows with latitude and longitude columns, from a .csv link or a published Google Sheet.</span>
-                                <code class="fc-example">https://docs.google.com/spreadsheets/d/e/2PACX-1vRhTXMFezW8k996di0qKP7-9-0ro0djuEEtMPYDOMhXtNOiUK_25lv90AThy21X2PRPYI_st93CQVq2/pub?gid=1432085196&amp;single=true&amp;output=csv</code>
-                            </span>
-                        </button>
-                        <button type="button" class="format-card format-chip" data-format="kml" data-sample="https://files.worldwind.arc.nasa.gov/artifactory/web/0.9.0/examples/data/KML_Samples.kml">
-                            <sl-icon name="filetype-xml" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">KML</span>
-                                <span class="fc-desc">Points, lines and polygons from Google Earth.</span>
-                                <code class="fc-example">https://files.worldwind.arc.nasa.gov/artifactory/web/0.9.0/examples/data/KML_Samples.kml</code>
-                            </span>
-                        </button>
-                        <button type="button" class="format-card format-chip" data-format="vector-tiles" data-sample="https://tiles.stadiamaps.com/data/openmaptiles/{z}/{x}/{y}.pbf">
-                            <sl-icon name="bounding-box-circles" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">Vector Tiles</span>
-                                <span class="fc-desc">Tiled vector data (.pbf / .mvt): fast for large datasets. A link with {z}/{x}/{y}.</span>
-                                <code class="fc-example">https://tiles.stadiamaps.com/data/openmaptiles/{z}/{x}/{y}.pbf</code>
-                            </span>
-                        </button>
-                        <button type="button" class="format-card format-chip" data-format="raster-tiles" data-sample="https://tile.openstreetmap.org/{z}/{x}/{y}.png">
-                            <sl-icon name="image" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">Raster Tiles</span>
-                                <span class="fc-desc">Tiled images such as satellite imagery or scanned maps (TMS / XYZ).</span>
-                                <code class="fc-example">https://tile.openstreetmap.org/{z}/{x}/{y}.png</code>
-                            </span>
-                        </button>
-                        <button type="button" class="format-card format-chip" data-format="pmtiles" data-sample="https://overturemaps-extras-us-west-2.s3.us-west-2.amazonaws.com/tiles/2026-09-23.1/buildings.pmtiles">
-                            <sl-icon name="archive" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">PMTiles</span>
-                                <span class="fc-desc">A single-file archive of vector or raster tiles, read over HTTP range requests. A .pmtiles link.</span>
-                                <code class="fc-example">https://overturemaps-extras-us-west-2.s3.us-west-2.amazonaws.com/tiles/2026-09-23.1/buildings.pmtiles</code>
-                            </span>
-                        </button>
-                        <button type="button" class="format-card format-chip" data-format="mapwarper" data-sample="https://mapwarper.net/maps/95676">
-                            <sl-icon name="globe" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">MapWarper</span>
-                                <span class="fc-desc">Georeferenced historic maps hosted on mapwarper.net.</span>
-                                <code class="fc-example">https://mapwarper.net/maps/95676</code>
-                            </span>
-                        </button>
-                        <button type="button" class="format-card format-chip" data-format="allmaps" data-sample="https://annotations.allmaps.org/images/bca064e512c963f0">
-                            <sl-icon name="globe" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">Allmaps</span>
-                                <span class="fc-desc">Georeferenced historic maps from allmaps.org annotations or the Allmaps viewer.</span>
-                                <code class="fc-example">https://annotations.allmaps.org/images/bca064e512c963f0</code>
-                            </span>
-                        </button>
-                        <button type="button" class="format-card format-chip" data-format="osm" data-sample="https://www.openstreetmap.org/way/28845634">
-                            <sl-icon name="globe" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">OpenStreetMap element</span>
-                                <span class="fc-desc">A single node, way or relation by link, fetched once through the Overpass API.</span>
-                                <code class="fc-example">https://www.openstreetmap.org/way/28845634</code>
-                            </span>
-                        </button>
-                        <button type="button" class="format-card format-chip" data-format="overpass" data-sample="https://overpass-turbo.eu/s/2qIp">
-                            <sl-icon name="globe" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">Overpass</span>
-                                <span class="fc-desc">Live OpenStreetMap data from a query. Paste an overpass-turbo.eu share link, or write a query; {{bbox}} is the map view.</span>
-                                <code class="fc-example">https://overpass-turbo.eu/s/2qIp</code>
-                            </span>
-                        </button>
-                        <button type="button" class="format-card format-chip" data-format="wms" data-sample="http://14.139.123.73:8080/geoserver/wms?service=WMS&amp;version=1.3.0&amp;request=GetMap&amp;layers=nbss_geoserver:Goa_LUP&amp;styles=&amp;format=image/png&amp;transparent=true">
-                            <sl-icon name="globe" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">WMS</span>
-                                <span class="fc-desc">An OGC Web Map Service GetMap link (versions 1.1.1 and 1.3.0).</span>
-                                <code class="fc-example">http://14.139.123.73:8080/geoserver/wms?service=WMS&amp;version=1.3.0&amp;request=GetMap&amp;layers=nbss_geoserver:Goa_LUP&amp;styles=&amp;format=image/png&amp;transparent=true</code>
-                            </span>
-                        </button>
-                        <button type="button" class="format-card format-chip" data-format="wfs" data-sample="https://service.pdok.nl/cbs/gebiedsindelingen/2023/wfs/v1_0?service=WFS">
-                            <sl-icon name="globe" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">WFS</span>
-                                <span class="fc-desc">An OGC Web Feature Service. Browse its feature types and load one as GeoJSON.</span>
-                                <code class="fc-example">https://service.pdok.nl/cbs/gebiedsindelingen/2023/wfs/v1_0?service=WFS</code>
-                            </span>
-                        </button>
-                        <button type="button" class="format-card format-chip" data-format="arcgis" data-sample="https://gis.dda.org.in/server/rest/services/">
-                            <sl-icon name="globe" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">ArcGIS REST</span>
-                                <span class="fc-desc">A FeatureServer or MapServer. Paste a /rest/services directory to browse it, or a layer or query link to load it directly.</span>
-                                <code class="fc-example">https://gis.dda.org.in/server/rest/services/</code>
-                            </span>
-                        </button>
-                        <button type="button" class="format-card format-chip" data-format="atlas-json" data-sample="https://jsonkeeper.com/b/E576V">
-                            <sl-icon name="filetype-json" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">Amche Atlas JSON</span>
-                                <span class="fc-desc">A complete layer or atlas configuration, hosted anywhere as JSON.</span>
-                                <code class="fc-example">https://jsonkeeper.com/b/E576V</code>
-                            </span>
-                        </button>
-                        <button type="button" class="format-card format-chip" data-format="bharatlas" data-sample="https://bharatlas.com/c/nL7zNStsW3">
-                            <sl-icon name="globe" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">Bharatlas</span>
-                                <span class="fc-desc">Community-shared geospatial data. Fills in the title, description and attribution.</span>
-                                <code class="fc-example">https://bharatlas.com/c/nL7zNStsW3</code>
-                            </span>
-                        </button>
-                        <div class="format-card" data-format="geojsonl">
-                            <sl-icon name="filetype-json" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">GeoJSON Lines</span>
-                                <span class="fc-desc">One GeoJSON feature per line (.geojsonl, .ndjson, .jsonl).</span>
-                                <span class="fc-example fc-upload">File upload only</span>
-                            </span>
-                        </div>
-                        <div class="format-card" data-format="gpkg">
-                            <sl-icon name="file-earmark-zip" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">GeoPackage</span>
-                                <span class="fc-desc">An OGC GeoPackage (.gpkg) with point, line or polygon tables.</span>
-                                <span class="fc-example fc-upload">File upload only</span>
-                            </span>
-                        </div>
-                        <div class="format-card" data-format="shapefile">
-                            <sl-icon name="file-earmark-zip" class="fc-icon"></sl-icon>
-                            <span class="fc-body">
-                                <span class="fc-name">Shapefile</span>
-                                <span class="fc-desc">A zipped ESRI shapefile containing .shp and .dbf files.</span>
-                                <span class="fc-example fc-upload">File upload only</span>
-                            </span>
-                        </div>
-                        </div>
-
-                    <div id="selected-file-info" class="hidden mb-2 px-3 py-2 rounded text-xs flex items-center justify-between gap-2"
-                        style="background:#111827;border:1px solid #374151;color:#d1d5db;">
-                        <span class="min-w-0 truncate"><strong class="text-white">File:</strong> <span id="selected-file-name"></span></span>
-                        <span id="file-queue-progress" class="hidden px-2 py-0.5 rounded whitespace-nowrap"
-                            style="background:rgba(59,130,246,0.18);border:1px solid rgba(59,130,246,0.45);color:#bfdbfe;"></span>
-                        <button type="button" id="clear-file-btn" class="text-gray-400 hover:text-gray-200 ml-auto" title="Clear">✕</button>
-                    </div>
-
-                    <!-- Notice: uploaded files are temporary -->
-                    <div id="upload-temp-notice" class="hidden mb-3 p-3 rounded-lg"
-                        style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.35);">
-                        <div class="flex items-start gap-3">
-                            <span style="font-size:18px;line-height:1;">ℹ️</span>
-                            <div class="flex-1 text-sm" style="color:#dbeafe;">
-                                <div class="font-semibold mb-1" style="color:#bfdbfe;">Uploaded files stay in your browser only</div>
-                                <p style="color:#cbd5e1;line-height:1.5;">
-                                    This file won't be saved anywhere — refreshing the page will lose it, and you can't share the resulting map with anyone else.
-                                </p>
-                                <p class="mt-2" style="color:#cbd5e1;line-height:1.5;">
-                                    To create a <strong style="color:#bfdbfe;">shareable map</strong>, upload your file to
-                                    <a href="https://bharatlas.com/preview" target="_blank" rel="noopener"
-                                        style="color:#93c5fd;text-decoration:underline;font-weight:600;">bharatlas.com/preview</a>,
-                                    copy the download link it gives you, and paste that link into the box above.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Georeferencing Notice (for image files) -->
-                    <div id="georef-notice" class="hidden mb-3 p-4 rounded-lg"
-                        style="background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.4);">
-                        <div class="flex items-start gap-3">
-                            <svg class="w-6 h-6 flex-shrink-0" style="color:#fbbf24;" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
-                                </path>
-                            </svg>
-                            <div class="flex-1">
-                                <h4 class="font-semibold mb-1" style="color:#fcd34d;">Map image lacks georeferencing
-                                    information</h4>
-                                <p class="text-sm mb-3" style="color:#fde68a;">
-                                    <a href="https://mapwarper.net/maps/new" target="_blank"
-                                        class="font-medium underline" style="color:#fde68a;">Upload your map to
-                                        mapwarper.net</a> first (free signup) to georeference the image with matching
-                                    map control points. After rectification, import the mapwarper URL into Amche
-                                    Atlas.
-                                </p>
-                                <div class="text-sm" style="color:#fde68a;">
-                                    <strong style="color:#fcd34d;">Help resources:</strong>
-                                    <ul class="mt-1 space-y-1">
-                                        <li>
-                                            📖 <a
-                                                href="https://programminghistorian.org/en/lessons/introduction-map-warper"
-                                                target="_blank" class="underline" style="color:#fde68a;">Introduction to
-                                                Map Warper Tutorial</a>
-                                        </li>
-                                        <li>
-                                            🎥 <a href="https://www.youtube.com/watch?v=EIZj67YgOXE" target="_blank"
-                                                class="underline" style="color:#fde68a;">Video Tutorial on YouTube</a>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                        <div id="google-sheet-section" class="hidden mt-3 p-3 rounded-lg"
-                            style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.35);">
-                            <label for="google-sheet-select" class="block text-sm font-semibold mb-2" style="color:#bfdbfe;">
-                                Sheet (preview)
-                            </label>
-                            <select id="google-sheet-select" class="w-full px-3 py-2 rounded text-sm"></select>
-                            <div class="text-xs mt-2" style="color:#93c5fd;">
-                                This spreadsheet has multiple tabs. This only changes what's <strong>previewed</strong> below -
-                                the saved layer defaults to type <strong>Google Sheet</strong>, which always merges every tab
-                                live. Switch Type to <strong>CSV</strong> to pin the link to just one tab instead.
-                            </div>
-                        </div>
-
-                        <div id="overpass-section" class="hidden mt-3 p-3 rounded-lg"
-                            style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.35);">
-                            <div class="flex items-center justify-between mb-2">
-                                <label for="overpass-query" class="text-sm font-semibold" style="color:#a7f3d0;">
-                                    Overpass QL Query
-                                </label>
-                                <button type="button" id="overpass-clear-btn" class="text-xs hover:underline"
-                                    style="color:#6ee7b7;">Clear</button>
-                            </div>
-                            <p class="text-xs mb-2" style="color:#a7f3d0;">
-                                Paste a query directly, or paste an
-                                <code style="background:#0b1220;color:#93c5fd;padding:1px 5px;border-radius:3px;">overpass-turbo.eu/s/&lt;id&gt;</code>
-                                URL into the field above to auto-resolve. Use
-                                <code style="background:#0b1220;color:#93c5fd;padding:1px 5px;border-radius:3px;">{{bbox}}</code>
-                                to query the current map viewport.
-                            </p>
-                            <textarea id="overpass-query" rows="8"
-                                placeholder='[out:json][timeout:25];&#10;nwr["amenity"="cafe"]({{bbox}});&#10;out geom;'
-                                class="w-full px-3 py-2 rounded font-mono text-xs"
-                                style="background:#0b1220;border:1px solid #374151;color:#f3f4f6;"></textarea>
-                            <div id="overpass-status" class="text-xs mt-2" style="color:#9ca3af;"></div>
-                        </div>
-
-                        <button id="load-data-btn"
-                            class="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold transition-colors">
-                            Load Data →
-                        </button>
-
-                    <div id="data-settings" class="mt-4 pt-4 border-t border-gray-700">
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium mb-2">Type *</label>
-                        <select id="layer-type"
-                            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="geojson">GeoJSON - Vector features in JSON format</option>
-                            <option value="csv">CSV - Tabular data with lat/lng columns</option>
-                            <option value="sheet">Google Sheet - Every tab merged (live)</option>
-                            <option value="vector">Vector Tiles - Tiled vector data (.pbf/.mvt)</option>
-                            <option value="tms">Raster Tiles - Tiled images (TMS/XYZ)</option>
-                            <option value="cog">COG - Cloud Optimized GeoTIFF (.tif)</option>
-                            <option value="style">Style - Uses existing Mapbox style sources</option>
-                            <option value="overpass">Overpass - Live OSM data via Overpass API</option>
-                            <option value="arcgis">ArcGIS - Paged FeatureServer / MapServer layer</option>
-                            <option value="atlas">Atlas - Atlas configuration</option>
-                        </select>
-                        <div class="text-xs text-gray-500 mt-1">Data format type (auto-detected from source)</div>
-                    </div>
-
-                    <div class="mb-4" id="service-output-section" style="display:none;">
-                        <div id="service-style-section" class="mb-3" style="display:none;">
-                            <label class="flex items-center gap-2 cursor-pointer select-none text-sm font-medium">
-                                <input type="checkbox" id="service-style-inherit" class="w-4 h-4" checked>
-                                Use the service's own styling
-                            </label>
-                            <div id="service-style-note" class="text-xs text-gray-500 mt-1" style="margin-left: 24px;"></div>
-                        </div>
-                        <details>
-                            <summary class="cursor-pointer text-sm font-medium py-1">
-                                Advanced: data output
-                                <span id="service-output-count" class="text-xs text-gray-500 ml-2"></span>
-                            </summary>
-                            <div class="mt-2">
-                                <select id="service-output-select"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm"></select>
-                                <div id="service-output-hint" class="text-xs text-gray-500 mt-1"></div>
-                            </div>
-                        </details>
-                    </div>
-
-                    <div class="mb-4" id="osm-data-mode-section" style="display:none;">
-                        <label class="block text-sm font-medium mb-2">Data</label>
-                        <div class="flex flex-wrap gap-4">
-                            <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
-                                <input type="radio" name="osm-data-mode" id="data-mode-dynamic" value="dynamic" checked class="w-4 h-4"> Dynamic
-                            </label>
-                            <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
-                                <input type="radio" name="osm-data-mode" id="data-mode-static" value="static" class="w-4 h-4"> Static
-                            </label>
-                        </div>
-                        <div class="text-xs text-gray-500 mt-1">
-                            <strong>Dynamic</strong> (recommended) keeps a tiny reference to this OSM element and
-                            re-fetches its geometry from Overpass each time the map loads, so the shareable URL stays
-                            short. <strong>Static</strong> embeds the full geometry in the layer config so it works
-                            even if Overpass is down, but grows with the feature's size.
-                        </div>
-                        <div id="data-mode-static-disabled-hint" class="text-xs mt-1" style="color:#fbbf24; display:none;">
-                            Static is unavailable — this feature's geometry is too large to embed without breaking the
-                            shareable URL.
-                        </div>
-                        <div id="osm-dynamic-note" class="text-xs mt-2 p-2 rounded"
-                            style="background:#111827;border:1px solid #374151;color:#9ca3af;">
-                            Title, description, and attribution below are for this preview only — dynamic layers
-                            re-generate them from OpenStreetMap on every load.
-                        </div>
-                    </div>
-
-                    <div class="mb-4" id="source-layer-field-container" style="display: none;">
-                        <label class="block text-xs font-medium mb-1">Source Layer</label>
-                        <select id="source-layer-field"
-                            class="w-full px-3 py-2 border border-gray-300 rounded text-sm"></select>
-                        <div class="text-xs text-gray-500 mt-1">
-                            Layer within the vector tile to render — detected from a sample tile.
-                        </div>
-                    </div>
-
-                    <div class="mb-4" id="data-fields-section" style="display: none;">
-                        <h4 class="text-sm font-semibold mb-3">Data Fields</h4>
-
-                        <div id="csv-coordinate-fields" class="mb-4 pb-4 border-b border-gray-200" style="display: none;">
-                            <div class="mb-3">
-                                <label class="block text-xs font-medium mb-1">
-                                    Latitude Field <span class="text-red-500">*</span>
-                                </label>
-                                <select id="csv-latitude-field"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
-                                    <option value="">Auto-detect or select...</option>
-                                </select>
-                                <div class="text-xs text-gray-500 mt-1">
-                                    Column with latitude values (e.g., Lat, Y, Latitude)
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="block text-xs font-medium mb-1">
-                                    Longitude Field <span class="text-red-500">*</span>
-                                </label>
-                                <select id="csv-longitude-field"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
-                                    <option value="">Auto-detect or select...</option>
-                                </select>
-                                <div class="text-xs text-gray-500 mt-1">
-                                    Column with longitude values (e.g., Long, X, Longitude)
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="block text-xs font-medium mb-1">Feature ID</label>
-                            <select id="feature-id-field"
-                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
-                                <option value="">Select field...</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="block text-xs font-medium mb-1">Feature Name</label>
-                            <select id="feature-name-field"
-                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
-                                <option value="">Select field...</option>
-                            </select>
-                        </div>
-
-                        <details class="mb-3">
-                            <summary class="cursor-pointer text-xs font-medium text-gray-700 hover:text-gray-900 py-2 flex items-center justify-between">
-                                <span>Inspect Fields</span>
-                                <button type="button" id="inspect-fields-toggle-all-btn"
-                                    class="text-xs text-blue-400 hover:text-blue-300 font-normal">Select all</button>
-                            </summary>
-                            <div class="mt-2 max-h-48 overflow-y-auto border border-gray-200 rounded p-2">
-                                <div id="inspect-fields-list" class="space-y-1"></div>
-                            </div>
-                        </details>
-
-                        <div class="mb-3">
-                            <label class="flex items-center gap-2 cursor-pointer select-none text-xs font-medium">
-                                <input type="checkbox" id="include-bbox-checkbox" class="w-4 h-4">
-                                Include bounding box (bbox)
-                            </label>
-                            <div class="text-xs mt-1" style="margin-left: 24px; color:#d1d5db;">
-                                Bounding box: <span id="data-bbox-value" class="font-mono">none</span>
-                            </div>
-                            <div class="text-xs text-gray-500 mt-1" style="margin-left: 24px;">
-                                Lets the layer zoom-to-extent when toggled on. Adds coordinates to the shareable URL, so it's off by default.
-                            </div>
-                        </div>
-                    </div>
-                <!-- Save Notes (Google Sheets only) -->
-                <div id="save-notes-section" class="mt-2" style="display: none;">
-                    <label class="flex items-center gap-2 cursor-pointer select-none">
-                        <input type="checkbox" id="enable-save-notes" class="w-4 h-4 align-middle">
-                        <span class="text-sm font-semibold">Enable saving notes back to this sheet</span>
-                    </label>
-                    <div class="text-xs text-gray-500 mt-1" style="margin-left: 24px;">
-                        Adds an <strong>Add Note</strong> button to the map popup so anyone can append a row
-                        (latitude, longitude, notes, timestamp, plus the current atlas &amp; layers) to your sheet — no sign-in required.
-                    </div>
-
-                    <div id="save-notes-details" class="mt-3" style="display: none;">
-                        <div class="p-3 rounded-lg text-xs"
-                            style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.35);color:#cbd5e1;line-height:1.6;">
-                            <div class="font-semibold mb-2" style="color:#bfdbfe;">One-time setup on your Google Sheet</div>
-                            <ol class="list-decimal pl-4 space-y-1">
-                                <li>Open your sheet. Ideally the first row has columns named
-                                    <code>latitude</code>, <code>longitude</code>, <code>notes</code>, <code>timestamp</code>,
-                                    <code>atlas</code>, and <code>layers</code> — but you don't have to add them,
-                                    the script creates any missing column on the first save.</li>
-                                <li>Go to <strong>Extensions → Apps Script</strong>, delete any placeholder code, and paste the script below.</li>
-                                <li>Click <strong>Deploy → New deployment → Web app</strong>. Set
-                                    <strong>Execute as: Me</strong> and <strong>Who has access: Anyone</strong>
-                                    (<em>not</em> "Anyone with Google account" — that forces sign-in), then <strong>Deploy</strong>
-                                    and approve the one-time authorization (you authorizing your own script — visitors never see it).</li>
-                                <li>Test it: open the <code>/exec</code> URL in an incognito tab — it should show
-                                    <code>{"status":"ok"}</code>. If it asks you to sign in, re-check the access setting.
-                                    After any script edit, redeploy via <strong>Manage deployments → Edit → New version</strong>.</li>
-                                <li>Copy the <strong>Web app URL</strong> (it ends in <code>/exec</code>) and paste it below.</li>
-                            </ol>
-                            <div class="mt-2">
-                                Full guide:
-                                <a href="docs/API.md#writing-notes-back-to-a-google-sheet" target="_blank" rel="noopener">docs/API.md</a>
-                            </div>
-                        </div>
-
-                        <div class="mt-3">
-                            <div class="flex items-center justify-between mb-1">
-                                <label class="block text-sm font-medium">Apps Script code</label>
-                                <button type="button" id="copy-save-script-btn"
-                                    class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs">Copy</button>
-                            </div>
-                            <textarea id="save-script-code" rows="8" readonly
-                                class="w-full px-3 py-2 rounded font-mono text-xs"
-                                style="background:#0b1220;border:1px solid #374151;color:#f3f4f6;"></textarea>
-                        </div>
-
-                        <div class="mt-3">
-                            <label class="block text-sm font-medium mb-1">Apps Script web app URL *</label>
-                            <input type="url" id="save-url-input" placeholder="https://script.google.com/macros/s/…/exec"
-                                class="w-full px-3 py-2 rounded font-mono text-sm">
-                            <div class="text-xs text-gray-500 mt-1">Pasting this enables the Add Note button for this layer.</div>
-                        </div>
-                    </div>
-                </div>
-
-                    </div>
-                    </div>
-                </div>
-
-                <!-- Edit mode: shown once the layer's data source has been replaced -->
-                <div id="edit-style-choice" class="hidden mt-3 p-3 rounded-lg"
-                    style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.35);">
-                    <div class="text-sm font-semibold mb-2" style="color:#bfdbfe;">The data source changed. What about the styling?</div>
-                    <label class="flex items-start gap-2 cursor-pointer select-none text-sm mb-1">
-                        <input type="radio" name="edit-style-choice" value="keep" class="w-4 h-4 mt-0.5" checked>
-                        <span><strong>Keep current styling</strong>
-                            <span class="block text-xs text-gray-500">The layer's style, filters and settings stay as they are.</span></span>
-                    </label>
-                    <label class="flex items-start gap-2 cursor-pointer select-none text-sm">
-                        <input type="radio" name="edit-style-choice" value="restyle" class="w-4 h-4 mt-0.5">
-                        <span><strong>Restyle layer</strong>
-                            <span class="block text-xs text-gray-500">A best-guess style from the new data: its geometry, the service's own styling if it has one, and the atlas defaults.</span></span>
-                    </label>
-                </div>
-
-                <!-- Data Preview (GeoJSON only) -->
-                <details class="mt-4" id="data-preview-details" style="display: none;">
-                    <summary class="cursor-pointer text-sm font-medium py-2" style="color:#d1d5db;">
-                        <span id="preview-summary">Data Preview</span>
-                    </summary>
-                    <div class="mt-2">
-                        <textarea id="geojson-editor" rows="10"
-                            placeholder='{"type": "FeatureCollection", "features": []}'
-                            class="w-full px-3 py-2 rounded font-mono text-xs mb-2"></textarea>
-                        <div class="flex gap-2">
-                            <button type="button" id="preview-geojson-io-btn"
-                                class="flex-1 px-4 py-2 rounded flex items-center justify-center gap-2 text-sm transition-colors"
-                                style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;">
-                                <span>↗</span> Preview in GeoJSON.io
-                            </button>
-                            <button type="button" id="download-geojson-btn"
-                                class="flex-1 px-4 py-2 rounded flex items-center justify-center gap-2 text-sm transition-colors"
-                                style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;">
-                                <span>⬇</span> Download GeoJSON
-                            </button>
-                        </div>
-                    </div>
-                </details>
             </div>
-                <div id="layer-actions" class="hidden">
-                <div class="flex items-center gap-2 mt-2.5">
-                    <sl-icon name="circle-half" style="color: #9ca3af; font-size: 13px; flex-shrink: 0;"></sl-icon>
-                    <input type="range" id="lh-opacity" min="0" max="100" value="100" class="flex-1">
-                    <span id="lh-opacity-value" class="text-xs text-gray-400 flex-shrink-0" style="width: 2.25rem; text-align: right;">100%</span>
-                </div>
-                <details id="lh-raster" class="mt-1.5" style="display: none;">
-                    <summary class="text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-pointer select-none py-1">Image Adjustments</summary>
-                    <div id="lh-raster-body" class="mt-1"></div>
-                </details>
-
-                <div class="mt-2 flex items-center gap-1.5 flex-wrap">
-                    <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide mr-1">Layer Order</span>
-                    <button type="button" class="info-header-action" id="lh-move-up" title="Move this layer up the map stack">
-                        <sl-icon name="arrow-up"></sl-icon><span>Move Up</span>
+            <!-- An existing layer's live tools: opacity, order, zoom, export, compare, isolate, mask (js/layer-header.js) -->
+            <div id="layer-actions" class="hidden">
+                <div class="lh-opacity-card">
+                    <label for="lh-opacity" class="lh-opacity-label">Opacity</label>
+                    <input type="range" id="lh-opacity" min="0" max="100" value="100" aria-label="Opacity">
+                    <span id="lh-opacity-value" class="lh-opacity-value">100%</span>
+                    <span class="lh-sep"></span>
+                    <button type="button" class="lh-order-btn" id="lh-move-up" title="Move this layer up the map stack" aria-label="Move up">
+                        <sl-icon name="arrow-up"></sl-icon>
                     </button>
-                    <button type="button" class="info-header-action" id="lh-move-down" title="Move this layer down the map stack">
-                        <sl-icon name="arrow-down"></sl-icon><span>Move Down</span>
+                    <button type="button" class="lh-order-btn" id="lh-move-down" title="Move this layer down the map stack" aria-label="Move down">
+                        <sl-icon name="arrow-down"></sl-icon>
                     </button>
                 </div>
-
-                <div class="flex items-center gap-1.5 mt-2 flex-wrap">
-                    <button type="button" class="info-header-action" id="lh-zoom-feature" title="Zoom to this feature" style="display: none;">
-                        <sl-icon name="zoom-in"></sl-icon><span>Zoom to Feature</span>
+                <div class="lh-actions">
+                    <a class="lh-action" id="lh-zoom-layer" href="#" title="Zoom to this layer" aria-label="Zoom to layer" style="display: none;">
+                        <sl-icon name="arrows-fullscreen"></sl-icon><span>Zoom to</span>
+                    </a>
+                    <button type="button" class="lh-action" id="lh-zoom-feature" title="Zoom to this feature" aria-label="Zoom to feature" style="display: none;">
+                        <sl-icon name="zoom-in"></sl-icon><span>Zoom to feature</span>
                     </button>
-                    <button type="button" class="info-header-action" id="lh-export-selected" title="Export just this feature" style="display: none;">
-                        <sl-icon name="download"></sl-icon><span>Export Selected</span>
+                    <button type="button" class="lh-action" id="lh-isolate" title="Dim all other layers so only this one stands out" aria-label="Show only this map">
+                        <sl-icon name="bullseye"></sl-icon><span>Show only</span>
                     </button>
-                    <button type="button" class="info-header-action" id="lh-export-layer" title="Export the layer's entire source dataset, not just the current map view">
+                    <button type="button" class="lh-action" id="lh-compare" title="Swipe-compare this layer against the current map" aria-label="Compare">
+                        <sl-icon name="layout-split"></sl-icon><span>Compare</span>
+                    </button>
+                    <button type="button" class="lh-action" id="lh-mask" title="Mask the map to this layer's polygons" aria-label="Toggle mask">
+                        <sl-icon name="mask"></sl-icon><span>Mask</span>
+                    </button>
+                    <button type="button" class="lh-action" id="lh-export-layer" title="Export the layer's entire source dataset, not just the current map view" aria-label="Export">
                         <sl-icon name="download"></sl-icon><span>Export</span>
                     </button>
-                    <a class="info-header-action" id="lh-zoom-layer" href="#" title="Zoom to this layer" style="display: none; text-decoration: none;">
-                        <sl-icon name="zoom-in"></sl-icon><span>Zoom to Layer</span>
-                    </a>
-                    <button type="button" class="info-header-action" id="lh-compare" title="Swipe-compare this layer against the current map">
-                        <span class="compare-icons"><sl-icon name="caret-left"></sl-icon><sl-icon name="caret-right"></sl-icon></span><span>Compare</span>
-                    </button>
-                    <button type="button" class="info-header-action" id="lh-isolate" title="Dim all other layers so only this one stands out">
-                        <sl-icon name="layers-half"></sl-icon><span>Hide Other Maps</span>
-                    </button>
-                    <button type="button" class="info-header-action" id="lh-mask" title="Mask the map to this layer's polygons">
-                        <sl-icon name="mask"></sl-icon><span>Toggle Mask</span>
+                    <button type="button" class="lh-action" id="lh-export-selected" title="Export just this feature" aria-label="Export selected" style="display: none;">
+                        <sl-icon name="download"></sl-icon><span>Export feature</span>
                     </button>
                 </div>
-                <div id="lh-filters" class="items-center gap-1.5 mt-2 flex-wrap" style="display:none;">
-                    <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide mr-1">Filters</span>
-                </div>
-                </div>
+                <details id="lh-raster" class="step-more" style="display: none;">
+                    <summary>Image adjustments</summary>
+                    <div id="lh-raster-body" class="mt-1"></div>
+                </details>
             </div>
-
-            <!-- The feature the editor was opened on (js/layer-feature-card.js) -->
             <div id="feature-card" class="section-box" style="display:none;"></div>
 
-            <!-- Notes from the layer: the form follows -->
-            <div id="edit-tab">
-            <!-- Layer settings: description, style, configuration -->
-            <div id="settings-section">
-                <div id="style-section" class="section-box hidden">
-                    <div class="flex items-center mb-3">
-                        <h3 class="text-sm font-semibold">Style</h3>
-                        <button type="button" id="style-done" class="section-done-btn ml-auto"><sl-icon name="check2"></sl-icon> Done</button>
-                    </div>
-                <!-- Style Section -->
-                <div id="style-controls" class="mt-4 pt-4 border-t border-gray-200">
-                    <div id="geometry-type-info" class="mb-3 text-xs text-gray-600"></div>
-
-                    <!-- Style type picker -->
-                    <div class="flex flex-wrap gap-4 mb-4">
-                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
-                            <input type="checkbox" id="style-type-point" class="style-type-checkbox w-4 h-4"> Point
-                        </label>
-                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
-                            <input type="checkbox" id="style-type-line" class="style-type-checkbox w-4 h-4"> Line
-                        </label>
-                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
-                            <input type="checkbox" id="style-type-area" class="style-type-checkbox w-4 h-4"> Area
-                        </label>
-                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
-                            <input type="checkbox" id="style-type-label" class="style-type-checkbox w-4 h-4" checked> Label
-                        </label>
-                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm" title="Extra circle options: stroke width, opacity, blur">
-                            <input type="checkbox" id="style-type-circle" class="style-type-checkbox w-4 h-4"> Circle
-                        </label>
-                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm" title="Draw an icon from the map's sprite or an image URL">
-                            <input type="checkbox" id="style-type-icon" class="style-type-checkbox w-4 h-4"> Icon
-                        </label>
-                    </div>
-
-                    <!-- Point style -->
-                    <div id="style-section-point" class="style-type-section mb-4 pl-3" style="display:none;border-left:2px solid #374151;">
-                        <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Point style</h4>
-                        <div class="mb-3">
-                            <label class="block text-sm font-medium mb-2">Fill Color</label>
-                            <div class="color-picker-wrapper">
-                                <input type="color" id="point-fill-color" value="#3b82f6" class="style-color-input">
-                                <div class="color-preview" style="background-color: #3b82f6;"></div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="block text-sm font-medium mb-2">Stroke Color</label>
-                            <div class="color-picker-wrapper">
-                                <input type="color" id="point-stroke-color" value="#1e40af" class="style-color-input">
-                                <div class="color-preview" style="background-color: #1e40af;"></div>
-                            </div>
-                        </div>
-                        <div class="mb-1">
-                            <label class="block text-sm font-medium mb-2">
-                                Radius: <span id="point-radius-value">4</span>px
-                            </label>
-                            <input type="range" id="point-radius" min="1" max="20" value="4" step="0.5" class="w-full style-control">
-                        </div>
-                    </div>
-
-                    <!-- Line style -->
-                    <div id="style-section-line" class="style-type-section mb-4 pl-3" style="display:none;border-left:2px solid #374151;">
-                        <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Line style</h4>
-                        <div class="mb-3">
-                            <label class="block text-sm font-medium mb-2">Line Color</label>
-                            <div class="color-picker-wrapper">
-                                <input type="color" id="line-color" value="#1e40af" class="style-color-input">
-                                <div class="color-preview" style="background-color: #1e40af;"></div>
-                            </div>
-                        </div>
-                        <div class="mb-1">
-                            <label class="block text-sm font-medium mb-2">
-                                Line Width: <span id="line-width-value">2</span>px
-                            </label>
-                            <input type="range" id="line-width" min="1" max="10" value="2" step="0.5" class="w-full style-control">
-                        </div>
-                    </div>
-
-                    <!-- Area style -->
-                    <div id="style-section-area" class="style-type-section mb-4 pl-3" style="display:none;border-left:2px solid #374151;">
-                        <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Area style</h4>
-                        <div class="mb-3">
-                            <label class="block text-sm font-medium mb-2">Fill Color</label>
-                            <div class="color-picker-wrapper">
-                                <input type="color" id="area-fill-color" value="#3b82f6" class="style-color-input">
-                                <div class="color-preview" style="background-color: #3b82f6;"></div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="block text-sm font-medium mb-2">
-                                Fill Opacity: <span id="area-fill-opacity-value">0.6</span>
-                            </label>
-                            <input type="range" id="area-fill-opacity" min="0" max="1" value="0.6" step="0.05" class="w-full style-control">
-                        </div>
-                        <div class="mb-3">
-                            <label class="block text-sm font-medium mb-2">Stroke Color</label>
-                            <div class="color-picker-wrapper">
-                                <input type="color" id="area-stroke-color" value="#1e40af" class="style-color-input">
-                                <div class="color-preview" style="background-color: #1e40af;"></div>
-                            </div>
-                        </div>
-                        <div class="mb-1">
-                            <label class="block text-sm font-medium mb-2">
-                                Stroke Width: <span id="area-stroke-width-value">2</span>px
-                            </label>
-                            <input type="range" id="area-stroke-width" min="1" max="10" value="2" step="0.5" class="w-full style-control">
-                        </div>
-                    </div>
-
-                    <!-- Label style -->
-                    <div id="style-section-label" class="style-type-section mb-1 pl-3" style="border-left:2px solid #374151;">
-                        <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Label style</h4>
-                        <label class="block text-sm font-medium mb-2">Label Field</label>
-                        <select id="label-field-select" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
-                            <option value="">None</option>
-                        </select>
-                        <div class="text-xs text-gray-500 mt-1">Field shown as a map label on this layer</div>
-                    </div>
-
-                    <!-- Circle style -->
-                    <div id="style-section-circle" class="style-type-section mt-4 mb-4 pl-3" style="display:none;border-left:2px solid #374151;">
-                        <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Circle style</h4>
-                        <div class="text-xs text-gray-500 mb-2">Colours and radius come from the Point style above.</div>
-                        <div class="mb-3">
-                            <label class="block text-sm font-medium mb-2">
-                                Stroke Width: <span id="circle-stroke-width-value">2</span>px
-                            </label>
-                            <input type="range" id="circle-stroke-width" min="0" max="10" value="2" step="0.5" class="w-full style-control">
-                        </div>
-                        <div class="mb-3">
-                            <label class="block text-sm font-medium mb-2">
-                                Opacity: <span id="circle-opacity-value">0.8</span>
-                            </label>
-                            <input type="range" id="circle-opacity" min="0" max="1" value="0.8" step="0.05" class="w-full style-control">
-                        </div>
-                        <div class="mb-1">
-                            <label class="block text-sm font-medium mb-2">
-                                Blur: <span id="circle-blur-value">0</span>
-                            </label>
-                            <input type="range" id="circle-blur" min="0" max="1" value="0" step="0.05" class="w-full style-control">
-                        </div>
-                    </div>
-
-                    <!-- Icon style -->
-                    <div id="style-section-icon" class="style-type-section mt-4 mb-1 pl-3" style="display:none;border-left:2px solid #374151;">
-                        <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Icon style</h4>
-                        <div class="mb-3">
-                            <label class="block text-sm font-medium mb-2">Icon Image</label>
-                            <input type="text" id="icon-image" placeholder="marker-15, or an image URL"
-                                class="style-text-control w-full px-3 py-2 border border-gray-300 rounded text-sm">
-                            <div class="text-xs text-gray-500 mt-1">A name from the base map's icon sprite, or a link to a PNG / SVG</div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="block text-sm font-medium mb-2">
-                                Size: <span id="icon-size-value">1</span>×
-                            </label>
-                            <input type="range" id="icon-size" min="0.2" max="3" value="1" step="0.1" class="w-full style-control">
-                        </div>
-                        <div class="mb-1">
-                            <label class="block text-sm font-medium mb-2">
-                                Opacity: <span id="icon-opacity-value">1</span>
-                            </label>
-                            <input type="range" id="icon-opacity" min="0" max="1" value="1" step="0.05" class="w-full style-control">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Advanced style: the same property-by-property editor as the layer info panel -->
-                <div id="advanced-style-section" class="mt-4 pt-4 border-t border-gray-200">
-                    <details id="advanced-style-details" open>
-                        <summary class="cursor-pointer text-sm font-semibold py-1 flex items-center gap-2">
-                            <span>Advanced style</span>
-                            <button type="button" id="advanced-style-reset"
-                                class="ml-auto text-xs text-blue-400 hover:text-blue-300 font-normal"
-                                title="Discard these edits and rebuild the style from the simple controls above">↺ Reset to simple controls</button>
-                        </summary>
-                        <p class="step-hint" style="margin-top:6px;">
-                            Style any property by value, <strong>by category</strong> or <strong>graduated</strong> from a field, with
-                            hover and selected colours and a fallback. Changing the simple controls above replaces these edits.
-                        </p>
-                        <div id="advanced-style-editor"></div>
-                    </details>
-                </div>
-                </div>
-
-                <div id="lo-legend-section" class="section-box" style="display:none;">
-                    <h3 class="text-sm font-bold mb-2">Legend</h3>
-                    <div id="lo-legend-content"></div>
-                </div>
-                <div id="lo-metadata-section" class="section-box" style="display:none;">
+            <!-- The layer as a whole: sharing and its configuration -->
+            <div id="layer-options" class="layer-options">
+                <sl-tooltip id="layer-share-tip" content="" placement="bottom-start" hoist>
+                    <label id="layer-share" class="lo-share">
+                        <input type="checkbox" id="layer-shareable" checked> <span>Shareable</span>
+                    </label>
+                </sl-tooltip>
+                <span id="layer-share-note" class="lo-note"></span>
+                <span class="flex-1"></span>
+                <button id="remove-other-maps-btn" type="button" class="lo-btn"
+                    title="Turn off every currently active map except the basemap, for a fresh inspector">
+                    <sl-icon name="layers"></sl-icon> <span>Remove other maps</span>
+                </button>
+                <button type="button" id="config-toggle" class="lo-btn" aria-expanded="false" aria-controls="config-panel"
+                    title="The layer's configuration as JSON">
+                    <sl-icon name="braces"></sl-icon> <span>JSON</span>
+                </button>
+            </div>
+            <div id="config-panel" class="config-panel hidden">
+                <div id="lo-metadata-section" class="mb-4" style="display:none;">
                     <h3 class="text-sm font-bold mb-2">Metadata</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="lo-metadata-content"></div>
                 </div>
-
-                <div class="section-box" id="config-section">
+                <div id="config-section">
 
                     <div class="mb-4">
                         <div class="flex items-center justify-between mb-2">
@@ -2106,7 +1698,7 @@
                                 class="text-xs text-blue-400 hover:text-blue-300 hidden">↺ Reset to generated defaults</button>
                         </div>
                         <p class="step-hint" style="margin-bottom:8px;">
-                            Edit directly to customize styling, zoom levels, or any other option not covered by the fields above — the map preview updates live.
+                            The whole layer as JSON: every setting, including those the sections below don't cover. Edits preview live on the map.
                         </p>
                         <textarea id="config-preview" rows="10" spellcheck="false"
                             class="w-full px-3 py-2 border border-gray-300 rounded font-mono text-xs mb-1"></textarea>
@@ -2143,6 +1735,784 @@
                     </div>
                 </div>
             </div>
+
+            <!-- The layer's parts in the order they apply: data source, filter, features, style (js/creator-steps.js) -->
+            <div id="edit-tab" class="steps">
+
+            <section id="step-source" class="step">
+                <header class="step-head">
+                    <span class="step-num">1</span>
+                    <sl-icon name="database" class="step-icon"></sl-icon>
+                    <h2 class="step-title">Data source</h2>
+                    <div class="step-actions"></div>
+                </header>
+                <div class="step-body">
+                    <div id="edit-unsupported-note" class="hidden mb-3 p-3 rounded-lg text-xs"
+                        style="background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.4);color:#fde68a;"></div>
+                    <div id="data-card" class="data-card">
+                        <div class="data-card-head">
+                            <sl-tooltip id="data-card-tooltip" content="Paste a link or upload a file. The data format is detected from the link." placement="top-start" hoist>
+                                <span class="data-card-icon"><sl-icon id="data-card-icon" name="link-45deg"></sl-icon></span>
+                            </sl-tooltip>
+                            <div class="min-w-0 flex-1">
+                                <div id="data-card-title" class="data-card-title">Paste a link or upload a file</div>
+                                <div id="data-card-subtitle" class="data-card-subtitle">Data source</div>
+                            </div>
+                            <button type="button" id="data-card-reload" class="data-card-toggle hidden" title="Load the data again from its link" aria-label="Reload data">
+                            <sl-icon name="arrow-clockwise"></sl-icon>
+                        </button>
+                        <button type="button" id="data-card-clear" class="data-card-toggle hidden" title="Remove the data source and draw this layer's features on the map instead">
+                                <sl-icon name="eraser"></sl-icon> <span>Clear</span>
+                            </button>
+                            <button type="button" id="data-card-toggle" class="data-card-toggle hidden" title="Edit the data source">
+                                <sl-icon name="pencil"></sl-icon> <span>Edit</span>
+                            </button>
+                        </div>
+
+                        <div id="data-card-body" class="data-card-body">
+                            <div class="flex gap-2 mb-2">
+                                <div class="relative flex-1">
+                                    <input type="text" id="url-input"
+                                        placeholder="Paste a link to GeoJSON, CSV, KML, tiles, MapWarper, WMS, WFS, ArcGIS REST…"
+                                        class="w-full px-3 py-2 pr-20 rounded">
+                                    <div class="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                                        <span id="url-validation" class="text-xs"></span>
+                                        <button type="button" id="clear-url-btn" class="text-gray-400 hover:text-gray-200 hidden"
+                                            title="Clear">
+                                            ✕
+                                        </button>
+                                    </div>
+                                </div>
+                                <button type="button" id="upload-file-btn"
+                                    class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm font-medium whitespace-nowrap flex items-center gap-1 border border-gray-600"
+                                    title="Upload one or more local files - each becomes its own layer">
+                                    <sl-icon name="upload"></sl-icon> Upload Files
+                                </button>
+                                <input type="file" id="file-input" multiple
+                                    accept=".csv,.geojson,.json,.kml,.geojsonl,.ndjson,.jsonl,.gpkg,.zip,.tif,.tiff,.png,.jpg,.jpeg"
+                                    class="hidden">
+                            </div>
+                            <div class="text-xs mb-2" style="color:#9ca3af;">
+                                Autodetect data format from URL. See
+                                <a href="#" id="formats-toggle" aria-expanded="false" aria-controls="formats-help">supported formats</a>
+                            </div>
+
+                            <div id="formats-help" class="formats-help hidden">
+                            <button type="button" class="format-card format-chip" data-format="geojson" data-sample="https://gist.githubusercontent.com/planemad/e5ccc47bf2a1aa458a86d6839476f539/raw/goa-water-bodies.geojson">
+                                <sl-icon name="filetype-json" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">GeoJSON</span>
+                                    <span class="fc-desc">Vector features in JSON: points, lines and polygons. A .geojson or .json link, or an uploaded file.</span>
+                                    <code class="fc-example">https://gist.githubusercontent.com/planemad/e5ccc47bf2a1aa458a86d6839476f539/raw/goa-water-bodies.geojson</code>
+                                </span>
+                            </button>
+                            <button type="button" class="format-card format-chip" data-format="csv" data-sample="https://docs.google.com/spreadsheets/d/e/2PACX-1vRhTXMFezW8k996di0qKP7-9-0ro0djuEEtMPYDOMhXtNOiUK_25lv90AThy21X2PRPYI_st93CQVq2/pub?gid=1432085196&amp;single=true&amp;output=csv">
+                                <sl-icon name="filetype-csv" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">CSV / Google Sheet</span>
+                                    <span class="fc-desc">Rows with latitude and longitude columns, from a .csv link or a published Google Sheet.</span>
+                                    <code class="fc-example">https://docs.google.com/spreadsheets/d/e/2PACX-1vRhTXMFezW8k996di0qKP7-9-0ro0djuEEtMPYDOMhXtNOiUK_25lv90AThy21X2PRPYI_st93CQVq2/pub?gid=1432085196&amp;single=true&amp;output=csv</code>
+                                </span>
+                            </button>
+                            <button type="button" class="format-card format-chip" data-format="kml" data-sample="https://files.worldwind.arc.nasa.gov/artifactory/web/0.9.0/examples/data/KML_Samples.kml">
+                                <sl-icon name="filetype-xml" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">KML</span>
+                                    <span class="fc-desc">Points, lines and polygons from Google Earth.</span>
+                                    <code class="fc-example">https://files.worldwind.arc.nasa.gov/artifactory/web/0.9.0/examples/data/KML_Samples.kml</code>
+                                </span>
+                            </button>
+                            <button type="button" class="format-card format-chip" data-format="vector-tiles" data-sample="https://tiles.stadiamaps.com/data/openmaptiles/{z}/{x}/{y}.pbf">
+                                <sl-icon name="bounding-box-circles" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">Vector Tiles</span>
+                                    <span class="fc-desc">Tiled vector data (.pbf / .mvt): fast for large datasets. A link with {z}/{x}/{y}.</span>
+                                    <code class="fc-example">https://tiles.stadiamaps.com/data/openmaptiles/{z}/{x}/{y}.pbf</code>
+                                </span>
+                            </button>
+                            <button type="button" class="format-card format-chip" data-format="raster-tiles" data-sample="https://tile.openstreetmap.org/{z}/{x}/{y}.png">
+                                <sl-icon name="image" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">Raster Tiles</span>
+                                    <span class="fc-desc">Tiled images such as satellite imagery or scanned maps (TMS / XYZ).</span>
+                                    <code class="fc-example">https://tile.openstreetmap.org/{z}/{x}/{y}.png</code>
+                                </span>
+                            </button>
+                            <button type="button" class="format-card format-chip" data-format="pmtiles" data-sample="https://overturemaps-extras-us-west-2.s3.us-west-2.amazonaws.com/tiles/2026-09-23.1/buildings.pmtiles">
+                                <sl-icon name="archive" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">PMTiles</span>
+                                    <span class="fc-desc">A single-file archive of vector or raster tiles, read over HTTP range requests. A .pmtiles link.</span>
+                                    <code class="fc-example">https://overturemaps-extras-us-west-2.s3.us-west-2.amazonaws.com/tiles/2026-09-23.1/buildings.pmtiles</code>
+                                </span>
+                            </button>
+                            <button type="button" class="format-card format-chip" data-format="mapwarper" data-sample="https://mapwarper.net/maps/95676">
+                                <sl-icon name="globe" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">MapWarper</span>
+                                    <span class="fc-desc">Georeferenced historic maps hosted on mapwarper.net.</span>
+                                    <code class="fc-example">https://mapwarper.net/maps/95676</code>
+                                </span>
+                            </button>
+                            <button type="button" class="format-card format-chip" data-format="allmaps" data-sample="https://annotations.allmaps.org/images/bca064e512c963f0">
+                                <sl-icon name="globe" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">Allmaps</span>
+                                    <span class="fc-desc">Georeferenced historic maps from allmaps.org annotations or the Allmaps viewer.</span>
+                                    <code class="fc-example">https://annotations.allmaps.org/images/bca064e512c963f0</code>
+                                </span>
+                            </button>
+                            <button type="button" class="format-card format-chip" data-format="osm" data-sample="https://www.openstreetmap.org/way/28845634">
+                                <sl-icon name="globe" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">OpenStreetMap element</span>
+                                    <span class="fc-desc">A single node, way or relation by link, fetched once through the Overpass API.</span>
+                                    <code class="fc-example">https://www.openstreetmap.org/way/28845634</code>
+                                </span>
+                            </button>
+                            <button type="button" class="format-card format-chip" data-format="overpass" data-sample="https://overpass-turbo.eu/s/2qIp">
+                                <sl-icon name="globe" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">Overpass</span>
+                                    <span class="fc-desc">Live OpenStreetMap data from a query. Paste an overpass-turbo.eu share link, or write a query; {{bbox}} is the map view.</span>
+                                    <code class="fc-example">https://overpass-turbo.eu/s/2qIp</code>
+                                </span>
+                            </button>
+                            <button type="button" class="format-card format-chip" data-format="wms" data-sample="http://14.139.123.73:8080/geoserver/wms?service=WMS&amp;version=1.3.0&amp;request=GetMap&amp;layers=nbss_geoserver:Goa_LUP&amp;styles=&amp;format=image/png&amp;transparent=true">
+                                <sl-icon name="globe" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">WMS</span>
+                                    <span class="fc-desc">An OGC Web Map Service GetMap link (versions 1.1.1 and 1.3.0).</span>
+                                    <code class="fc-example">http://14.139.123.73:8080/geoserver/wms?service=WMS&amp;version=1.3.0&amp;request=GetMap&amp;layers=nbss_geoserver:Goa_LUP&amp;styles=&amp;format=image/png&amp;transparent=true</code>
+                                </span>
+                            </button>
+                            <button type="button" class="format-card format-chip" data-format="wfs" data-sample="https://service.pdok.nl/cbs/gebiedsindelingen/2023/wfs/v1_0?service=WFS">
+                                <sl-icon name="globe" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">WFS</span>
+                                    <span class="fc-desc">An OGC Web Feature Service. Browse its feature types and load one as GeoJSON.</span>
+                                    <code class="fc-example">https://service.pdok.nl/cbs/gebiedsindelingen/2023/wfs/v1_0?service=WFS</code>
+                                </span>
+                            </button>
+                            <button type="button" class="format-card format-chip" data-format="arcgis" data-sample="https://gis.dda.org.in/server/rest/services/">
+                                <sl-icon name="globe" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">ArcGIS REST</span>
+                                    <span class="fc-desc">A FeatureServer or MapServer. Paste a /rest/services directory to browse it, or a layer or query link to load it directly.</span>
+                                    <code class="fc-example">https://gis.dda.org.in/server/rest/services/</code>
+                                </span>
+                            </button>
+                            <button type="button" class="format-card format-chip" data-format="atlas-json" data-sample="https://jsonkeeper.com/b/E576V">
+                                <sl-icon name="filetype-json" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">Amche Atlas JSON</span>
+                                    <span class="fc-desc">A complete layer or atlas configuration, hosted anywhere as JSON.</span>
+                                    <code class="fc-example">https://jsonkeeper.com/b/E576V</code>
+                                </span>
+                            </button>
+                            <button type="button" class="format-card format-chip" data-format="bharatlas" data-sample="https://bharatlas.com/c/nL7zNStsW3">
+                                <sl-icon name="globe" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">Bharatlas</span>
+                                    <span class="fc-desc">Community-shared geospatial data. Fills in the title, description and attribution.</span>
+                                    <code class="fc-example">https://bharatlas.com/c/nL7zNStsW3</code>
+                                </span>
+                            </button>
+                            <div class="format-card" data-format="geojsonl">
+                                <sl-icon name="filetype-json" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">GeoJSON Lines</span>
+                                    <span class="fc-desc">One GeoJSON feature per line (.geojsonl, .ndjson, .jsonl).</span>
+                                    <span class="fc-example fc-upload">File upload only</span>
+                                </span>
+                            </div>
+                            <div class="format-card" data-format="gpkg">
+                                <sl-icon name="file-earmark-zip" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">GeoPackage</span>
+                                    <span class="fc-desc">An OGC GeoPackage (.gpkg) with point, line or polygon tables.</span>
+                                    <span class="fc-example fc-upload">File upload only</span>
+                                </span>
+                            </div>
+                            <div class="format-card" data-format="shapefile">
+                                <sl-icon name="file-earmark-zip" class="fc-icon"></sl-icon>
+                                <span class="fc-body">
+                                    <span class="fc-name">Shapefile</span>
+                                    <span class="fc-desc">A zipped ESRI shapefile containing .shp and .dbf files.</span>
+                                    <span class="fc-example fc-upload">File upload only</span>
+                                </span>
+                            </div>
+                            </div>
+
+                        <div id="selected-file-info" class="hidden mb-2 px-3 py-2 rounded text-xs flex items-center justify-between gap-2"
+                            style="background:#111827;border:1px solid #374151;color:#d1d5db;">
+                            <span class="min-w-0 truncate"><strong class="text-white">File:</strong> <span id="selected-file-name"></span></span>
+                            <span id="file-queue-progress" class="hidden px-2 py-0.5 rounded whitespace-nowrap"
+                                style="background:rgba(59,130,246,0.18);border:1px solid rgba(59,130,246,0.45);color:#bfdbfe;"></span>
+                            <button type="button" id="clear-file-btn" class="text-gray-400 hover:text-gray-200 ml-auto" title="Clear">✕</button>
+                        </div>
+
+                        <!-- Notice: uploaded files are temporary -->
+                        <div id="upload-temp-notice" class="hidden mb-3 p-3 rounded-lg"
+                            style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.35);">
+                            <div class="flex items-start gap-3">
+                                <span style="font-size:18px;line-height:1;">ℹ️</span>
+                                <div class="flex-1 text-sm" style="color:#dbeafe;">
+                                    <div class="font-semibold mb-1" style="color:#bfdbfe;">Uploaded files stay in your browser only</div>
+                                    <p style="color:#cbd5e1;line-height:1.5;">
+                                        This file won't be saved anywhere — refreshing the page will lose it, and you can't share the resulting map with anyone else.
+                                    </p>
+                                    <p class="mt-2" style="color:#cbd5e1;line-height:1.5;">
+                                        To create a <strong style="color:#bfdbfe;">shareable map</strong>, upload your file to
+                                        <a href="https://bharatlas.com/preview" target="_blank" rel="noopener"
+                                            style="color:#93c5fd;text-decoration:underline;font-weight:600;">bharatlas.com/preview</a>,
+                                        copy the download link it gives you, and paste that link into the box above.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Georeferencing Notice (for image files) -->
+                        <div id="georef-notice" class="hidden mb-3 p-4 rounded-lg"
+                            style="background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.4);">
+                            <div class="flex items-start gap-3">
+                                <svg class="w-6 h-6 flex-shrink-0" style="color:#fbbf24;" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                                    </path>
+                                </svg>
+                                <div class="flex-1">
+                                    <h4 class="font-semibold mb-1" style="color:#fcd34d;">Map image lacks georeferencing
+                                        information</h4>
+                                    <p class="text-sm mb-3" style="color:#fde68a;">
+                                        <a href="https://mapwarper.net/maps/new" target="_blank"
+                                            class="font-medium underline" style="color:#fde68a;">Upload your map to
+                                            mapwarper.net</a> first (free signup) to georeference the image with matching
+                                        map control points. After rectification, import the mapwarper URL into Amche
+                                        Atlas.
+                                    </p>
+                                    <div class="text-sm" style="color:#fde68a;">
+                                        <strong style="color:#fcd34d;">Help resources:</strong>
+                                        <ul class="mt-1 space-y-1">
+                                            <li>
+                                                📖 <a
+                                                    href="https://programminghistorian.org/en/lessons/introduction-map-warper"
+                                                    target="_blank" class="underline" style="color:#fde68a;">Introduction to
+                                                    Map Warper Tutorial</a>
+                                            </li>
+                                            <li>
+                                                🎥 <a href="https://www.youtube.com/watch?v=EIZj67YgOXE" target="_blank"
+                                                    class="underline" style="color:#fde68a;">Video Tutorial on YouTube</a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                            <div id="google-sheet-section" class="hidden mt-3 p-3 rounded-lg"
+                                style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.35);">
+                                <label for="google-sheet-select" class="block text-sm font-semibold mb-2" style="color:#bfdbfe;">
+                                    Sheet (preview)
+                                </label>
+                                <select id="google-sheet-select" class="w-full px-3 py-2 rounded text-sm"></select>
+                                <div class="text-xs mt-2" style="color:#93c5fd;">
+                                    This spreadsheet has multiple tabs. This only changes what's <strong>previewed</strong> below -
+                                    the saved layer defaults to type <strong>Google Sheet</strong>, which always merges every tab
+                                    live. Switch Type to <strong>CSV</strong> to pin the link to just one tab instead.
+                                </div>
+                            </div>
+
+                            <div id="overpass-section" class="hidden mt-3 p-3 rounded-lg"
+                                style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.35);">
+                                <div class="flex items-center justify-between mb-2">
+                                    <label for="overpass-query" class="text-sm font-semibold" style="color:#a7f3d0;">
+                                        Overpass QL Query
+                                    </label>
+                                    <button type="button" id="overpass-clear-btn" class="text-xs hover:underline"
+                                        style="color:#6ee7b7;">Clear</button>
+                                </div>
+                                <p class="text-xs mb-2" style="color:#a7f3d0;">
+                                    Paste a query directly, or paste an
+                                    <code style="background:#0b1220;color:#93c5fd;padding:1px 5px;border-radius:3px;">overpass-turbo.eu/s/&lt;id&gt;</code>
+                                    URL into the field above to auto-resolve. Use
+                                    <code style="background:#0b1220;color:#93c5fd;padding:1px 5px;border-radius:3px;">{{bbox}}</code>
+                                    to query the current map viewport.
+                                </p>
+                                <textarea id="overpass-query" rows="8"
+                                    placeholder='[out:json][timeout:25];&#10;nwr["amenity"="cafe"]({{bbox}});&#10;out geom;'
+                                    class="w-full px-3 py-2 rounded font-mono text-xs"
+                                    style="background:#0b1220;border:1px solid #374151;color:#f3f4f6;"></textarea>
+                                <div id="overpass-status" class="text-xs mt-2" style="color:#9ca3af;"></div>
+                            </div>
+
+                            <button id="load-data-btn" type="button" class="load-data-btn hidden"><sl-icon name="arrow-right-circle"></sl-icon> Load data</button>
+
+
+                        </div>
+                    </div>
+                    <div id="csv-coordinate-fields" class="mb-4 pb-4 border-b border-gray-200" style="display: none;">
+                        <div class="mb-3">
+                            <label class="block text-xs font-medium mb-1">
+                                Latitude Field <span class="text-red-500">*</span>
+                            </label>
+                            <select id="csv-latitude-field"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                                <option value="">Auto-detect or select...</option>
+                            </select>
+                            <div class="text-xs text-gray-500 mt-1">
+                                Column with latitude values (e.g., Lat, Y, Latitude)
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="block text-xs font-medium mb-1">
+                                Longitude Field <span class="text-red-500">*</span>
+                            </label>
+                            <select id="csv-longitude-field"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                                <option value="">Auto-detect or select...</option>
+                            </select>
+                            <div class="text-xs text-gray-500 mt-1">
+                                Column with longitude values (e.g., Long, X, Longitude)
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-4" id="service-output-section" style="display:none;">
+                        <div id="service-style-section" class="mb-3" style="display:none;">
+                            <label class="flex items-center gap-2 cursor-pointer select-none text-sm font-medium">
+                                <input type="checkbox" id="service-style-inherit" class="w-4 h-4" checked>
+                                Use the service's own styling
+                            </label>
+                            <div id="service-style-note" class="text-xs text-gray-500 mt-1" style="margin-left: 24px;"></div>
+                        </div>
+                        <details>
+                            <summary class="cursor-pointer text-sm font-medium py-1">
+                                Advanced: data output
+                                <span id="service-output-count" class="text-xs text-gray-500 ml-2"></span>
+                            </summary>
+                            <div class="mt-2">
+                                <select id="service-output-select"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm"></select>
+                                <div id="service-output-hint" class="text-xs text-gray-500 mt-1"></div>
+                            </div>
+                        </details>
+                    </div>
+                    <div class="mb-4" id="osm-data-mode-section" style="display:none;">
+                        <label class="block text-sm font-medium mb-2">Data</label>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                                <input type="radio" name="osm-data-mode" id="data-mode-dynamic" value="dynamic" checked class="w-4 h-4"> Dynamic
+                            </label>
+                            <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                                <input type="radio" name="osm-data-mode" id="data-mode-static" value="static" class="w-4 h-4"> Static
+                            </label>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            <strong>Dynamic</strong> (recommended) keeps a tiny reference to this OSM element and
+                            re-fetches its geometry from Overpass each time the map loads, so the shareable URL stays
+                            short. <strong>Static</strong> embeds the full geometry in the layer config so it works
+                            even if Overpass is down, but grows with the feature's size.
+                        </div>
+                        <div id="data-mode-static-disabled-hint" class="text-xs mt-1" style="color:#fbbf24; display:none;">
+                            Static is unavailable — this feature's geometry is too large to embed without breaking the
+                            shareable URL.
+                        </div>
+                        <div id="osm-dynamic-note" class="text-xs mt-2 p-2 rounded"
+                            style="background:#111827;border:1px solid #374151;color:#9ca3af;">
+                            Title, description, and attribution below are for this preview only — dynamic layers
+                            re-generate them from OpenStreetMap on every load.
+                        </div>
+                    </div>
+                    <div class="mb-4" id="source-layer-field-container" style="display: none;">
+                        <label class="block text-xs font-medium mb-1">Source Layer</label>
+                        <select id="source-layer-field"
+                            class="w-full px-3 py-2 border border-gray-300 rounded text-sm"></select>
+                        <div class="text-xs text-gray-500 mt-1">
+                            Layer within the vector tile to render — detected from a sample tile.
+                        </div>
+                    </div>
+                    <div id="edit-style-choice" class="hidden mt-3 p-3 rounded-lg"
+                        style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.35);">
+                        <div class="text-sm font-semibold mb-2" style="color:#bfdbfe;">The data source changed. What about the styling?</div>
+                        <label class="flex items-start gap-2 cursor-pointer select-none text-sm mb-1">
+                            <input type="radio" name="edit-style-choice" value="keep" class="w-4 h-4 mt-0.5" checked>
+                            <span><strong>Keep current styling</strong>
+                                <span class="block text-xs text-gray-500">The layer's style, filters and settings stay as they are.</span></span>
+                        </label>
+                        <label class="flex items-start gap-2 cursor-pointer select-none text-sm">
+                            <input type="radio" name="edit-style-choice" value="restyle" class="w-4 h-4 mt-0.5">
+                            <span><strong>Restyle layer</strong>
+                                <span class="block text-xs text-gray-500">A best-guess style from the new data: its geometry, the service's own styling if it has one, and the atlas defaults.</span></span>
+                        </label>
+                    </div>
+                    <div id="save-notes-section" class="mt-2" style="display: none;">
+                        <label class="flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" id="enable-save-notes" class="w-4 h-4 align-middle">
+                            <span class="text-sm font-semibold">Enable saving notes back to this sheet</span>
+                        </label>
+                        <div class="text-xs text-gray-500 mt-1" style="margin-left: 24px;">
+                            Adds an <strong>Add Note</strong> button to the map popup so anyone can append a row
+                            (latitude, longitude, notes, timestamp, plus the current atlas &amp; layers) to your sheet — no sign-in required.
+                        </div>
+
+                        <div id="save-notes-details" class="mt-3" style="display: none;">
+                            <div class="p-3 rounded-lg text-xs"
+                                style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.35);color:#cbd5e1;line-height:1.6;">
+                                <div class="font-semibold mb-2" style="color:#bfdbfe;">One-time setup on your Google Sheet</div>
+                                <ol class="list-decimal pl-4 space-y-1">
+                                    <li>Open your sheet. Ideally the first row has columns named
+                                        <code>latitude</code>, <code>longitude</code>, <code>notes</code>, <code>timestamp</code>,
+                                        <code>atlas</code>, and <code>layers</code> — but you don't have to add them,
+                                        the script creates any missing column on the first save.</li>
+                                    <li>Go to <strong>Extensions → Apps Script</strong>, delete any placeholder code, and paste the script below.</li>
+                                    <li>Click <strong>Deploy → New deployment → Web app</strong>. Set
+                                        <strong>Execute as: Me</strong> and <strong>Who has access: Anyone</strong>
+                                        (<em>not</em> "Anyone with Google account" — that forces sign-in), then <strong>Deploy</strong>
+                                        and approve the one-time authorization (you authorizing your own script — visitors never see it).</li>
+                                    <li>Test it: open the <code>/exec</code> URL in an incognito tab — it should show
+                                        <code>{"status":"ok"}</code>. If it asks you to sign in, re-check the access setting.
+                                        After any script edit, redeploy via <strong>Manage deployments → Edit → New version</strong>.</li>
+                                    <li>Copy the <strong>Web app URL</strong> (it ends in <code>/exec</code>) and paste it below.</li>
+                                </ol>
+                                <div class="mt-2">
+                                    Full guide:
+                                    <a href="docs/API.md#writing-notes-back-to-a-google-sheet" target="_blank" rel="noopener">docs/API.md</a>
+                                </div>
+                            </div>
+
+                            <div class="mt-3">
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="block text-sm font-medium">Apps Script code</label>
+                                    <button type="button" id="copy-save-script-btn"
+                                        class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs">Copy</button>
+                                </div>
+                                <textarea id="save-script-code" rows="8" readonly
+                                    class="w-full px-3 py-2 rounded font-mono text-xs"
+                                    style="background:#0b1220;border:1px solid #374151;color:#f3f4f6;"></textarea>
+                            </div>
+
+                            <div class="mt-3">
+                                <label class="block text-sm font-medium mb-1">Apps Script web app URL *</label>
+                                <input type="url" id="save-url-input" placeholder="https://script.google.com/macros/s/…/exec"
+                                    class="w-full px-3 py-2 rounded font-mono text-sm">
+                                <div class="text-xs text-gray-500 mt-1">Pasting this enables the Add Note button for this layer.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <details id="source-settings" class="step-more">
+                        <summary>Source settings <span id="source-settings-summary" class="step-more-note"></span></summary>
+                        <div class="step-more-body">
+                            <div class="mb-4">
+                                                    <label class="block text-xs font-medium mb-1" for="layer-type">Layer type</label>
+                                                    <select id="layer-type"
+                                                        class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                        <option value="geojson">GeoJSON - Vector features in JSON format</option>
+                                                        <option value="csv">CSV - Tabular data with lat/lng columns</option>
+                                                        <option value="sheet">Google Sheet - Every tab merged (live)</option>
+                                                        <option value="vector">Vector Tiles - Tiled vector data (.pbf/.mvt)</option>
+                                                        <option value="tms">Raster Tiles - Tiled images (TMS/XYZ)</option>
+                                                        <option value="cog">COG - Cloud Optimized GeoTIFF (.tif)</option>
+                                                        <option value="style">Style - Uses existing Mapbox style sources</option>
+                                                        <option value="overpass">Overpass - Live OSM data via Overpass API</option>
+                                                        <option value="arcgis">ArcGIS - Paged FeatureServer / MapServer layer</option>
+                                                        <option value="atlas">Atlas - Atlas configuration</option>
+                                                    </select>
+                                                    <div class="text-xs text-gray-500 mt-1">Detected from the link or file. Change it only if the guess is wrong.</div>
+                                                </div>
+                            <div class="mb-3">
+                                                        <label class="flex items-center gap-2 cursor-pointer select-none text-xs font-medium">
+                                                            <input type="checkbox" id="include-bbox-checkbox" class="w-4 h-4">
+                                                            Include bounding box (bbox)
+                                                        </label>
+                                                        <div class="text-xs mt-1" style="margin-left: 24px; color:#d1d5db;">
+                                                            Bounding box: <span id="data-bbox-value" class="font-mono">none</span>
+                                                        </div>
+                                                        <div class="text-xs text-gray-500 mt-1" style="margin-left: 24px;">
+                                                            Lets the layer zoom-to-extent when toggled on. Adds coordinates to the shareable URL, so it's off by default.
+                                                        </div>
+                                                    </div>
+                        </div>
+                    </details>
+                </div>
+            </section>
+
+            <section id="step-filter" class="step">
+                <header class="step-head">
+                    <span class="step-num">2</span>
+                    <sl-icon name="funnel" class="step-icon"></sl-icon>
+                    <h2 class="step-title">Filter</h2>
+                    <div class="step-actions"><button type="button" id="filter-edit-btn" class="step-btn"><sl-icon name="pencil"></sl-icon> <span>Edit</span></button></div>
+                </header>
+                <div class="step-body">
+                    <p id="filter-summary" class="step-note">Every feature is shown.</p>
+                    <div id="lh-filters" class="items-center gap-1.5 mt-2 flex-wrap" style="display:none;">
+                    </div>
+                </div>
+            </section>
+
+            <section id="step-features" class="step">
+                <header class="step-head">
+                    <span class="step-num">3</span>
+                    <sl-icon name="table" class="step-icon"></sl-icon>
+                    <h2 class="step-title">Features <span id="features-count" class="step-count"></span></h2>
+                    <div class="step-actions"></div>
+                </header>
+                <div class="step-body">
+                    <div id="features-section">
+                        <div id="features-draw" class="fs-draw hidden">
+                            <button type="button" id="features-draw-btn" class="fs-draw-btn" aria-pressed="false" title="Draw points, lines and areas on the map">
+                                <sl-icon name="pencil"></sl-icon> <span class="fs-draw-label">Draw</span>
+                            </button>
+                            <span id="features-draw-hint" class="fs-hint"></span>
+                        </div>
+                        <div id="features-readonly" class="fs-readonly hidden">
+                            <span>These features are read from the layer's link, so they can't be edited here.</span>
+                            <button type="button" id="features-copy-btn" class="data-card-toggle" title="Copy the loaded features into a layer of your own that you can edit">
+                                <sl-icon name="files"></sl-icon> <span>Make an editable copy</span>
+                            </button>
+                        </div>
+                        <div id="features-form" class="hidden"></div>
+                        <div id="features-table"></div>
+                    </div>
+                    <details id="popup-settings" class="step-more">
+                        <summary>Feature popup <span id="popup-settings-summary" class="step-more-note"></span></summary>
+                        <div class="step-more-body">
+                            <div class="mb-4" id="data-fields-section" style="display: none;">
+                                <p class="step-note">Which fields identify a feature and show when it is clicked on the map.</p>
+
+
+
+                                <div class="mb-3">
+                                    <label class="block text-xs font-medium mb-1">Feature ID</label>
+                                    <select id="feature-id-field"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                                        <option value="">Select field...</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="block text-xs font-medium mb-1">Feature Name</label>
+                                    <select id="feature-name-field"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                                        <option value="">Select field...</option>
+                                    </select>
+                                </div>
+
+                                <details class="mb-3">
+                                    <summary class="cursor-pointer text-xs font-medium text-gray-700 hover:text-gray-900 py-2 flex items-center justify-between">
+                                        <span>Inspect Fields</span>
+                                        <button type="button" id="inspect-fields-toggle-all-btn"
+                                            class="text-xs text-blue-400 hover:text-blue-300 font-normal">Select all</button>
+                                    </summary>
+                                    <div class="mt-2 max-h-48 overflow-y-auto border border-gray-200 rounded p-2">
+                                        <div id="inspect-fields-list" class="space-y-1"></div>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    </details>
+                    <details class="step-more" id="data-preview-details" style="display: none;">
+                        <summary>
+                            <span id="preview-summary">Data Preview</span>
+                        </summary>
+                        <div class="mt-2">
+                            <textarea id="geojson-editor" rows="10"
+                                placeholder='{"type": "FeatureCollection", "features": []}'
+                                class="w-full px-3 py-2 rounded font-mono text-xs mb-2"></textarea>
+                            <div class="flex gap-2">
+                                <button type="button" id="preview-geojson-io-btn"
+                                    class="flex-1 px-4 py-2 rounded flex items-center justify-center gap-2 text-sm transition-colors"
+                                    style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;">
+                                    <span>↗</span> Preview in GeoJSON.io
+                                </button>
+                                <button type="button" id="download-geojson-btn"
+                                    class="flex-1 px-4 py-2 rounded flex items-center justify-center gap-2 text-sm transition-colors"
+                                    style="background:#374151;border:1px solid #4b5563;color:#f3f4f6;">
+                                    <span>⬇</span> Download GeoJSON
+                                </button>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </section>
+
+            <section id="step-style" class="step">
+                <header class="step-head">
+                    <span class="step-num">4</span>
+                    <sl-icon name="palette" class="step-icon"></sl-icon>
+                    <h2 class="step-title">Style</h2>
+                    <div class="step-actions"><button type="button" id="style-toggle" class="step-btn"><sl-icon name="pencil"></sl-icon> <span>Edit</span></button></div>
+                </header>
+                <div class="step-body">
+                    <div id="lo-legend-section" style="display:none;">
+
+                        <div id="lo-legend-content"></div>
+                    </div>
+                    <div id="settings-section">
+                        <div id="style-section" class="section-box hidden">
+                        <!-- Style Section -->
+                        <div id="style-mode-tabs" class="style-mode-tabs" role="tablist" aria-label="Style editor">
+                            <button type="button" role="tab" id="style-mode-simple" data-mode="simple" aria-controls="style-controls"
+                                title="A colour, width and label per geometry type">Simple</button>
+                            <button type="button" role="tab" id="style-mode-advanced" data-mode="advanced" aria-controls="advanced-style-section"
+                                title="Every property, by value, by data or by rule">Advanced</button>
+                        </div>
+                        <div id="style-controls" role="tabpanel" aria-labelledby="style-mode-simple">
+                            <div id="geometry-type-info" class="mb-3 text-xs text-gray-600"></div>
+
+                            <!-- Style type picker -->
+                            <div class="flex flex-wrap gap-4 mb-4">
+                                <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                                    <input type="checkbox" id="style-type-point" class="style-type-checkbox w-4 h-4"> Point
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                                    <input type="checkbox" id="style-type-line" class="style-type-checkbox w-4 h-4"> Line
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                                    <input type="checkbox" id="style-type-area" class="style-type-checkbox w-4 h-4"> Area
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm">
+                                    <input type="checkbox" id="style-type-label" class="style-type-checkbox w-4 h-4" checked> Label
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm" title="Extra circle options: stroke width, opacity, blur">
+                                    <input type="checkbox" id="style-type-circle" class="style-type-checkbox w-4 h-4"> Circle
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer select-none text-sm" title="Draw an icon from the map's sprite or an image URL">
+                                    <input type="checkbox" id="style-type-icon" class="style-type-checkbox w-4 h-4"> Icon
+                                </label>
+                            </div>
+
+                            <!-- Point style -->
+                            <div id="style-section-point" class="style-type-section mb-4 pl-3" style="display:none;border-left:2px solid #374151;">
+                                <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Point style</h4>
+                                <div class="mb-3">
+                                    <label class="block text-sm font-medium mb-2">Fill Color</label>
+                                    <sl-color-picker id="point-fill-color" class="style-color-input" size="small" format="hex" opacity hoist value="#3b82f6" label="Colour"></sl-color-picker>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="block text-sm font-medium mb-2">Stroke Color</label>
+                                    <sl-color-picker id="point-stroke-color" class="style-color-input" size="small" format="hex" opacity hoist value="#1e40af" label="Colour"></sl-color-picker>
+                                </div>
+                                <div class="mb-1">
+                                    <label class="block text-sm font-medium mb-2">
+                                        Radius: <span id="point-radius-value">4</span>px
+                                    </label>
+                                    <input type="range" id="point-radius" min="1" max="20" value="4" step="0.5" class="w-full style-control">
+                                </div>
+                            </div>
+
+                            <!-- Line style -->
+                            <div id="style-section-line" class="style-type-section mb-4 pl-3" style="display:none;border-left:2px solid #374151;">
+                                <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Line style</h4>
+                                <div class="mb-3">
+                                    <label class="block text-sm font-medium mb-2">Line Color</label>
+                                    <sl-color-picker id="line-color" class="style-color-input" size="small" format="hex" opacity hoist value="#1e40af" label="Colour"></sl-color-picker>
+                                </div>
+                                <div class="mb-1">
+                                    <label class="block text-sm font-medium mb-2">
+                                        Line Width: <span id="line-width-value">2</span>px
+                                    </label>
+                                    <input type="range" id="line-width" min="1" max="10" value="2" step="0.5" class="w-full style-control">
+                                </div>
+                            </div>
+
+                            <!-- Area style -->
+                            <div id="style-section-area" class="style-type-section mb-4 pl-3" style="display:none;border-left:2px solid #374151;">
+                                <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Area style</h4>
+                                <div class="mb-3">
+                                    <label class="block text-sm font-medium mb-2">Fill Color</label>
+                                    <sl-color-picker id="area-fill-color" class="style-color-input" size="small" format="hex" opacity hoist value="#3b82f6" label="Colour"></sl-color-picker>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="block text-sm font-medium mb-2">
+                                        Fill Opacity: <span id="area-fill-opacity-value">0.6</span>
+                                    </label>
+                                    <input type="range" id="area-fill-opacity" min="0" max="1" value="0.6" step="0.05" class="w-full style-control">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="block text-sm font-medium mb-2">Stroke Color</label>
+                                    <sl-color-picker id="area-stroke-color" class="style-color-input" size="small" format="hex" opacity hoist value="#1e40af" label="Colour"></sl-color-picker>
+                                </div>
+                                <div class="mb-1">
+                                    <label class="block text-sm font-medium mb-2">
+                                        Stroke Width: <span id="area-stroke-width-value">2</span>px
+                                    </label>
+                                    <input type="range" id="area-stroke-width" min="1" max="10" value="2" step="0.5" class="w-full style-control">
+                                </div>
+                            </div>
+
+                            <!-- Label style -->
+                            <div id="style-section-label" class="style-type-section mb-1 pl-3" style="border-left:2px solid #374151;">
+                                <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Label style</h4>
+                                <label class="block text-sm font-medium mb-2">Label Field</label>
+                                <select id="label-field-select" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                                    <option value="">None</option>
+                                </select>
+                                <div class="text-xs text-gray-500 mt-1">Field shown as a map label on this layer</div>
+                            </div>
+
+                            <!-- Circle style -->
+                            <div id="style-section-circle" class="style-type-section mt-4 mb-4 pl-3" style="display:none;border-left:2px solid #374151;">
+                                <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Circle style</h4>
+                                <div class="text-xs text-gray-500 mb-2">Colours and radius come from the Point style above.</div>
+                                <div class="mb-3">
+                                    <label class="block text-sm font-medium mb-2">
+                                        Stroke Width: <span id="circle-stroke-width-value">2</span>px
+                                    </label>
+                                    <input type="range" id="circle-stroke-width" min="0" max="10" value="2" step="0.5" class="w-full style-control">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="block text-sm font-medium mb-2">
+                                        Opacity: <span id="circle-opacity-value">0.8</span>
+                                    </label>
+                                    <input type="range" id="circle-opacity" min="0" max="1" value="0.8" step="0.05" class="w-full style-control">
+                                </div>
+                                <div class="mb-1">
+                                    <label class="block text-sm font-medium mb-2">
+                                        Blur: <span id="circle-blur-value">0</span>
+                                    </label>
+                                    <input type="range" id="circle-blur" min="0" max="1" value="0" step="0.05" class="w-full style-control">
+                                </div>
+                            </div>
+
+                            <!-- Icon style -->
+                            <div id="style-section-icon" class="style-type-section mt-4 mb-1 pl-3" style="display:none;border-left:2px solid #374151;">
+                                <h4 class="text-xs font-semibold mb-2" style="color:#9ca3af;">Icon style</h4>
+                                <div class="mb-3">
+                                    <label class="block text-sm font-medium mb-2">Icon Image</label>
+                                    <input type="text" id="icon-image" placeholder="marker-15, or an image URL"
+                                        class="style-text-control w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                                    <div class="text-xs text-gray-500 mt-1">A name from the base map's icon sprite, or a link to a PNG / SVG</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="block text-sm font-medium mb-2">
+                                        Size: <span id="icon-size-value">1</span>×
+                                    </label>
+                                    <input type="range" id="icon-size" min="0.2" max="3" value="1" step="0.1" class="w-full style-control">
+                                </div>
+                                <div class="mb-1">
+                                    <label class="block text-sm font-medium mb-2">
+                                        Opacity: <span id="icon-opacity-value">1</span>
+                                    </label>
+                                    <input type="range" id="icon-opacity" min="0" max="1" value="1" step="0.05" class="w-full style-control">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Advanced: every property by value, by data or by rule, with hover and selected states -->
+                        <div id="advanced-style-section" role="tabpanel" aria-labelledby="style-mode-advanced">
+                            <p class="step-hint">
+                                Style any property by value, <strong>by category</strong> or <strong>graduated</strong> from a field, with
+                                hover and selected colours and a fallback. Simple takes each property's fallback; coming back here restores these edits.
+                            </p>
+                            <div id="advanced-style-editor"></div>
+                        </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
             </div>
         </div>
 

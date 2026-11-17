@@ -6,6 +6,10 @@
  * Expanded, the link becomes an input; the upload button shows only while the
  * input is empty, and a "supported formats" link opens a help section of cards
  * - icon, description and an example link to try.
+ *
+ * Load shows only when there is something new to load (a link not loaded yet,
+ * or an Overpass query); a loaded link gets a small reload button instead.
+ * Clear drops the source, leaving a layer to draw on (js/creator-features.js).
  */
 
 import { describeSource } from './source-icons.js';
@@ -45,6 +49,18 @@ export class DataCard {
         // The whole header opens or closes the card, as the Edit button does.
         $('#data-card .data-card-head').on('click', (event) => {
             if (this._collapsible && !$(event.target).closest('#data-card-toggle').length) this.setCollapsed(!this._collapsed);
+        });
+
+        $('#data-card-clear').on('click', (event) => {
+            event.stopPropagation();
+            this.creator.features.clearSource();
+            this.setCollapsed(false);
+            this.refresh();
+        });
+
+        $('#data-card-reload').on('click', (event) => {
+            event.stopPropagation();
+            this.creator.handleLoadData();
         });
 
         $('#url-input').on('input', () => this.refresh());
@@ -96,6 +112,8 @@ export class DataCard {
         if (!$('#overpass-section').hasClass('hidden') && $('#overpass-query').val().trim()) {
             return $('#overpass-query').val().trim().split('\n')[0];
         }
+        const own = creator.features?.sourceTitle();
+        if (own) return own;
         if (creator.edit.active) {
             if (creator.edit.source.kind === 'local' || creator.edit.source.kind === 'inline') return 'Data stored with this layer';
             if (!creator.edit.supported) return 'No data source of its own';
@@ -112,6 +130,13 @@ export class DataCard {
         return creator.currentLayerType === 'geojson-url' ? 'geojson' : creator.currentLayerType;
     }
 
+    // A link the creator can load (the same test the home screen uses).
+    _loadable(text) {
+        const creator = this.creator;
+        const url = creator.normalizeGoogleSheetsUrl(text);
+        return !!creator.detectUrlFormat(url) || creator.isValidDataUrl(url);
+    }
+
     /** Redraw the card's icon, tooltip, link and layer type from what is being used now. */
     refresh() {
         const viewing = this._viewLayer && !this.creator.edit.active;
@@ -126,5 +151,12 @@ export class DataCard {
 
         // Upload is the way in only while there is no link.
         $('#upload-file-btn').toggleClass('hidden', url !== '');
+        $('#data-card-clear').toggleClass('hidden', viewing || !this.creator.features?.canClear);
+
+        const typed = viewing ? '' : $('#url-input').val().trim();
+        const query = !viewing && !$('#overpass-section').hasClass('hidden');
+        const loaded = typed !== '' && typed === this.creator._loadedInput;
+        $('#load-data-btn').toggleClass('hidden', !(query || (typed && !loaded && this._loadable(typed))));
+        $('#data-card-reload').toggleClass('hidden', !loaded || query);
     }
 }

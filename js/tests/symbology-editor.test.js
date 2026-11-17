@@ -58,7 +58,7 @@ describe('SymbologyEditor', () => {
 
         const swatch = editor.element.querySelector('.sym-fallback .sym-swatch');
         swatch.value = '#123456';
-        swatch.dispatchEvent(new Event('input'));
+        swatch.dispatchEvent(new Event('sl-input'));
         const expression = last(onChange);
         expect(expression[expression.length - 1]).toBe('#123456');
     });

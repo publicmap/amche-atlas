@@ -230,7 +230,7 @@ test('a layer opens read-only, and Edit makes thumbnail, description and data cl
     await expect(frame.locator('#style-section')).toBeHidden();
     await frame.locator('#lh-thumbnail').click();
     await expect(frame.locator('#style-section')).toBeVisible();
-    await expect(frame.locator('#style-controls')).toBeVisible({ timeout: 30000 });
+    await expect(frame.locator('#style-mode-tabs')).toBeVisible({ timeout: 30000 });
     await frame.locator('#style-done').click();
     await expect(frame.locator('#style-section')).toBeHidden();
 
@@ -281,7 +281,7 @@ test('isolation is on while viewing and editing, and released when the panel clo
 
     const frame = await openOverview(page);
     await expect.poll(isolated, { timeout: 15000 }).toBe(true);
-    await expect(frame.locator('#lh-isolate')).toContainText('Hiding Other Maps');
+    await expect(frame.locator('#lh-isolate')).toContainText('Showing only');
 
     // Editing swaps the layer for a draft on every change; the others stay dimmed.
     await frame.locator('#edit-btn').click();
@@ -293,7 +293,7 @@ test('isolation is on while viewing and editing, and released when the panel clo
     // It can be turned off, and back on.
     await frame.locator('#lh-isolate').click();
     await expect.poll(isolated).toBe(false);
-    await expect(frame.locator('#lh-isolate')).toContainText('Hide Other Maps');
+    await expect(frame.locator('#lh-isolate')).toContainText('Show only');
     await frame.locator('#lh-isolate').click();
     await expect.poll(isolated).toBe(true);
 
