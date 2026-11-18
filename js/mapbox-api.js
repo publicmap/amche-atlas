@@ -819,7 +819,8 @@ export class MapboxAPI {
      * @returns {boolean} - Success status
      */
     /**
-     * Dim a layer group to fully transparent, or restore it.
+     * Dim a layer group - to fully transparent, or to `level` of its opacity -
+     * or restore it.
      *
      * Used for layer isolation instead of layout.visibility: a hidden layer makes
      * Mapbox GL release the tiles nothing visible needs any more and re-request
@@ -832,15 +833,16 @@ export class MapboxAPI {
      * zoom ramps), and writing a constant over it would silently flatten the
      * layer's styling for the rest of the session.
      */
-    setLayerGroupDimmed(groupId, config, dimmed) {
+    setLayerGroupDimmed(groupId, config, dimmed, level = 0) {
         if (dimmed) {
-            // Already dimmed - re-recording now would snapshot the zeroes.
-            if (this._dimSnapshots.has(groupId)) return true;
+            // Already dimmed - re-recording now would snapshot the dimmed values;
+            // only the level changes, the original values stay recorded
+            if (this._dimSnapshots.has(groupId)) return this.updateLayerOpacity(groupId, config, level);
 
             const snapshot = [];
             this._opacityRecorder = snapshot;
             try {
-                this.updateLayerOpacity(groupId, config, 0);
+                this.updateLayerOpacity(groupId, config, level);
             } finally {
                 this._opacityRecorder = null;
             }

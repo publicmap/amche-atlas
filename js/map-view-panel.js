@@ -1,6 +1,6 @@
 /**
  * The Map view panel: the camera and 3D terrain (js/location-view.js), opened
- * from the 3D status icon on the console's place line and from the terrain
+ * from the 3D status icon on the console's Find and from the terrain
  * control's "Vertical Scale" link. `window.mapViewPanel` is this instance.
  */
 import { ConsolePanel } from './console-panel.js';

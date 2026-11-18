@@ -124,7 +124,7 @@ export function linkButton(text, onClick, title = '') {
     return button;
 }
 
-/** state: 'on' | 'part' | 'off' */
+/** An on/off switch; 'part' (some of a group on) shows as off, and turns all on. */
 export function eyeButton(state, onClick, title) {
     const button = el('button', 'console-eye');
     button.type = 'button';
@@ -141,8 +141,8 @@ export function setEyeState(button, state, title) {
     button.classList.add(state);
     button.title = title;
     button.setAttribute('aria-label', title);
-    button.setAttribute('aria-pressed', String(state === 'on'));
-    button.replaceChildren(icon(state === 'off' ? 'eye-slash' : 'eye'));
+    button.setAttribute('role', 'switch');
+    button.setAttribute('aria-checked', String(state === 'on'));
 }
 
 /**
@@ -200,7 +200,7 @@ export function imageThumb(src, fallbackIcon = 'map') {
  * A list row. `onClick` is the row's primary action (open details, select);
  * `trailing` is an optional control on the right that acts on its own.
  */
-export function row({ thumb = null, title, meta = '', trailing = null, onClick = null, onEnter = null, onLeave = null, className = '' }) {
+export function row({ thumb = null, title, star = null, note = '', meta = '', trailing = null, onClick = null, onEnter = null, onLeave = null, className = '' }) {
     const node = el('div', `console-row ${className}`.trim());
     if (onClick) {
         node.setAttribute('role', 'button');
@@ -215,7 +215,9 @@ export function row({ thumb = null, title, meta = '', trailing = null, onClick =
 
     if (thumb) node.appendChild(thumb);
     const text = el('div', 'console-row-text');
-    text.appendChild(el('div', 'console-row-title', title));
+    const titleEl = text.appendChild(el('div', 'console-row-title', title));
+    if (star) titleEl.prepend(star);
+    if (note) titleEl.append(' ', el('span', 'console-row-note', note));
     if (meta) text.appendChild(el('div', 'console-row-meta', meta));
     node.appendChild(text);
     if (trailing) node.appendChild(trailing);

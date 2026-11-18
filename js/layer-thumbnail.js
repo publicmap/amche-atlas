@@ -662,8 +662,26 @@ export class LayerThumbnail {
         if (document.getElementById('layer-thumbnail-live-style')) return;
         const style = document.createElement('style');
         style.id = 'layer-thumbnail-live-style';
-        style.textContent = `@keyframes layer-live-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.35;transform:scale(0.75)} }`;
+        style.textContent = `@keyframes layer-live-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.35;transform:scale(0.75)} }
+@keyframes layer-thumbnail-spin { to { transform: rotate(360deg); } }
+.layer-thumbnail-spinner { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, 0.35); pointer-events: none; }
+.layer-thumbnail-spinner::after { content: ''; width: 45%; max-width: 22px; aspect-ratio: 1; box-sizing: border-box; border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: #fff; border-radius: 50%; animation: layer-thumbnail-spin 0.8s linear infinite; }`;
         document.head.appendChild(style);
+    }
+
+    /** Shows or clears a spinner over a thumbnail while its layer's data loads. */
+    static setLoading(container, on) {
+        if (!container) return;
+        const spinner = container.querySelector(':scope > .layer-thumbnail-spinner');
+        if (!on) {
+            spinner?.remove();
+            return;
+        }
+        if (spinner) return;
+        LayerThumbnail._ensureLiveStyles();
+        const node = document.createElement('div');
+        node.className = 'layer-thumbnail-spinner';
+        container.appendChild(node);
     }
 
     static _getSampleTileUrl(layer) {

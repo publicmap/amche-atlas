@@ -1,6 +1,6 @@
 /**
  * ShareViewPanel - the Share panel, opened from the link icon at the start of
- * the map console's place line (js/map-control-bar.js). Everything about the
+ * the map console's Find (js/map-control-bar.js). Everything about the
  * view's URL in one place:
  *
  * - "Share this map view": QR thumbnail + link (js/share-url-panel.js, which

@@ -10,7 +10,7 @@
  * outside is either left out and counted, or listed with a zoom button.
  */
 import { el, sectionHeader, row, iconThumb, chevron, moreRow, deleteButton, geometryIcon } from './find-rows.js';
-import { layerRow, layerMeta, layersGroupEye, atlasName, activeIds, openLayerInfo } from './find-browse.js';
+import { layerRow, layerMeta, layersGroupEye, atlasName, activeIds } from './find-browse.js';
 import { nestResults } from './layer-features.js';
 import { scoped, layerBbox, routeBbox, zoomButton, bboxInView, distanceInView } from './find-scope.js';
 import { byRank, matchRank } from './find-rank.js';
@@ -149,32 +149,27 @@ export class ResultsRenderer {
     nest(parent, layer, items, { routes = false } = {}) {
         if (routes) {
             return nestResults(parent, {
-                key: layer.id, items, ctx: this.ctx,
-                rowOf: route => this.routeCard(route),
+                items,
                 pick: route => this.ctx.openRoute(route),
                 nameOf: route => routeTitle(route, matchingRoutes()),
-                iconOf: () => 'signpost-split',
-                wrap: 'route-cards',
-                footer: this.ctx.shareLocations ? [{ text: 'Share these routes', onClick: this.ctx.shareLocations }] : []
+                iconOf: () => 'signpost-split'
             });
         }
         if (layer.id === 'locations') {
             return nestResults(parent, {
-                key: layer.id, items, ctx: this.ctx,
-                rowOf: item => this.locationRow(item),
+                items,
                 pick: item => this.ctx.selectLocation(item, `location:${item.markerId}`),
                 hover: (item, on) => pins()?.highlight(item.markerId, on),
-                iconOf: () => 'pin-map',
-                footer: this.ctx.shareLocations ? [{ text: 'Share these locations', onClick: this.ctx.shareLocations }] : []
+                mark: (badge, item) => badge.classList.toggle('selected', this.ctx.isSelected(`location:${item.markerId}`)),
+                iconOf: () => 'pin-map'
             });
         }
         return nestResults(parent, {
-            key: layer.id, items, ctx: this.ctx,
-            rowOf: item => this.ctx.featureSync.featureRow(item, { onSelect: this.ctx.selectFeature }),
+            items,
             pick: this.ctx.selectFeature,
             hover: (item, on) => this.ctx.featureSync.hover(item.mapFeature, on),
-            iconOf: item => geometryIcon(item.mapFeature?.feature?.geometry),
-            footer: [{ text: `About ${layer.title || layer.id}`, onClick: () => openLayerInfo(layer) }]
+            mark: (badge, item) => this.ctx.featureSync.track(badge, item.mapFeature),
+            iconOf: item => geometryIcon(item.mapFeature?.feature?.geometry)
         });
     }
 

@@ -28,12 +28,15 @@
  * MapLayerControl's shared LayerIsolationManager; rows drag to reorder.
  */
 import { LayerThumbnail } from './layer-thumbnail.js';
+import { layerPath } from './console/layer-path.js';
+import { showOffLayer, hideOffLayer } from './console/off-layer-preview.js';
+import { pendingState } from './console/layer-loading.js';
 import { LayerOrderManager } from './layer-order-manager.js';
 import { LayerStackFooter } from './layer-stack-footer.js';
 import { MapControlBar } from './map-control-bar.js';
 import { LayerCompareBadge } from './layer-compare-badge.js';
 import { attachSwipeDelete } from './layer-swipe-delete.js';
-import { layerRow, atlasLayers } from './console/find-browse.js';
+import { layerRow } from './console/find-browse.js';
 import { activeMapHistory, keepPlaces } from './active-map-history.js';
 import { isIncludingOutside } from './console/find-scope.js';
 
@@ -145,6 +148,7 @@ export class LayerStackStrip {
         window.addEventListener('urlUpdated', this._onChange);
         window.addEventListener('mask-changed', this._onChange);
         window.addEventListener('compare-changed', this._onChange);
+        window.addEventListener('layer-pending', () => this.render({ force: true }));
         this._offHistory = activeMapHistory.onRemove(() => this.render({ force: true }));
 
         // The event may already have fired by the time this mounts.
@@ -175,6 +179,13 @@ export class LayerStackStrip {
         if (this._draggedItem) return;
         clearTimeout(this._clearIsolationTimer);
         window.layerControl?.isolation?.hoverIsolate(layerId, isBasemap);
+    }
+
+    async _previewOff(layer) {
+        if (this._draggedItem) return;
+        clearTimeout(this._clearIsolationTimer);
+        const id = await showOffLayer(layer);
+        if (id) this._isolate(id, LayerOrderManager.isBasemap(layer));
     }
 
     _clearIsolation({ immediate = false } = {}) {
@@ -226,7 +237,11 @@ export class LayerStackStrip {
         const compareId = this._getComparedLayerId();
         this._compareBadge.sync(compareId);
 
-        const allLayers = this._getVisibleLayers({ withLocations: true });
+        // A map swiped away stays out of the list until the map has taken it off
+        const swiped = this._swipedAway ||= new Set();
+        const visible = this._getVisibleLayers({ withLocations: true });
+        swiped.forEach(id => { if (!visible.some(layer => layer.id === id)) swiped.delete(id); });
+        const allLayers = visible.filter(layer => !swiped.has(layer.id));
         this._controlBar?.update(allLayers);
         const layers = allLayers.filter(l => l.id !== compareId && (this._showHidden || !this._noFeatureIds.has(l.id)));
         const hiddenCount = allLayers.filter(l => l.id !== compareId).length - layers.length;
@@ -236,19 +251,31 @@ export class LayerStackStrip {
         const inactive = this._inactiveLayers(atlasId, allLayers);
         const maskedId = this._getMaskedLayerId();
         const loadingIds = window.layerControl?._loadingLayerIds;
-        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|off:${inactive.map(l => l.id).join(',')}|compare:${compareId}|mask:${maskedId}|open:${this._open}|atlas:${atlasId}|hidden:${hiddenCount}:${this._showHidden}|empty:${[...this._noFeatureIds].join(',')}`;
+        // A map switched on or off shows its new state at once, before the map catches up
+        const offIds = new Set([
+            ...inactive.filter(layer => pendingState(layer) !== true),
+            ...layers.filter(layer => pendingState(layer) === false)
+        ].map(layer => layer.id));
+        const signature = layers.map(l => `${l.id}:${loadingIds?.has(l.id) ? 1 : 0}`).join(',') + `|off:${[...offIds].join(',')}|compare:${compareId}|mask:${maskedId}|open:${this._open}|atlas:${atlasId}|hidden:${hiddenCount}:${this._showHidden}|empty:${[...this._noFeatureIds].join(',')}`;
         if (!force && signature === this._signature) return;
         this._signature = signature;
 
+        // The hovered row is about to be replaced, so its mouseleave will never
+        // fire (a row switched off comes back as an off row, which does not
+        // isolate): drop its isolation now; a fresh on row re-applies it on
+        // the pointer's next move.
+        if (this._el.querySelector('.layer-stack-item:hover')) {
+            this._clearIsolation({ immediate: true });
+            hideOffLayer();
+        }
+
         // Layer items sit alongside the fixed toggle, so replace only the ones
-        // this method owns, with the results Find nested under them.
-        this._el.querySelectorAll('[data-layer-item], [data-layer-nested]').forEach(el => el.remove());
+        // this method owns.
+        this._el.querySelectorAll('[data-layer-item]').forEach(el => el.remove());
 
         const { overlays, basemaps } = LayerOrderManager.getInspectorDisplayOrder(layers);
-        const inAtlas = this._currentAtlasIds();
         if (this._lastOrder?.atlasId !== atlasId) this._lastOrder = { atlasId, ids: activeMapHistory.list(atlasId) };
         const byId = new Map([...layers, ...inactive].map(layer => [layer.id, layer]));
-        const offIds = new Set(inactive.map(layer => layer.id));
         // A map turned back on takes its place in the list again, and the map's stack follows
         const stacks = [overlays, basemaps].map(list => this._keepRevived(list.map(layer => layer.id), this._lastOrder.ids));
         const moved = stacks.some((ids, section) => ids.some((id, i) => id !== [overlays, basemaps][section][i].id));
@@ -265,7 +292,7 @@ export class LayerStackStrip {
             ids.forEach((id, index) => {
                 const layer = byId.get(id);
                 const off = offIds.has(id);
-                const item = off ? this._createOffItem(layer, atlasId) : this._createItem(layer, { maskedId, inAtlas });
+                const item = off ? this._createOffItem(layer, atlasId) : this._createItem(layer, { maskedId });
                 // The two groups meet at the first basemap, which carries the rule
                 if (section === 1 && index === 0 && sections[0].length) {
                     item.classList.add('layer-stack-basemap-start');
@@ -338,14 +365,21 @@ export class LayerStackStrip {
             layerDefaults: window.layerControl?._defaultStyles || {}
         });
         thumbnail.classList.add('console-thumb', 'layer-stack-cell');
-        const tags = Array.isArray(layer.tags) ? layer.tags.join(' › ') : '';
+        const { path, attribution } = layerPath(layer, atlasId);
         const forget = () => activeMapHistory.remove(atlasId, layer.id);
         const item = layerRow(layer, {
             on: false,
-            meta: tags,
+            note: path,
+            meta: attribution,
             thumb: thumbnail,
             className: 'layer-stack-item layer-stack-off',
-            onRemove: forget
+            onRemove: forget,
+            // Hovered, the map comes on for the moment, isolated
+            onEnter: () => this._previewOff(layer),
+            onLeave: () => {
+                hideOffLayer();
+                this._clearIsolation();
+            }
         });
         item.dataset.layerItem = 'true';
         item.dataset.layerId = layer.id;
@@ -435,18 +469,9 @@ export class LayerStackStrip {
         return changed;
     }
 
-    /** The ids (plain and atlas-prefixed) of the current atlas's maps. */
-    _currentAtlasIds() {
-        const atlasId = window.layerRegistry?.getCurrentAtlas?.() || 'index';
-        return new Set(atlasLayers(atlasId).flatMap(layer => [layer.id, layer._prefixedId]).filter(Boolean));
-    }
-
-    _createItem(layer, { maskedId = null, inAtlas = new Set() } = {}) {
+    _createItem(layer, { maskedId = null } = {}) {
         const title = layer.title || layer.id;
-        const atlasName = this._getAtlasName(layer);
-        const tags = Array.isArray(layer.tags) ? layer.tags.join(' › ') : '';
-        const fromElsewhere = atlasName && !inAtlas.has(layer.id) && !inAtlas.has(layer._prefixedId);
-        const meta = fromElsewhere ? [`From ${atlasName}`, tags].filter(Boolean).join(' · ') : tags;
+        const { path, attribution } = layerPath(layer);
 
         const thumbnail = LayerThumbnail.generate(layer, THUMB_SIZE, {
             hasFeatures: !this._noFeatureIds.has(layer.id),
@@ -455,12 +480,13 @@ export class LayerStackStrip {
         thumbnail.classList.add('console-thumb', 'layer-stack-cell');
 
         // Hovering the row isolates the layer - same effect the feature
-        // control's marker badges apply: only this layer and the other section
-        // (overlay vs basemap) stay visible.
+        // control's marker badges apply: an overlay stays over the basemaps,
+        // faded to half; a basemap is shown alone.
         const isBasemap = LayerOrderManager.isBasemap(layer);
         const item = layerRow(layer, {
             on: true,
-            meta,
+            note: path,
+            meta: attribution,
             thumb: thumbnail,
             className: 'layer-stack-item',
             onEnter: () => this._isolate(layer.id, isBasemap),
@@ -478,14 +504,6 @@ export class LayerStackStrip {
             item.prepend(this._createMaskCell(layer, title));
         }
 
-        // Shown while the layer is still being added to the map on initial
-        // load (see MapLayerControl._loadingLayerIds) - the thumbnail itself
-        // renders from the layer's config, so it's already correct underneath.
-        if (window.layerControl?._loadingLayerIds?.has(layer.id)) {
-            const spinner = document.createElement('sl-spinner');
-            spinner.className = 'layer-stack-thumb-spinner';
-            item.appendChild(spinner);
-        }
 
         const grip = document.createElement('sl-icon');
         grip.name = 'grip-vertical';
@@ -496,6 +514,7 @@ export class LayerStackStrip {
         this._setupItemDrag(item);
         // Swiping a row away removes the map, and drops it from the list too
         attachSwipeDelete(item, () => {
+            (this._swipedAway ||= new Set()).add(layer.id);
             activeMapHistory.remove(this._atlasId(), layer.id);
             this._post({ type: 'remove-layer', layerId: layer.id });
         });
@@ -663,12 +682,5 @@ export class LayerStackStrip {
             console.warn('[LayerStackStrip] Message not cloneable, sending id only:', e);
             window.postMessage({ ...message, layer: undefined }, '*');
         }
-    }
-
-    _getAtlasName(layer) {
-        const atlasId = layer._sourceAtlas;
-        if (!atlasId) return null;
-        const metadata = window.layerRegistry?.getAtlasMetadata?.(atlasId);
-        return metadata?.name || atlasId;
     }
 }

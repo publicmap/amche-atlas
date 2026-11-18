@@ -22,7 +22,7 @@ export class ActiveMapsHeader {
         this._zoom = sectionAction('arrows-fullscreen', 'Zoom to the maps on the map', () => this._zoomToMaps());
         this._hover = sectionAction('hand-index-thumb', '', () => this._toggleHover());
         this._forget = sectionAction('trash', '', () => this._forgetOff());
-        this._forget.classList.add('danger');
+        this._forget.classList.add('console-danger');
         this._eye = layersGroupEye(() => this._rows.map(row => row.layer), 'every map in this list');
         this.el = sectionHeader({
             label: 'Active Maps',

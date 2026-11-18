@@ -110,7 +110,7 @@ export class FindPanel {
         this._refreshTimer = null;
         this.counts = null;
         this.onEntriesChanged = null;
-        this.featureSync = new FeatureSync({ onPin: (selection, label) => this._pin(selection, label) });
+        this.featureSync = new FeatureSync();
         this._results = new ResultsRenderer(this._context());
         // A refresh under the pointer would move the row being aimed at, so it
         // waits for the pointer to leave the list - unless a route card was
@@ -553,20 +553,18 @@ export class FindPanel {
         return byLayer;
     }
 
-    /** Nests each on-map row's results under it; the strip calls this after it redraws its rows. */
+    /** Gives each on-map row its results' count and badges; the strip calls this after it redraws its rows. */
     decorateOnMap() {
         if (!this._strip || this._query || this._atlasOpen) return;
-        this._strip.querySelectorAll('[data-layer-nested], .console-result-badges').forEach(node => node.remove());
-        this._strip.querySelectorAll('[data-layer-item]').forEach(row => {
+        this._strip.querySelectorAll('.console-result-badges, .console-row-count').forEach(node => node.remove());
+        // A map that is off (or just switched off) has nothing on the map to list
+        this._strip.querySelectorAll('[data-layer-item]:not(.layer-stack-off)').forEach(row => {
             const layer = this._onMapLayers.find(l => l.id === row.dataset.layerId);
             if (!layer) return;
             const key = [...this._onMapItems.keys()].find(id => id === layer.id || sameLayer(layer, id));
             const routeKey = [...this._onMapRoutes.keys()].find(id => id === layer.id || sameLayer(layer, id));
-            const nested = (routeKey
-                ? this._results.nest(row, layer, this._onMapRoutes.get(routeKey), { routes: true })
-                : this._results.nest(row, layer, this._onMapItems.get(key) || [])).slice(1);
-            nested.forEach(node => { node.dataset.layerNested = ''; });
-            row.after(...nested);
+            if (routeKey) this._results.nest(row, layer, this._onMapRoutes.get(routeKey), { routes: true });
+            else this._results.nest(row, layer, this._onMapItems.get(key) || []);
         });
     }
 
@@ -627,11 +625,6 @@ export class FindPanel {
         if (current.dataset.section === this._view) return;
         this._view = current.dataset.section;
         this._sectionsBar.setActive(this._view);
-    }
-
-    _pin(selection, label) {
-        this._onDone?.();
-        window.featureControl?._markerManager?.pinFeature(selection, label);
     }
 
     _track(node, item) {

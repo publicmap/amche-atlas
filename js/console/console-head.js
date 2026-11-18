@@ -1,9 +1,9 @@
 /**
- * The map console's head (js/map-control-bar.js): a header bar over the
- * atlas's header image, its icon and name at one size. Collapsed (Explore)
- * that label is all there is, and opens Find, with the console's status line
- * beneath. In Find the bar adds the menu before it, an info icon at its end
- * and the close button.
+ * The map console's head (js/map-control-bar.js): the atlas's label over its
+ * header image - icon, name and, under the name, a search icon with the place
+ * at the map's center. Collapsed (Explore) that label is all there is, and
+ * opens Find. In Find a search row comes first - menu, the search field
+ * (setSearch), close - and the label is the row under it, with no place line.
  *
  * The atlas label opens the atlas mode of Find (js/console/find-panel.js):
  * the bar turns to navigation - "← Goa › Atlas Details", back to the atlas's
@@ -45,14 +45,16 @@ export class ConsoleHead {
         wrap.append(this._icon, spinner);
         const text = el('span', 'console-atlas-text');
         this._name = el('span', 'map-control-bar-name', 'Loading atlas');
-        text.append(this._name);
-        this._info = icon('info-circle');
-        this._info.classList.add('console-atlas-chevron', 'when-find');
+        // Collapsed: the search the label opens, at the place in view
+        const place = el('span', 'console-atlas-place when-explore');
+        this._place = el('span', 'console-atlas-place-text', 'Locating…');
+        place.append(icon('search'), this._place);
+        text.append(this._name, place);
         // Atlas mode: the label is the way back - "← Goa › Atlas Details"
         const back = el('span', 'console-atlas-back');
         this._backFrom = el('span', 'console-crumb-from', 'Maps');
         back.append(icon('arrow-left'), this._backFrom, el('span', 'console-crumb-sep', '›'));
-        this.atlas.append(back, wrap, text, this._info);
+        this.atlas.append(back, wrap, text);
         this.atlas.addEventListener('click', actions.onAtlas);
 
         const close = button('console-btn console-close-btn when-find', 'x-lg', 'Close ( Esc )');
@@ -61,7 +63,27 @@ export class ConsoleHead {
         this._details = el('div', 'console-atlas-details when-find');
         this._details.hidden = true;
         this._overview = new AtlasOverview();
-        this.head.append(this.menu, this.atlas, close, this._details);
+        this._searchRow = el('div', 'console-search-row when-find');
+        this._searchRow.append(this.menu, close);
+        this._close = close;
+        this._atlasBar = el('div', 'console-atlas-bar');
+        this._atlasBar.append(this.atlas, this._details);
+        this.head.append(this._searchRow, this._atlasBar);
+    }
+
+    /**
+     * The search field, between the menu and close in Find's first row, and
+     * what belongs under it (its filter toggles, sub-searches) before the label.
+     */
+    setSearch(searchEl, under = []) {
+        if (searchEl) this._searchRow.insertBefore(searchEl, this._close);
+        under.forEach(node => node.classList.add('when-find'));
+        this._searchRow.after(...under);
+    }
+
+    /** The place at the map's center, under the atlas's name while collapsed. */
+    setPlace(text) {
+        this._place.textContent = text;
     }
 
     setAtlas({ id = null, name = '', description = '', attribution = '', area = '', iconSrc = null, image = null } = {}) {
@@ -139,11 +161,13 @@ export class ConsoleHead {
             this._detailsKey = null;
         }
         this._picking = !!open;
+        // Atlas mode has no search: its way back takes the search field's place
+        if (open) this._searchRow.insertBefore(this.atlas, this._close);
+        else this._atlasBar.prepend(this.atlas);
         this._name.textContent = open ? 'Atlas Details' : (this._atlasName || 'Loading atlas');
         this._details.hidden = !open;
         if (open) this._overview.refresh();
         if (open !== this._overview._active) this._overview.setActive(open);
-        this._info.name = open ? 'info-circle-fill' : 'info-circle';
         this.atlas.title = open ? `Back to ${this._atlasName || 'the maps'} ( Esc )` : (this._title || 'Atlas');
         this.atlas.setAttribute('aria-expanded', String(!!open));
     }

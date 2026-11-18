@@ -133,7 +133,7 @@ export class Terrain3DControl {
     }
 
     // Not a map control of its own: its controls are the place menu's Map
-    // view tab, opened from the 3D icon on the map console's place line.
+    // view tab, opened from the 3D icon on the map console's Find.
     attach(map) {
         this._map = map;
         this._bearing = this._map.getBearing();

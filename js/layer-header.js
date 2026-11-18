@@ -157,7 +157,7 @@ export class LayerHeader {
         }
     }
 
-    /** The eye: the layer opens on the map; off takes it off, as the console's eye does. */
+    /** The on/off switch: the layer opens on the map; off takes it off, as the console's switch does. */
     _renderVisibility(layer) {
         const control = window.parent?.browserControl;
         if (!control) {
@@ -168,9 +168,8 @@ export class LayerHeader {
         const base = (value) => control._baseLayerId?.(value) ?? value;
         const isOn = () => [...control._getActiveLayers()].some(active => base(active) === base(id));
         const paint = (on = isOn()) => {
-            $('#lh-visible').toggleClass('on', on).attr('aria-pressed', String(on))
-                .attr('title', on ? 'On the map - click to hide it' : 'Show this map')
-                .find('sl-icon').attr('name', on ? 'eye' : 'eye-slash');
+            $('#lh-visible').toggleClass('on', on).attr('aria-checked', String(on))
+                .attr('title', on ? 'On the map - click to hide it' : 'Show this map');
         };
         $('#lh-visible').show().off('click').on('click', () => {
             const on = !$('#lh-visible').hasClass('on');

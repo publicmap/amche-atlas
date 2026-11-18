@@ -7,10 +7,11 @@
  * Find behaves exactly as the old map browser panel did.
  */
 import { el, row, eyeButton, setEyeState, layerThumb, deleteButton, eyesState, setGroupEye, groupEye } from './find-rows.js';
-import { pendingState, setPending, eyeKey, trackEye, isLayerLoading } from './layer-loading.js';
+import { pendingState, setPending, eyeKey, trackEye, isLayerLoading, markLoading } from './layer-loading.js';
 import { matchRank } from './find-rank.js';
 import { viewBbox, bboxInView, parseBbox, isIncludingOutside, bboxDistance } from './find-scope.js';
 import { layerZoomButton } from './layer-zoom.js';
+import { starButton } from './layer-star.js';
 
 const browser = () => window.browserControl;
 const registry = () => window.layerRegistry;
@@ -31,17 +32,19 @@ export function setLayerActive(layer, on) {
     const title = layer.title || layer.name || layer.id;
     document.querySelectorAll(`.console-eye[data-layer-key="${CSS.escape(eyeKey(layer))}"]`).forEach(button => {
         setEyeState(button, on ? 'on' : 'off', on ? `Hide ${title}` : `Show ${title}`);
-        button.classList.toggle('loading', on);
+        markLoading(button, on);
     });
+    window.dispatchEvent(new CustomEvent('layer-pending', { detail: { layer, on } }));
     browser()?._handleLayerToggle(layer._prefixedId || layer.id, on);
 }
 
-/** A layer's eye: toggles it from whatever it shows now, spinning while it loads. */
+/** A layer's on/off switch: toggles it from whatever it shows now. */
 export function layerEye(layer, { active = activeIds(), on = isLayerActive(layer, active) } = {}) {
     const title = layer.title || layer.name || layer.id;
     const button = eyeButton(on ? 'on' : 'off', () => setLayerActive(layer, !button.classList.contains('on')), on ? `Hide ${title}` : `Show ${title}`);
     trackEye(button, layer);
-    if (on && isLayerLoading(layer)) button.classList.add('loading');
+    // Its row is built around it next; spin that row's thumbnail while it loads
+    if (on && isLayerLoading(layer)) queueMicrotask(() => markLoading(button, true));
     return button;
 }
 
@@ -140,7 +143,7 @@ export function layerMeta(layer) {
  * map), and for a map it keeps while it is off, `onRemove` - a delete button
  * in place of zoom that drops it from the list.
  */
-export function layerRow(layer, { active = activeIds(), on, meta = null, outside = false, className = '', thumb = null, onEnter = null, onLeave = null, onRemove = null } = {}) {
+export function layerRow(layer, { active = activeIds(), on, meta = null, note = '', outside = false, className = '', thumb = null, onEnter = null, onLeave = null, onRemove = null } = {}) {
     const title = layer.title || layer.name || layer.id;
     const trailing = el('span', 'console-row-actions');
     const shown = on === undefined ? isLayerActive(layer, active) : on;
@@ -148,14 +151,15 @@ export function layerRow(layer, { active = activeIds(), on, meta = null, outside
         onRemove && !shown ? deleteButton(`Remove ${title} from Active Maps`, onRemove) : layerZoomButton(layer, { outside }),
         layerEye(layer, { active, on: shown })
     );
-    // A row with results nested under it (js/console/layer-features.js) opens them instead
     const node = row({
         thumb: thumb || layerThumb(layer),
         title,
+        star: starButton(layer),
+        note,
         meta: meta ?? layerMeta(layer),
         trailing,
         className: [className, outside && 'outside'].filter(Boolean).join(' '),
-        onClick: () => (node.toggleFeatures ? node.toggleFeatures() : openLayerInfo(layer)),
+        onClick: () => openLayerInfo(layer),
         onEnter: onEnter || (() => previewLayer(layer)),
         onLeave: onLeave || clearPreview
     });

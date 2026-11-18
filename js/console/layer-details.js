@@ -16,14 +16,15 @@
  * MapBrowserControl._resolveLiveLayer.
  */
 import { el, icon, sectionLabel, row, iconThumb, chevron, hint, layerThumb, richText, linkButton } from './find-rows.js';
-import { isLayerActive, setLayerActive, layerEye, atlasName, plainText } from './find-browse.js';
+import { isLayerActive, setLayerActive, layerEye, plainText } from './find-browse.js';
+import { layerPath } from './layer-path.js';
+import { starButton } from './layer-star.js';
 import { LayerThumbnail } from '../layer-thumbnail.js';
 import { LayerLegend } from '../layer-legend.js';
 import { ruleFilter } from '../rule-legend.js';
 import { LayerOrderManager } from '../layer-order-manager.js';
 import { LayerActions } from './layer-actions.js';
 import { RasterAdjust } from '../raster-adjust.js';
-import { isStarred, setStarred } from '../starred-layers.js';
 
 const FEATURE_LIMIT = 6;
 const DESC_FOLD = 220;
@@ -126,39 +127,25 @@ export class LayerDetails {
         const title = live.title || live.name || live.id;
         this.el.replaceChildren();
 
-        // The console's navigation while the page is open: back, then where it
-        // was opened from › this map
+        // The console's navigation while the page is open: the map's own row, as
+        // in the list, with its arrow at the left to go back where it was opened
         const bar = el('div', 'console-details-bar');
-        const back = el('button', 'console-back');
-        back.type = 'button';
-        back.title = `${this._backLabel} ( Esc )`;
-        back.setAttribute('aria-label', this._backLabel);
-        const crumb = el('span', 'console-crumb');
-        if (this._from) crumb.append(el('span', 'console-crumb-from', this._from), el('span', 'console-crumb-sep', '›'));
-        crumb.appendChild(el('span', 'console-crumb-current', title));
-        back.append(icon('arrow-left'), crumb);
-        back.addEventListener('click', () => this._onBack?.());
-        const close = el('button', 'console-btn console-details-close');
-        close.type = 'button';
-        close.title = 'Close and go back to the results ( Esc )';
-        close.setAttribute('aria-label', close.title);
-        close.appendChild(icon('x-lg'));
-        close.addEventListener('click', () => this._onBack?.());
-        bar.append(back, this._starButton(live), close);
-        this.el.appendChild(bar);
-
-        const path = [live._sourceAtlas && atlasName(live._sourceAtlas), ...(live.tags || [])].filter(Boolean).join(' › ');
-        const toggle = () => setLayerActive(layer, !(isLayerActive(layer) || isLayerActive(this._live())));
+        const { path, attribution } = layerPath(live);
         const head = row({
             thumb: layerThumb(live),
             title,
-            meta: path,
+            star: starButton(live, () => this.render()),
+            note: path,
+            meta: attribution,
             trailing: layerEye(layer, { on }),
-            className: 'console-details-row' + (on ? ' selected' : ''),
-            onClick: toggle
+            className: 'console-details-row',
+            onClick: () => this._onBack?.()
         });
-        head.title = on ? `${title} is on the map - click to hide it` : `Show ${title} on the map`;
-        this.el.appendChild(head);
+        head.title = `${this._backLabel} ( Esc )`;
+        head.setAttribute('aria-label', this._backLabel);
+        head.prepend(el('span', 'console-row-back'));
+        bar.append(head);
+        this.el.appendChild(bar);
 
         // The whole description, its links live; a long one folds to a few lines
         const desc = richText(live.description, 'console-details-desc' + (this._descOpen ? ' open' : ''));
@@ -283,22 +270,6 @@ export class LayerDetails {
     }
 
     /** The map's star (js/starred-layers.js), as in the layer editor. */
-    _starButton(live) {
-        const defaults = window.browserControl?._getAtlasInitiallyCheckedIds?.(live._sourceAtlas || 'index') || [];
-        const starred = isStarred(live, { isDefault: !!live.initiallyChecked || defaults.includes(live._prefixedId) });
-        const button = el('button', 'console-btn console-details-star' + (starred ? ' on' : ''));
-        button.type = 'button';
-        button.title = starred ? 'Starred - click to unstar' : 'Star this map to find it again';
-        button.setAttribute('aria-label', button.title);
-        button.setAttribute('aria-pressed', String(starred));
-        button.appendChild(icon(starred ? 'star-fill' : 'star'));
-        button.addEventListener('click', () => {
-            setStarred(live, !starred);
-            this.render();
-        });
-        return button;
-    }
-
     _about(live, on) {
         const section = el('section', 'console-section');
         section.appendChild(sectionLabel('About'));

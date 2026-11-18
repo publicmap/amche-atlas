@@ -1035,17 +1035,17 @@ export class MapInitializer {
             window.featureControl = new MapFeatureControl();
             window.featureControl.onAdd(map);
 
-            // The console's panels, each toggled by its own trigger on the
-            // place line under the console bar (see console-panel.js): the
-            // address of the map center, from the place name; the camera and
-            // 3D terrain, from the 3D icon; the device's location, from the
-            // location icon.
+            // The console's panels, each toggled by its own trigger in the
+            // console's Find (see console-panel.js): the address of the map
+            // center, from the pin at the end of the search field; the camera
+            // and 3D terrain, from the 3D icon; the device's location, from
+            // the location icon.
             new MapLocationMenuControl().mount(map, { button: window.mapConsole?.placeButton });
             new MapViewPanel().mount(map, { button: window.mapConsole?.terrainButton });
             new LocatePanel().mount(map, { button: window.mapConsole?.locationButton });
             // Share panel: the share link and QR, map history and the view in
             // other maps (see share-view-panel.js), opened from the link icon
-            // at the start of the place line.
+            // at the start of Find's map actions.
             new ShareViewPanel().mount(map, { button: window.mapConsole?.shareButton });
             new RouteNavigation(map);
 
@@ -1115,7 +1115,7 @@ export class MapInitializer {
             // to other maps are in the Share panel. Geolocation and bearing,
             // and measure beside the scale, sit bottom-right.
             // 3D terrain has no rail button: its controls are the place
-            // menu's Map view tab, opened from the console's place line.
+            // menu's Map view tab, opened from the console's Find.
             window.terrain3DControl.attach(map);
             window.terrain3DControl.onChange(() => window.mapConsole?.refreshStatus());
             window.timeControl = new TimeControl();

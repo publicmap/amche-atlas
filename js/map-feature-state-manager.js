@@ -125,7 +125,7 @@ export class MapFeatureStateManager extends EventTarget {
      * @returns {boolean} True if layer is raster-based
      */
     _isRasterLayer(layerConfig) {
-        const rasterTypes = ['tms', 'wmts', 'img', 'raster-style-layer'];
+        const rasterTypes = ['tms', 'wmts', 'wms', 'cog', 'img', 'raster-style-layer'];
         return rasterTypes.includes(layerConfig.type);
     }
 

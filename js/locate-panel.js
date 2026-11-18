@@ -1,7 +1,7 @@
 /**
  * The Locate panel: the device's GPS fix, how the map follows it and its track
  * log (js/location-device.js), opened from the location status icon on the
- * console's place line. Its header's Locate Me button locks the camera onto
+ * console's Find. Its header's Locate Me button locks the camera onto
  * the device (starting GPS if needed) and says so while it is locked.
  * `window.locatePanel` is this instance.
  */

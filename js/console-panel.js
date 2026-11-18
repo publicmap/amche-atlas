@@ -1,9 +1,9 @@
 /**
  * ConsolePanel - a panel hung under the map console (css/map-console.css),
- * toggled by its own trigger on the console's place line: the Address panel
- * (js/map-location-menu-control.js) from the place name, Map view
- * (js/map-view-panel.js) from the 3D icon, Locate (js/locate-panel.js) from
- * the location icon. The Share panel (js/share-view-panel.js) takes part in
+ * toggled by its own trigger in the console's Find: the Address panel
+ * (js/map-location-menu-control.js) from the pin at the end of the search
+ * field, Map view (js/map-view-panel.js) from the 3D icon and Locate
+ * (js/locate-panel.js) from the location icon in the map actions. The Share panel (js/share-view-panel.js) takes part in
  * the same one-at-a-time rule through claimConsolePanel().
  *
  * A panel stays open while the map is panned or zoomed under it - it closes

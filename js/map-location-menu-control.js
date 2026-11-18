@@ -1,6 +1,6 @@
 /**
  * MapLocationMenuControl - the Address panel, opened from the place name on
- * the map console's place line (one of the console's panels,
+ * the map console's Find (one of the console's panels,
  * js/console-panel.js):
  *
  * - The reverse-geocoded address (js/location-address.js) as a breadcrumb of

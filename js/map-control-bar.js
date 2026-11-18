@@ -4,18 +4,19 @@
  * Its head (js/console/console-head.js) is the current atlas as a card, and
  * a status line closes the card, changing with the mode.
  *
- * - explore: collapsed to the atlas card and the status line - the Share
- *   panel's link icon (js/share-view-panel.js), the place at the map center
- *   and the 3D terrain and location icons, each toggling a panel of its own
- *   (js/console-panel.js) - then, when opened, Share for the locations
- *   (js/console/share-locations.js). Marker panels dock in a column beneath
- *   the console (map-marker-manager.js). The atlas card opens Find.
- * - find: the head becomes a header bar - menu, atlas picker, close -
- *   then the search field with its filters and Find's
+ * - explore: collapsed to the atlas card - its icon, name and a search icon
+ *   with the place at the map center - then, when opened, Share for the
+ *   locations (js/console/share-locations.js). Marker panels dock in a column
+ *   beneath the console (map-marker-manager.js). The atlas card opens Find.
+ * - find: the head's first row is the menu, the search field (its placeholder
+ *   the place at the map center, its filters and the Address panel's pin at
+ *   its end) and close; the atlas label is the row under it, then Find's
  *   sections (js/console/find-panel.js), with the map actions
- *   (js/layer-stack-footer.js) as its status line. The atlas label turns
- *   Find to atlas mode: the bar grows with the atlas's description and
- *   attribution, and the list is every atlas to browse.
+ *   (js/layer-stack-footer.js) as its status line - which also has the
+ *   Share panel's link icon (js/share-view-panel.js) and the 3D terrain and
+ *   location icons, each toggling a panel of its own (js/console-panel.js).
+ *   The atlas label turns Find to atlas mode: the label grows with the
+ *   atlas's description and attribution, and the list is every atlas.
  *
  * Esc, the close button, a map click or picking a place result return to
  * explore, which clears the search field and `?q`; a picked result keeps
@@ -82,39 +83,27 @@ export class MapControlBar {
 
         this._head = new ConsoleHead({
             onMenu: () => window.amche?.openNavMenu?.(),
-            onAtlas: () => (this._mode === 'find' ? this.find.toggleAtlas() : this.setMode('find', { view: 'atlas', focus: false })),
+            onAtlas: () => (this._mode === 'find' ? this.find.toggleAtlas() : this.setMode('find', { view: 'atlas' })),
             onClose: () => this.setMode('explore', { keepMarker: true })
         });
         applyConsoleBrand(this._head.menu);
 
         const searchEl = searchToggle?._el || null;
 
-        // Opens the Share panel (js/share-view-panel.js)
-        this.shareButton = button('map-console-share-btn', 'link-45deg', 'Share this view, map history and other maps');
-        this.placeButton = button('map-console-place', 'geo-alt', 'Address of this view');
-        this._placeText = document.createElement('span');
-        this._placeText.textContent = 'Locating…';
-        this.placeButton.appendChild(this._placeText);
-        const placeRow = document.createElement('div');
-        placeRow.className = 'map-console-place-row when-explore';
-        placeRow.append(this.shareButton, this.placeButton, this._buildStatus());
-
-        const body = document.createElement('div');
-        body.className = 'map-console-body when-find';
-        if (searchEl) {
-            searchEl.classList.add('when-find');
-            body.appendChild(searchEl);
-        }
+        // Opens the Address panel (js/map-location-menu-control.js), at the search field's end
+        this.placeButton = button('map-console-status-btn console-place-btn', 'geo-alt', 'Address of this view');
         // The filter toggles or tag chips, opened from the search field
         const optionsEl = document.createElement('div');
         optionsEl.className = 'console-search-options';
-        body.appendChild(optionsEl);
         // Sub-search options under the search field (the Goa survey number
         // search, js/cadastral-search-ui.js, and any to come): each adds its
         // link to the row with addSubSearch and opens its own fields beneath.
         this._subSearch = document.createElement('div');
         this._subSearch.className = 'console-subsearch';
-        body.appendChild(this._subSearch);
+        this._head.setSearch(searchEl, [optionsEl, this._subSearch]);
+
+        const body = document.createElement('div');
+        body.className = 'map-console-body when-find';
         this.find = new FindPanel({
             onSelect: (item) => {
                 window.searchControl?._selectSuggestion(item);
@@ -131,13 +120,15 @@ export class MapControlBar {
             }
         });
         this.find.mount(body, { searchEl, optionsEl, stripEl, footerEl, onToggleHidden, map: this._map });
+        searchEl?.appendChild(this.placeButton);
+        this._mountStatus(footerEl);
 
         const explore = document.createElement('div');
         explore.className = 'map-console-explore when-explore';
         this.share = new SharePanel({ onClose: () => this.closeShare() });
         explore.appendChild(this.share.el);
 
-        this._el.append(this._head.head, explore, body, placeRow);
+        this._el.append(this._head.head, explore, body);
         hostEl.append(this._el);
         hostEl.classList.add('has-map-control-bar');
 
@@ -288,10 +279,10 @@ export class MapControlBar {
         else this.setMode('find', { view });
     }
 
-    /** The search field's placeholder, naming the atlas - or, in atlas mode, the atlases. */
+    /** The search field's placeholder: the place at the map center - or, in atlas mode, the atlases. */
     _syncHead() {
         if (!this._el) return;
-        const placeholder = this.find?.atlasOpen ? 'Search atlases' : (this._atlasName ? `Search ${this._atlasName}` : 'Search places and maps');
+        const placeholder = this.find?.atlasOpen ? 'Search atlases' : (this._place || (this._atlasName ? `Search ${this._atlasName}` : 'Search places and maps'));
         this._searchToggle?.setPlaceholder(placeholder);
     }
 
@@ -334,18 +325,19 @@ export class MapControlBar {
         this._el?.classList.toggle('loading', !!loading);
     }
 
-    // The view's status at the end of the place line: whether 3D terrain is
-    // on and whether the device is being tracked (and its track logged). Each
-    // icon is the trigger of its own panel (js/map-view-panel.js,
+    // At the start of Find's map actions: the Share panel's link, then the
+    // view's status - whether 3D terrain is on and whether the device is
+    // being tracked (and its track logged). Each icon is the trigger of its
+    // own panel (js/share-view-panel.js, js/map-view-panel.js,
     // js/locate-panel.js), mounted in map-init.js.
-    _buildStatus() {
-        const status = document.createElement('div');
-        status.className = 'map-console-status';
-        this._terrainIcon = button('map-console-status-btn', 'badge-3d', '3D terrain');
-        this._trackingIcon = button('map-console-status-btn', 'crosshair', 'Location');
-        status.append(this._terrainIcon, this._trackingIcon);
+    _mountStatus(footerEl) {
+        const kind = 'layer-stack-footer-btn map-console-status-btn';
+        this.shareButton = button(kind, 'link-45deg', 'Share this view, map history and other maps');
+        this._terrainIcon = button(kind, 'badge-3d', '3D terrain');
+        this._trackingIcon = button(kind, 'crosshair', 'Location');
+        const group = footerEl?.querySelector('.layer-stack-footer-group');
+        group?.prepend(this.shareButton, this._terrainIcon, this._trackingIcon);
         this.refreshStatus();
-        return status;
     }
 
     get terrainButton() {
@@ -377,7 +369,9 @@ export class MapControlBar {
     }
 
     _setPlace(text) {
-        this._placeText.textContent = text || 'This view';
+        this._place = text || '';
+        this._head.setPlace(text || 'This view');
+        this._syncHead();
     }
 
     destroy() {

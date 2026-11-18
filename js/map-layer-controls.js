@@ -64,9 +64,14 @@ const OPACITY_DIMMED_TYPES = new Set([
     'vector', 'tms', 'wmts', 'wms', 'cog', 'geojson', 'js', 'overpass', 'arcgis', 'img', 'raster-style-layer'
 ]);
 
+// The opacity the basemaps keep, as a share of their own, under an isolated overlay
+const BASEMAP_FADE = 0.5;
+
 /**
  * LayerIsolationManager - shows one layer on its own by dimming the other
- * toggled-on layers in the same section (overlay vs basemap).
+ * toggled-on layers: an overlay hides the other overlays and fades the
+ * basemaps under it to half (BASEMAP_FADE); a basemap is shown alone, every
+ * other layer hidden.
  *
  * Owned by MapLayerControl and reached as `window.layerControl.isolation`, so
  * every caller drives the same state machine: the feature marker badges
@@ -82,9 +87,10 @@ export class LayerIsolationManager {
         this._control = control;
         this._hover = null;
         this._persistent = null;
-        // Layer ids the active isolation is dimming, so a change of isolation
-        // only has to touch the layers whose state actually differs.
-        this._dimmed = new Set();
+        // Layer ids the active isolation is dimming, each with the level it is
+        // dimmed to, so a change of isolation only has to touch the layers
+        // whose state actually differs.
+        this._dimmed = new Map();
     }
 
     /**
@@ -144,7 +150,8 @@ export class LayerIsolationManager {
     }
 
     /**
-     * Dim every toggled-on sibling in the same section as layerId.
+     * Dim every toggled-on layer the isolation of layerId hides: the other
+     * overlays for an overlay, every other layer for a basemap.
      *
      * Only the layers whose state actually has to change are touched, using
      * _dimmed as the record of what this isolation is currently dimming. Moving
@@ -160,26 +167,34 @@ export class LayerIsolationManager {
 
         const activeLayers = this._getToggledOnLayers();
 
-        // Undim anything this isolation was dimming that the new one must not.
-        // A layer the user has since toggled off is just dropped from the record -
-        // undimming it would override their own choice.
-        for (const id of Array.from(this._dimmed)) {
+        // Undim anything this isolation was dimming that the new one must not,
+        // and move the rest to their new level. A layer the user has since
+        // toggled off is just dropped from the record - undimming it would
+        // override their own choice.
+        for (const [id, current] of Array.from(this._dimmed)) {
             const config = activeLayers.get(id);
             if (!config) {
                 this._dimmed.delete(id);
                 continue;
             }
-            if (id !== layerId && this._isBasemap(config) === isBasemap) continue;
-            this._setDimmed(mapboxAPI, id, config, false);
-            this._dimmed.delete(id);
+            const level = id === layerId ? null : this._dimLevel(config, isBasemap);
+            if (level === current) continue;
+            if (level === null) {
+                this._setDimmed(mapboxAPI, id, config, false);
+                this._dimmed.delete(id);
+            } else {
+                this._setDimmed(mapboxAPI, id, config, true, level);
+                this._dimmed.set(id, level);
+            }
         }
 
-        // Dim the new isolation's same-section siblings.
+        // Dim what the new isolation hides or fades.
         for (const [id, config] of activeLayers.entries()) {
             if (id === layerId || this._dimmed.has(id)) continue;
-            if (this._isBasemap(config) !== isBasemap) continue;
-            this._setDimmed(mapboxAPI, id, config, true);
-            this._dimmed.add(id);
+            const level = this._dimLevel(config, isBasemap);
+            if (level === null) continue;
+            this._setDimmed(mapboxAPI, id, config, true, level);
+            this._dimmed.set(id, level);
         }
     }
 
@@ -202,7 +217,7 @@ export class LayerIsolationManager {
         if (!mapboxAPI || this._dimmed.size === 0) return;
 
         const activeLayers = this._getToggledOnLayers();
-        for (const id of Array.from(this._dimmed)) {
+        for (const id of Array.from(this._dimmed.keys())) {
             const config = activeLayers.get(id);
             if (config) {
                 this._setDimmed(mapboxAPI, id, config, false);
@@ -218,9 +233,9 @@ export class LayerIsolationManager {
      * setLayerGroupDimmed restores the paint values it captured, so opacity
      * expressions survive the round trip untouched.
      */
-    _setDimmed(mapboxAPI, id, config, dimmed) {
+    _setDimmed(mapboxAPI, id, config, dimmed, level = 0) {
         if (OPACITY_DIMMED_TYPES.has(config.type)) {
-            mapboxAPI.setLayerGroupDimmed(id, config, dimmed);
+            mapboxAPI.setLayerGroupDimmed(id, config, dimmed, level);
         } else {
             mapboxAPI.updateLayerGroupVisibility(id, config, !dimmed);
         }
@@ -248,6 +263,18 @@ export class LayerIsolationManager {
         });
 
         return layers;
+    }
+
+    /**
+     * How far isolating a layer dims another: 0 hides it, BASEMAP_FADE fades
+     * it, null leaves it. A basemap's isolation hides everything else; an
+     * overlay's hides the other overlays and fades the basemaps - those with
+     * an opacity path; the rest (Mapbox style layers) can only be hidden, so
+     * they are left as they are.
+     */
+    _dimLevel(config, isolatingBasemap) {
+        if (isolatingBasemap || !this._isBasemap(config)) return 0;
+        return OPACITY_DIMMED_TYPES.has(config.type) ? BASEMAP_FADE : null;
     }
 
     _isBasemap(config) {

@@ -2,13 +2,15 @@
  * Which maps are on their way, for every eye in the console's lists
  * (js/console/find-rows.js eyeButton). A map switched from Find shows its new
  * state at once - pending until the map's own active layers catch up - and
- * while it is on but its data is still loading its eye carries a spinner, so
- * the lists show which maps are loading and which are ready.
+ * while it is on but its data is still loading its row's thumbnail carries a
+ * spinner, so the lists show which maps are loading and which are ready.
  *
  * Eyes are swept in place on the map's data events rather than re-rendering
  * the lists, so a row is never rebuilt under the pointer just for a spinner.
  */
 const PENDING_TIMEOUT = 20000;
+import { LayerThumbnail } from '../layer-thumbnail.js';
+
 const SOURCE_PREFIXES = ['vector', 'tms', 'wmts', 'wms', 'cog', 'geojson', 'geojson-overlay', 'csv'];
 
 const pending = new Map();
@@ -84,15 +86,20 @@ export function trackEye(button, layer) {
     layersById.set(key, layer);
 }
 
-/** Updates every console eye's spinner for what is loading right now. */
+/** Spins (or stops) the thumbnail of the row an eye sits in. */
+export function markLoading(button, on) {
+    const thumb = button?.closest('.console-row')?.querySelector(':scope > .layer-thumbnail');
+    LayerThumbnail.setLoading(thumb, on);
+}
+
+/** Updates every console row's thumbnail spinner for what is loading right now. */
 export function sweepEyes(root = document) {
     const active = window.browserControl?._getActiveLayers?.();
     if (active) settlePending(active);
     root.querySelectorAll('.console-eye[data-layer-key]').forEach(button => {
         const layer = layersById.get(button.dataset.layerKey);
         if (!layer) return;
-        const on = button.classList.contains('on');
-        button.classList.toggle('loading', on && isLayerLoading(layer));
+        markLoading(button, button.classList.contains('on') && isLayerLoading(layer));
     });
 }
 

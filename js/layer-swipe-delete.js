@@ -1,5 +1,6 @@
 const START_PX = 6;
 const MIN_DISTANCE = 24;
+const SLIDE_OUT = 0.4;
 const FLING_SPEED = 0.6;
 const MAX_SPEED = 3;
 const SAMPLE_WINDOW = 100;
@@ -123,7 +124,8 @@ export function attachSwipeDelete(item, onDelete) {
             item.setPointerCapture?.(e.pointerId);
         }
         offset = Math.min(0, dx);
-        const target = -offset >= MIN_DISTANCE ? Math.min(1, velocityAt(e.timeStamp) / FLING_SPEED) : 0;
+        const slid = -offset / (item.offsetWidth * SLIDE_OUT);
+        const target = -offset >= MIN_DISTANCE ? Math.min(1, Math.max(slid, velocityAt(e.timeStamp) / FLING_SPEED)) : 0;
         readiness += (target - readiness) * 0.35;
         item.style.transform = `translateX(${offset}px)`;
         item.style.backgroundColor = fillAt(readiness);
@@ -138,7 +140,8 @@ export function attachSwipeDelete(item, onDelete) {
         item.dataset.swiped = '1';
         setTimeout(() => { delete item.dataset.swiped; }, 0);
         const velocity = e.type === 'pointerup' ? velocityAt(e.timeStamp) : 0;
-        if (velocity >= FLING_SPEED && -offset >= MIN_DISTANCE) {
+        const slidOut = -offset >= item.offsetWidth * SLIDE_OUT;
+        if (slidOut || (velocity >= FLING_SPEED && -offset >= MIN_DISTANCE)) {
             start = null;
             swiping = false;
             eject(item, velocity);
