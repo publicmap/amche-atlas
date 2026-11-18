@@ -1431,7 +1431,7 @@
     },
     {
       "tags": [
-        "3.Coastal Zone"
+        "Coastal Zone Plans"
       ],
       "title": "CRZ Lines (2011)",
       "description": "Regulatory lines for Coastal Regulation Zones",
@@ -1543,7 +1543,7 @@
     },
     {
       "tags": [
-        "3.Coastal Zone"
+        "Coastal Zone Plans"
       ],
       "title": "Coastal Regulation Zones",
       "description": "Coastal Regulation Zones",
@@ -1620,7 +1620,7 @@
     },
     {
       "tags": [
-        "3.Coastal Zone"
+        "Coastal Zone Plans"
       ],
       "id": "crz-1a",
       "title": "CZMP 2011 Protected Areas",

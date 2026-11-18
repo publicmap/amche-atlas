@@ -593,12 +593,6 @@
             background: rgba(255, 191, 0, 0.12);
         }
 
-        /* On the map: the console's eye, solid amber while on */
-        .lh-visible-btn.on {
-            color: #1a1405;
-            border-color: #ffbf00;
-            background: #ffbf00;
-        }
 
         /* The license for reuse (layer.license), prominent in the header */
         .license-chip {
@@ -1181,8 +1175,35 @@
         .lh-star-btn { width: 30px; height: 30px; border-color: transparent; font-size: 15px; }
         .lh-star-btn:hover { background: var(--c-raised); border-color: transparent; }
         .lh-star-btn.on { border-color: transparent; background: transparent; }
-        .lh-visible-btn { border-color: var(--c-line-strong); }
+        /* On the map: the console's on/off switch, amber while on */
+        .lh-visible-btn {
+            position: relative;
+            flex-shrink: 0;
+            width: 32px;
+            height: 18px;
+            padding: 0;
+            border: 1px solid var(--c-line-strong);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+        .lh-visible-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 2px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #9ca3af;
+            transform: translateY(-50%);
+            transition: transform 0.15s ease, background 0.15s ease;
+        }
+        .lh-visible-btn:hover { border-color: rgba(255, 255, 255, 0.5); }
+        .lh-visible-btn:hover::before { background: #fff; }
         .lh-visible-btn.on { border-color: var(--c-amber); background: var(--c-amber); }
+        .lh-visible-btn.on::before { background: #1a1405; transform: translate(14px, -50%); }
         .desc-card { margin: 10px 0 0; }
         .desc-summary { padding: 0; }
         .desc-summary:hover { background: transparent; }
@@ -1361,7 +1382,7 @@
                         <div class="flex items-center gap-2">
                             <input type="text" id="layer-title" placeholder="Layer title" class="lh-title-input" aria-label="Title">
                             <button type="button" id="lh-star" class="lh-star-btn" aria-pressed="false" title="Star this map to find it again" style="display: none;"><sl-icon name="star"></sl-icon></button>
-                            <button type="button" id="lh-visible" class="lh-star-btn lh-visible-btn" aria-pressed="false" title="Show this map" style="display: none;"><sl-icon name="eye-slash"></sl-icon></button>
+                            <button type="button" id="lh-visible" class="lh-visible-btn" role="switch" aria-checked="false" title="Show this map" style="display: none;"></button>
                         </div>
                         <div class="flex items-center gap-1.5 flex-wrap mt-1.5">
                             <button type="button" class="atlas-badge-chip" id="lh-atlas-badge" title="Click to copy atlas config link" style="display: none;"></button>
