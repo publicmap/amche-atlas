@@ -83,7 +83,7 @@ test('opens the editor on the layer with its source, details, inspect fields and
     expect(await frame.locator('#layer-attribution').inputValue()).toBe('src.example.org');
 
     // Inspect fields live in the data editor: the ones set on the layer are the ones shown, id and name included.
-    await frame.locator('#data-card .data-card-head').click();
+    await frame.locator('#popup-settings > summary').click();
     await expect(frame.locator('#data-fields-section')).toBeVisible({ timeout: 30000 });
     expect(await frame.locator('#feature-id-field').inputValue()).toBe('id');
     expect(await frame.locator('#feature-name-field').inputValue()).toBe('name');
@@ -95,6 +95,7 @@ test('opens the editor on the layer with its source, details, inspect fields and
     expect(config.style['fill-color']).toBe('#ff0000');
     expect(config.inspect).toMatchObject({ id: 'id', label: 'name', fields: ['name', 'kind'], fieldTitles: ['Name', 'Kind'] });
     await frame.locator('#lh-thumbnail').click();
+    await frame.locator('#style-mode-advanced').click();
     await frame.locator('.spe-tab[data-tab="all"]').click();
     expect(await frame.locator('#advanced-style-editor .spe-name').allTextContents()).toEqual(expect.arrayContaining(['fill-color', 'fill-opacity', 'line-width']));
 
@@ -140,11 +141,10 @@ test('× mid-edit puts the original layer back, unchanged and in place', async (
     await frame.locator('#layer-title').fill('Should Not Stick');
     await expect.poll(() => titleOf(page, 'edit-test'), { timeout: 20000 }).toBe('Should Not Stick');
 
+    // Opened to edit, × cancels the edit and goes back to the map console.
     await frame.locator('#close-btn').click();
     await expect.poll(() => titleOf(page, 'edit-test'), { timeout: 20000 }).toBe('Edit Test');
-    await expect(frame.locator('#edit-btn')).toBeVisible();
-    await expect(frame.locator('#layer-title')).toHaveValue('Edit Test');
-    expect(await page.evaluate(() => window.browserControl._isOpen)).toBe(true);
+    await expect.poll(() => page.evaluate(() => window.browserControl._isOpen)).toBe(false);
     expect(await groupsWith(page, 'edit-test')).toBe(1);
     expect(await groupsWith(page, 'edit-other')).toBe(1);
     await expect.poll(async () => { const t = await indexOf(page, 'edit-test'); return t > 0 && (await indexOf(page, 'edit-other')) < t; }, { timeout: 20000 }).toBe(true);
@@ -261,14 +261,14 @@ test('a layer opens read-only, and Edit makes thumbnail, description and data cl
     await frame.locator('#lh-thumbnail').click();
     await expect(frame.locator('#style-section')).toBeVisible();
     await expect(frame.locator('#style-mode-tabs')).toBeVisible({ timeout: 30000 });
-    await frame.locator('#style-done').click();
+    await frame.locator('#style-toggle').click();
     await expect(frame.locator('#style-section')).toBeHidden();
 
     await expect(frame.locator('#data-card')).toHaveClass(/is-collapsed/, { timeout: 30000 });
-    await expect(frame.locator('#data-settings')).toBeHidden();
+    await expect(frame.locator('#data-card-body')).toBeHidden();
     await frame.locator('#data-card .data-card-head').click();
-    await expect(frame.locator('#data-settings')).toBeVisible();
-    await expect(frame.locator('#layer-type')).toBeVisible();
+    await expect(frame.locator('#data-card-body')).toBeVisible();
+    await expect(frame.locator('#source-settings')).toBeVisible();
     await frame.locator('#data-card .data-card-head').click();
     await expect(frame.locator('#data-card')).toHaveClass(/is-collapsed/);
 });
@@ -426,10 +426,12 @@ test('data filters show as clearable buttons, and clearing one is an edit', asyn
 test('Remove Other Maps leaves the layer being previewed in place', async ({ page }) => {
     await boot(page);
     await page.evaluate(() => { window.browserControl._creatorDraftLayerId = 'edit-test'; });
+    const active = () => page.evaluate(() => [...window.browserControl._getActiveLayers()]);
+    // The active maps are read from the URL, which is written on a debounce.
+    await expect.poll(active, { timeout: 20000 }).toEqual(expect.arrayContaining(['edit-test', 'edit-other']));
     await page.evaluate(() => window.browserControl.hideAllLayers());
-    const active = await page.evaluate(() => [...window.browserControl._getActiveLayers()]);
-    expect(active).toContain('edit-test');
-    expect(active).not.toContain('edit-other');
+    await expect.poll(active, { timeout: 20000 }).not.toContain('edit-other');
+    expect(await active()).toContain('edit-test');
 });
 
 test('pointing at a legend item shows only its rule on the map until the pointer leaves', async ({ page }) => {

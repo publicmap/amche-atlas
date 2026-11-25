@@ -92,24 +92,23 @@ test('SVG export vectorizes atlas overlay layers as real paths/text', async ({ p
         return layers.some(l => l.id.includes('svg-vector-test-layer') && l.type === 'fill');
     }, null, { timeout: 30000 });
 
-    // The export trigger is in the footer of Find, which the map console's
-    // atlas button opens on the maps on the map.
-    await page.click('.console-atlas-btn');
+    // The export trigger is in Find's map actions, which the map console's
+    // atlas label opens.
+    await page.click('.map-control-bar-main');
     await page.click('.layer-stack-footer-btn[title="Export map"]');
 
     const iframeEl = await page.waitForSelector('iframe.map-export-iframe');
     const exportFrame = await iframeEl.contentFrame();
     await exportFrame.waitForSelector('#export-btn');
 
-    await exportFrame.locator('body').click();
-    await exportFrame.locator('body').press('p'); // switch to "Print" category
-    await page.waitForTimeout(200);
-    await exportFrame.locator('body').press('s'); // pick the SVG format
+    await exportFrame.locator('.export-type-tab, [role="tab"]', { hasText: 'Print' }).first().click();
+    await exportFrame.locator('.format-button[data-format="svg"]').click();
+    await expect(exportFrame.locator('.format-button[data-format="svg"]')).toHaveClass(/selected/);
     await page.waitForTimeout(300); // let the frame-show postMessage round-trip
 
     const [download] = await Promise.all([
-        page.waitForEvent('download', { timeout: 15000 }),
-        exportFrame.locator('body').press(' ') // trigger Download
+        page.waitForEvent('download', { timeout: 30000 }),
+        exportFrame.locator('#export-btn').click()
     ]);
 
     const downloadPath = await download.path();
