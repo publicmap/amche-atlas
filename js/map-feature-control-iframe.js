@@ -15,6 +15,7 @@ import ConfigManager from './config-manager.js';
 import { installHatchPatterns } from './hatch-patterns.js';
 import { isRouteLayer } from './route-legend.js';
 import { routeBadgeAt, isRouteBadge, routeBadgeId, setActiveRouteBadge } from './search/route-badge.js';
+import { URLUtils } from './map-utils.js';
 
 /**
  * Layer config fields that can be written onto a layer that is already on the
@@ -875,12 +876,7 @@ export class MapFeatureControl {
         // knows how to re-expand.
         if (!config?._originalJson || !config._originalJson.trim().startsWith('{')) return;
 
-        const definition = {};
-        Object.keys(config).forEach(key => {
-            if (!key.startsWith('_') && key !== 'initiallyChecked') definition[key] = config[key];
-        });
-
-        config._originalJson = JSON.stringify(definition).replace(/'/g, "\\'").replace(/"/g, "'");
+        config._originalJson = URLUtils.layerJson(config);
     }
 
     /**

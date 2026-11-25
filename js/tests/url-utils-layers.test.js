@@ -28,4 +28,9 @@ describe('URLUtils.parseLayersFromUrl', () => {
         expect(layers[0]).toEqual({ id: 'custom', opacity: 0.5, _originalJson: "{'id':'custom','opacity':0.5}" });
         expect(layers[1]).toEqual({ id: 'forests' });
     });
+
+    it('drops a stale _originalJson and initiallyChecked carried inside a shared link', () => {
+        const [layer] = URLUtils.parseLayersFromUrl("{'id':'custom','initiallyChecked':true,'_originalJson':'{\\'id\\':\\'custom\\'}'}");
+        expect(layer._originalJson).toBe("{'id':'custom'}");
+    });
 });

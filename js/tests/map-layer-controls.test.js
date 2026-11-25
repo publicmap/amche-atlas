@@ -128,7 +128,16 @@ describe('MapLayerControl._addLayerDirectly', () => {
 
         const added = control._state.groups.find(group => group.id === 'schools');
         expect(added.initiallyChecked).toBe(true);
-        expect(decodeOriginalJson(added._originalJson)).toEqual(config);
+        const { initiallyChecked, ...definition } = config;
+        expect(decodeOriginalJson(added._originalJson)).toEqual(definition);
+    });
+
+    it('does not nest the previous URL blob when a layer is re-added', async () => {
+        await control._addLayerDirectly({ ...uploadedLayer('schools'), initiallyChecked: true, _originalJson: "{'id':'schools'}" });
+
+        const added = control._state.groups.find(group => group.id === 'schools');
+        expect(added._originalJson).not.toContain('_originalJson');
+        expect(added._originalJson).not.toContain('initiallyChecked');
     });
 });
 

@@ -536,6 +536,14 @@ export class GeoUtils {
 }
 
 export class URLUtils {
+    static layerJson(config) {
+        const definition = {};
+        Object.keys(config || {}).forEach(key => {
+            if (!key.startsWith('_') && key !== 'initiallyChecked') definition[key] = config[key];
+        });
+        return JSON.stringify(definition).replace(/'/g, "\\'").replace(/"/g, "'");
+    }
+
     /**
      * Extracts and parses query parameters from the URL
      * @returns {Object} Object containing query parameters as key-value pairs
@@ -642,8 +650,8 @@ export class URLUtils {
                             const parsedLayer = DataUtils.parseDirtyJson(trimmedItem);
                             if (parsedLayer) {
                                 // Minify the JSON by removing extra whitespace and use single quotes for storage/URL
-                                const minifiedItem = JSON.stringify(parsedLayer).replace(/'/g, "\\'").replace(/"/g, "'");
-                                layers.push({ ...parsedLayer, _originalJson: minifiedItem });
+                                const { _originalJson, ...definition } = parsedLayer;
+                                layers.push({ ...definition, _originalJson: URLUtils.layerJson(definition) });
                             } else {
                                 // If parsing returns null, treat as ID
                                 layers.push({ id: trimmedItem });
@@ -672,8 +680,8 @@ export class URLUtils {
                 try {
                     const parsedLayer = DataUtils.parseDirtyJson(trimmedItem);
                     if (parsedLayer) {
-                        const minifiedItem = JSON.stringify(parsedLayer).replace(/'/g, "\\'").replace(/"/g, "'");
-                        layers.push({ ...parsedLayer, _originalJson: minifiedItem });
+                        const { _originalJson, ...definition } = parsedLayer;
+                        layers.push({ ...definition, _originalJson: URLUtils.layerJson(definition) });
                     } else {
                         layers.push({ id: trimmedItem });
                     }

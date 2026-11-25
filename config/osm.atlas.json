@@ -1580,6 +1580,39 @@
       }
     },
     {
+      "id": "sacred-places",
+      "title": "Atlas Of Sacred Places",
+      "tags": [
+        "Amenities",
+        "Religion"
+      ],
+      "type": "overpass",
+      "description": "Live OSM features matching <code>amenity=place_of_worship</code>, <code>religion=*</code> and <code>landuse=religious</code>, fetched from the Overpass API as the viewport changes.",
+      "query": "[out:json][timeout:25];\n(\n  nwr[\"amenity\"=\"place_of_worship\"]({{bbox}});\n  nwr[\"religion\"]({{bbox}});\n  nwr[\"landuse\"=\"religious\"]({{bbox}});\n);\nout geom;",
+      "minzoom": 13,
+      "attribution": "<a href='https://www.openstreetmap.org/copyright'>OpenStreetMap contributors</a>, <a href='https://overpass-api.de/'>Overpass API</a>",
+      "license": "ODbL",
+      "style": {
+        "circle-color": "#10b981",
+        "circle-radius": 3,
+        "circle-stroke-color": "#110202",
+        "circle-stroke-width": 1,
+        "line-color": "#10b981",
+        "line-width": 2,
+        "fill-color": "rgba(16,185,129,0.25)"
+      },
+      "inspect": {
+        "id": "id",
+        "title": "Name",
+        "label": "name",
+        "fields": [
+          "religion",
+          "denomination",
+          "wikidata"
+        ]
+      }
+    },
+    {
       "title": "Motorable Roads Outline",
       "tags": [
         "Transport",

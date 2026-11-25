@@ -13,6 +13,7 @@ import { atlasPinsUrl } from './atlas-pins.js';
 import { rememberAtlas, restoreAtlas } from './atlas-memory.js';
 import { activeMapHistory } from './active-map-history.js';
 import { FeatureDrawTool } from './feature-draw.js';
+import { URLUtils } from './map-utils.js';
 
 // The layer editor floats like the map console, at Find's width
 const EDITOR_WIDTH = 420;
@@ -490,58 +491,15 @@ export class MapBrowserControl {
             return;
         }
 
-        const layers = existingLayers.split(',').map(l => l.trim());
-        let foundAndReplaced = false;
-
-        const updatedLayers = layers.map(layerStr => {
-            try {
-                if (layerStr.startsWith('{') || layerStr.startsWith("{'")) {
-                    const parsed = JSON.parse(layerStr.replace(/'/g, '"'));
-                    if (parsed.id === originalId) {
-                        foundAndReplaced = true;
-                        let jsonString = JSON.stringify(updatedLayer);
-                        jsonString = jsonString.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {
-                            const escaped = content.replace(/'/g, "\\'");
-                            return `"${escaped}"`;
-                        });
-                        return jsonString.replace(/"/g, "'");
-                    }
-                    return layerStr;
-                } else {
-                    if (layerStr === originalId) {
-                        foundAndReplaced = true;
-                        let jsonString = JSON.stringify(updatedLayer);
-                        jsonString = jsonString.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {
-                            const escaped = content.replace(/'/g, "\\'");
-                            return `"${escaped}"`;
-                        });
-                        return jsonString.replace(/"/g, "'");
-                    }
-                    return layerStr;
-                }
-            } catch (e) {
-                console.error('[MapBrowserControl] Error parsing layer:', e);
-                if (layerStr === originalId) {
-                    foundAndReplaced = true;
-                    let jsonString = JSON.stringify(updatedLayer);
-                    jsonString = jsonString.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {
-                        const escaped = content.replace(/'/g, "\\'");
-                        return `"${escaped}"`;
-                    });
-                    return jsonString.replace(/"/g, "'");
-                }
-                return layerStr;
-            }
-        });
-
-        if (!foundAndReplaced) {
+        const updatedJson = URLUtils.layerJson(updatedLayer);
+        const layers = URLUtils.parseLayersFromUrl(existingLayers);
+        const index = layers.findIndex(layer => layer.id === originalId);
+        const updatedLayers = layers.map(layer => layer._originalJson || layer.id);
+        if (index === -1) {
             console.warn('[MapBrowserControl] Layer not found in URL, adding it');
-            let jsonString = JSON.stringify(updatedLayer);
-            jsonString = jsonString.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {
-                const escaped = content.replace(/'/g, "\\'");
-                return `"${escaped}"`;
-            });
-            updatedLayers.unshift(jsonString.replace(/"/g, "'"));
+            updatedLayers.unshift(updatedJson);
+        } else {
+            updatedLayers[index] = updatedJson;
         }
 
         urlParams.set('layers', updatedLayers.join(','));
@@ -1559,11 +1517,7 @@ export class MapBrowserControl {
     // the registry knows would otherwise be written back to ?layers= as a bare
     // id, silently dropping the edit, so the full config is kept with it.
     _commitEditedLayer(group, session) {
-        const definition = {};
-        Object.keys(group).forEach(key => {
-            if (!key.startsWith('_') && key !== 'initiallyChecked') definition[key] = group[key];
-        });
-        group._originalJson = JSON.stringify(definition).replace(/'/g, "\\'").replace(/"/g, "'");
+        group._originalJson = URLUtils.layerJson(group);
 
         this._applyLayerOrder(session.order, session.id, group.id);
         if (window.urlManager) setTimeout(() => window.urlManager.updateURL({ updateLayers: true }), 80);

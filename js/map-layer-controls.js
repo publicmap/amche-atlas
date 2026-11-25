@@ -42,7 +42,7 @@
  */
 import {LayerSettingsModal} from './layer-settings-modal.js';
 import {MapboxAPI} from './mapbox-api.js';
-import {DataUtils} from './map-utils.js';
+import {DataUtils, URLUtils} from './map-utils.js';
 import {fetchConfigJson} from './config-cache.js';
 import {MapWarperAPI} from './mapwarper-url-api.js';
 import {LayerOrderManager} from './layer-order-manager.js';
@@ -1029,7 +1029,7 @@ export class MapLayerControl {
                 // layerToURL) — using JSON.stringify's plain double quotes here would
                 // corrupt configs whose string fields contain literal apostrophes
                 // (e.g. mapwarper's `href='...'` attribution HTML).
-                ...(!isKnownToRegistry && { _originalJson: JSON.stringify(layerConfig).replace(/'/g, "\\'").replace(/"/g, "'") })
+                ...(!isKnownToRegistry && { _originalJson: URLUtils.layerJson(layerConfig) })
             };
 
             let insertPosition;
