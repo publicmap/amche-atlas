@@ -245,6 +245,45 @@ app.get('/maha-bhunaksha', async (req, res) => {
     }
 });
 
+app.get('/goa-bhunaksha', async (req, res) => {
+    const { levels, plotno } = req.query;
+    if (!levels || !plotno) {
+        return res.status(400).json({ error: 'Missing levels or plotno' });
+    }
+    if (!/^[A-Za-z0-9,]+$/.test(levels)) {
+        return res.status(400).json({ error: 'Invalid levels' });
+    }
+
+    const apiUrl = `https://bhunaksha.goa.gov.in/bhunaksha/ScalarDatahandler?OP=5&state=30&levels=${encodeURIComponent(levels)}&plotno=${encodeURIComponent(plotno)}`;
+
+    try {
+        console.log('[GoaBhunaksha] GET', levels, plotno);
+        const response = await fetch(apiUrl, {
+            signal: AbortSignal.timeout(15000),
+            headers: {
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://bhunaksha.goa.gov.in/bhunaksha/',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36'
+            }
+        });
+
+        const text = await response.text();
+        console.log('[GoaBhunaksha] Response', response.status, text.substring(0, 200));
+
+        if (!response.ok) {
+            return res.status(response.status).json({ error: `API returned ${response.status}`, body: text.substring(0, 500) });
+        }
+
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Cache-Control', 'public, max-age=300');
+        res.send(text.trim() ? text : JSON.stringify({ has_data: 'N', _empty_response: true }));
+    } catch (error) {
+        console.error('[GoaBhunaksha] Error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',

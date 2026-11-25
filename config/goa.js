@@ -117,8 +117,9 @@ export const handlers = {
         // URL encode the plot number
         const plotEncoded = plot.replace(/\//g, '%2F');
 
-        // Build API URL
+        // Build API URL (fetched via proxy to avoid CORS)
         const apiUrl = `https://bhunaksha.goa.gov.in/bhunaksha/ScalarDatahandler?OP=5&state=30&levels=${levels}%2C&plotno=${plotEncoded}`;
+        const fetchUrl = `https://amche-atlas-production.up.railway.app/goa-bhunaksha?levels=${levels}%2C&plotno=${plotEncoded}`;
 
         // Easter egg: Check if 'india-esz' layer is loaded to bypass delay
         const urlParams = new URLSearchParams(window.location.search);
@@ -170,6 +171,7 @@ export const handlers = {
 
                     const requestId = '${requestId}';
                     const apiUrl = '${apiUrl.replace(/'/g, "\\'")}';
+                    const fetchUrl = '${fetchUrl.replace(/'/g, "\\'")}';
                     const delay = ${delay};
 
                     const container = document.getElementById(requestId);
@@ -213,7 +215,8 @@ export const handlers = {
                         }
 
                         console.log('[Bhunaksha] Fetching from API...');
-                        const response = await fetch(apiUrl);
+                        const response = await fetch(fetchUrl);
+                        if (!response.ok) throw new Error('Proxy returned ' + response.status);
                         console.log('[Bhunaksha] Response status:', response.status);
                         const text = await response.text();
                         const data = text.trim() ? JSON.parse(text) : { has_data: 'N', _empty_response: true };
