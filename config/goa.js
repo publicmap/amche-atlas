@@ -152,7 +152,7 @@ export const handlers = {
                             <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span>${delay > 0 ? 'Please wait... requesting details from <a href="https://bhunaksha.goa.gov.in/" target="_blank" style="color: #60a5fa;">Goa Bhunaksha</a>.' : 'Loading...'}</span>
+                        <span>${delay > 0 ? `Please wait... requesting details from <a href="${apiUrl}" target="_blank" style="color: #60a5fa;">Goa Bhunaksha</a>.` : 'Loading...'}</span>
                     </div>
                 </div>
             </div>
@@ -288,7 +288,7 @@ export const handlers = {
                         const errorHTML = \`
                             <div style="display:flex;align-items:center;gap:8px;color:#f87171;padding:6px 8px;font-size:10px;">
                                 <sl-icon name="exclamation-octagon" style="font-size:14px;flex-shrink:0;"></sl-icon>
-                                <span>Error fetching land record. Check <a href="https://bhunaksha.goa.gov.in" target="_blank" style="color:#60a5fa;">Bhunaksha Goa</a></span>
+                                <span>Error fetching land record. <a href="\${apiUrl}" target="_blank" style="color:#60a5fa;">View record on Bhunaksha</a></span>
                             </div>
                         \`;
                         if (container && document.body.contains(container)) {
