@@ -267,41 +267,93 @@ app.get('/maha-bhunaksha', async (req, res) => {
     }
 });
 
-app.get('/goa-bhunaksha', async (req, res) => {
-    const { levels, plotno } = req.query;
-    if (!levels || !plotno) {
-        return res.status(400).json({ error: 'Missing levels or plotno' });
+const ONEMAP_GOA_WMS = 'https://onemapgoagis.goa.gov.in/ows/goa_default';
+const ONEMAP_GOA_PLOT_LAYER = 'dslr_goa_villages_c9939cd5_f3c8_4e94_8125_38adb10e6f45';
+
+function lngLatToMercator(lng, lat) {
+    const x = lng * 20037508.34 / 180;
+    const y = Math.log(Math.tan((90 + lat) * Math.PI / 360)) * 20037508.34 / Math.PI;
+    return [x, y];
+}
+
+app.get('/goa-plot-info', async (req, res) => {
+    const { giscode, plot } = req.query;
+    const bbox = String(req.query.bbox || '').split(',').map(Number);
+
+    if (!/^[A-Za-z0-9]{10,40}$/.test(giscode || '')) {
+        return res.status(400).json({ error: 'Invalid giscode' });
     }
-    if (!/^[A-Za-z0-9,]+$/.test(levels)) {
-        return res.status(400).json({ error: 'Invalid levels' });
+    if (!/^[A-Za-z0-9/\-. ]{1,40}$/.test(plot || '')) {
+        return res.status(400).json({ error: 'Invalid plot' });
+    }
+    if (bbox.length !== 4 || bbox.some(n => !Number.isFinite(n))) {
+        return res.status(400).json({ error: 'Invalid bbox, expected minLng,minLat,maxLng,maxLat' });
     }
 
-    const apiUrl = `https://bhunaksha.goa.gov.in/bhunaksha/ScalarDatahandler?OP=5&state=30&levels=${encodeURIComponent(levels)}&plotno=${encodeURIComponent(plotno)}`;
+    const [minX, minY] = lngLatToMercator(bbox[0], bbox[1]);
+    const [maxX, maxY] = lngLatToMercator(bbox[2], bbox[3]);
+    const pad = 20;
+    const extent = [minX - pad, minY - pad, maxX + pad, maxY + pad];
+    const size = Math.max(extent[2] - extent[0], extent[3] - extent[1]);
+    if (size > 8000) {
+        return res.status(400).json({ error: 'bbox too large' });
+    }
+    const pixels = Math.min(4096, Math.max(101, Math.ceil(size)));
+
+    const quote = (v) => v.replace(/'/g, "''");
+    const filter = `${ONEMAP_GOA_PLOT_LAYER}:"giscode" = '${quote(giscode)}' AND "plot" = '${quote(plot)}'`;
+    const params = new URLSearchParams({
+        SERVICE: 'WMS',
+        VERSION: '1.3.0',
+        REQUEST: 'GetFeatureInfo',
+        LAYERS: ONEMAP_GOA_PLOT_LAYER,
+        QUERY_LAYERS: ONEMAP_GOA_PLOT_LAYER,
+        CRS: 'EPSG:3857',
+        BBOX: extent.join(','),
+        WIDTH: String(pixels),
+        HEIGHT: String(pixels),
+        INFO_FORMAT: 'application/json',
+        FEATURE_COUNT: '5',
+        WITH_GEOMETRY: 'false',
+        FILTER: filter
+    });
 
     try {
-        console.log('[GoaBhunaksha] GET', levels, plotno);
-        const response = await fetch(apiUrl, {
-            signal: AbortSignal.timeout(45000),
+        console.log('[GoaPlotInfo] GET', giscode, plot);
+        const response = await fetch(`${ONEMAP_GOA_WMS}?${params}`, {
+            signal: AbortSignal.timeout(20000),
             headers: {
                 'Accept': 'application/json, text/plain, */*',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Referer': 'https://bhunaksha.goa.gov.in/bhunaksha/',
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36'
+                'Referer': 'https://onemapgoagis.goa.gov.in/',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36'
             }
         });
 
         const text = await response.text();
-        console.log('[GoaBhunaksha] Response', response.status, text.substring(0, 200));
-
         if (!response.ok) {
-            return res.status(response.status).json({ error: `API returned ${response.status}`, body: text.substring(0, 500) });
+            return res.status(502).json({ error: `OneMap Goa returned ${response.status}`, body: text.substring(0, 300) });
         }
 
-        res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Cache-Control', 'public, max-age=300');
-        res.send(text.trim() ? text : JSON.stringify({ has_data: 'N', _empty_response: true }));
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch {
+            return res.status(502).json({ error: 'Unexpected response from OneMap Goa', body: text.substring(0, 300) });
+        }
+
+        const clean = (v) => typeof v === 'string' ? v.replace(/\s+/g, ' ').replace(/\s*,\s*/g, ', ').replace(/^[\s,]+|[\s,]+$/g, '') : v;
+        const plots = (data.features || []).map(({ properties = {} }) => ({
+            plot: clean(properties.plot),
+            village: clean(properties.villagenam),
+            taluka: clean(properties.talname),
+            occupants: (clean(properties.occupant_name) || '').split(', ').filter(Boolean),
+            category: clean(properties.category) || null
+        }));
+
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.json({ source: 'onemapgoagis.goa.gov.in', plots });
     } catch (error) {
-        console.error('[GoaBhunaksha] Error:', error.message);
+        console.error('[GoaPlotInfo] Error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });

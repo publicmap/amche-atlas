@@ -94,7 +94,7 @@ export const handlers = {
      * Used for: Survey plot boundaries layer
      * Properties needed: plot, giscode
      */
-    getBhunakshaInfo: async ({ feature }) => {
+    getBhunakshaInfo: async ({ feature, lngLat }) => {
         console.log('=== BHUNAKSHA HANDLER CALLED ===', new Date().toISOString());
         console.log('Feature:', feature);
 
@@ -117,9 +117,25 @@ export const handlers = {
         // URL encode the plot number
         const plotEncoded = plot.replace(/\//g, '%2F');
 
-        // Build API URL (fetched via proxy to avoid CORS)
+        // Official Bhunaksha record URL (linked for users to verify)
         const apiUrl = `https://bhunaksha.goa.gov.in/bhunaksha/ScalarDatahandler?OP=5&state=30&levels=${levels}%2C&plotno=${plotEncoded}`;
-        const fetchUrl = `https://amche-atlas-production.up.railway.app/goa-bhunaksha?levels=${levels}%2C&plotno=${plotEncoded}`;
+
+        // Plot extent for the OneMap Goa lookup: feature geometry, else ~100m around the click
+        const coords = [];
+        const collect = (c) => typeof c?.[0] === 'number' ? coords.push(c) : (c || []).forEach(collect);
+        collect(feature.geometry?.coordinates);
+        let bbox = null;
+        if (coords.length) {
+            const lngs = coords.map(c => c[0]);
+            const lats = coords.map(c => c[1]);
+            bbox = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
+        } else if (lngLat) {
+            const d = 0.0005;
+            bbox = [lngLat.lng - d, lngLat.lat - d, lngLat.lng + d, lngLat.lat + d];
+        }
+        const fetchUrl = bbox
+            ? `https://amche-atlas-production.up.railway.app/goa-plot-info?giscode=${encodeURIComponent(giscode)}&plot=${encodeURIComponent(plot)}&bbox=${bbox.map(n => n.toFixed(6)).join(',')}`
+            : '';
 
         // Easter egg: Check if 'india-esz' layer is loaded to bypass delay
         const urlParams = new URLSearchParams(window.location.search);
@@ -152,7 +168,7 @@ export const handlers = {
                             <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span>${delay > 0 ? `Please wait... requesting details from <a href="${apiUrl}" target="_blank" style="color: #60a5fa;">Goa Bhunaksha</a>.` : 'Loading...'}</span>
+                        <span>${delay > 0 ? `Please wait... requesting land record. <a href="${apiUrl}" target="_blank" style="color: #60a5fa;">View on Bhunaksha</a>` : 'Loading...'}</span>
                     </div>
                 </div>
             </div>
@@ -214,55 +230,25 @@ export const handlers = {
                             return;
                         }
 
-                        console.log('[Bhunaksha] Fetching from API...');
+                        if (!fetchUrl) throw new Error('No plot geometry available');
                         const response = await fetch(fetchUrl);
                         if (!response.ok) throw new Error('Proxy returned ' + response.status);
-                        console.log('[Bhunaksha] Response status:', response.status);
-                        const text = await response.text();
-                        const data = text.trim() ? JSON.parse(text) : { has_data: 'N', _empty_response: true };
+                        const data = await response.json();
                         console.log('[Bhunaksha] Data received:', data);
 
-                        let contentHTML;
-                        const plotData = (data.plots && data.plots[0]) ? data.plots[0] : data;
-                        if (plotData.info && data.has_data === 'Y') {
-                            const isHTML = /<[^>]*>/g.test(plotData.info);
-
-                            if (isHTML) {
-                                const cleaned = plotData.info
-                                    .replace(/<\\/?html>/gi, '')
-                                    .replace(/<font[^>]*>/gi, '<span>')
-                                    .replace(/<\\/font>/gi, '</span>')
-                                    .trim();
-                                contentHTML = \`<div style="padding:4px 8px;font-size:10px;color:#d1d5db;line-height:1.5;">\${cleaned}</div>\`;
-                            } else {
-                                const lines = plotData.info.split('\\n').slice(3).filter(l => !/-{10,}/.test(l));
-                                const rows = [];
-                                let currentKey = null;
-                                let currentValues = [];
-                                for (const line of lines) {
-                                    const trimmed = line.trim();
-                                    if (!trimmed) continue;
-                                    if (!trimmed.match(/^\\d+\\)/) && trimmed.includes(':')) {
-                                        if (currentKey !== null) rows.push([currentKey, currentValues.join('\\n')]);
-                                        const colonIdx = trimmed.indexOf(':');
-                                        currentKey = trimmed.substring(0, colonIdx).trim();
-                                        const afterColon = trimmed.substring(colonIdx + 1).trim();
-                                        currentValues = afterColon ? [afterColon] : [];
-                                    } else if (currentKey !== null) {
-                                        const nameMatch = trimmed.match(/^\\d+\\)\\.?\\s*(.+)/);
-                                        currentValues.push(nameMatch ? nameMatch[1] : trimmed);
-                                    }
-                                }
-                                if (currentKey !== null) rows.push([currentKey, currentValues.join('\\n')]);
-
-                                contentHTML = rows.map(([key, value]) =>
-                                    \`<div style="display:flex;font-size:10px;padding:2px 8px;border-bottom:1px solid #374151;">
+                        const esc = (v) => String(v).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+                        const row = (key, value) => \`<div style="display:flex;font-size:10px;padding:2px 8px;border-bottom:1px solid #374151;">
                                         <div style="color:#9ca3af;min-width:100px;font-weight:500;flex-shrink:0;">\${key}</div>
                                         <div style="color:#e5e7eb;flex:1;word-break:break-word;white-space:pre-line;">\${value}</div>
-                                    </div>\`
-                                ).join('');
-                                if (!contentHTML) contentHTML = '<div style="padding:4px 8px;color:#9ca3af;font-size:10px;">No occupant data available</div>';
-                            }
+                                    </div>\`;
+
+                        const record = (data.plots || [])[0];
+                        let contentHTML;
+                        if (record && (record.occupants.length || record.category)) {
+                            contentHTML = [
+                                record.occupants.length ? row('Occupants', record.occupants.map(esc).join('\\n')) : '',
+                                record.category ? row('Category', esc(record.category)) : ''
+                            ].join('');
                         } else {
                             contentHTML = '<div style="padding:4px 8px;color:#9ca3af;font-size:10px;">No occupant data available</div>';
                         }
@@ -275,7 +261,7 @@ export const handlers = {
                         const finalHTML = \`
                             \${contentHTML}
                             <div style="padding:4px 8px;font-style:italic;font-size:10px;color:#6b7280;border-top:1px solid #374151;">
-                                Retrieved live from <a href="\${apiUrl}" target="_blank" style="color:#60a5fa;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Bhunaksha/Dharani</a>. For information purposes only.
+                                Retrieved live from <a href="https://onemapgoagis.goa.gov.in/" target="_blank" style="color:#60a5fa;">OneMap Goa</a>. For information purposes only. <a href="\${apiUrl}" target="_blank" style="color:#60a5fa;">Verify on Bhunaksha</a>
                             </div>
                         \`;
                         container.innerHTML = finalHTML;
