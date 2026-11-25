@@ -3050,21 +3050,26 @@ export class MapboxAPI {
         return `overpass-zoom-gate-${groupId}`;
     }
 
-    // Shared markup for the zoom-gate message so the idle "Load now" link and
-    // the in-flight spinner (refreshOverpassLayer) stay in sync. The idle copy
-    // has to say why the map is empty — a bare title with a link reads as a
-    // failed layer rather than a zoom gate.
+    // Shared markup for the zoom-gate message so the idle "Refresh Data" /
+    // "Zoom In" links and the in-flight spinner (refreshOverpassLayer) stay in
+    // sync.
     _overpassZoomGateMessageHtml(groupId, config, { loading = false } = {}) {
         const title = GeoUtils.escapeXml(config.title || groupId);
         if (loading) {
             return `${title} &middot; Loading ${LOADING_ICON_HTML}`;
         }
         const jsEscapedGroupId = groupId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        const minzoom = config.minzoom;
-        const reason = minzoom != null
-            ? `zoom to level ${minzoom} to load OSM data`
-            : 'zoom in to load OSM data';
-        return `${title} &middot; ${reason} &middot; <a href="#" onclick="window.layerControl?._mapboxAPI?.refreshOverpassLayer('${jsEscapedGroupId}');return false;">Load now</a>`;
+        const api = 'window.layerControl?._mapboxAPI';
+        const refresh = `<button type="button" class="map-context-message__action" onclick="${api}?.refreshOverpassLayer('${jsEscapedGroupId}')">Refresh Data</button>`;
+        const zoomIn = `<button type="button" class="map-context-message__action" onclick="${api}?.zoomToOverpassMinZoom('${jsEscapedGroupId}')">Zoom In</button>`;
+        return `${title}: ${refresh} or ${zoomIn} to auto refresh`;
+    }
+
+    zoomToOverpassMinZoom(groupId) {
+        const config = this._overpassConfigs.get(groupId) || {};
+        const current = this._map.getZoom();
+        const target = config.minzoom != null ? Math.max(config.minzoom, current) : current + 2;
+        this._map.easeTo({ zoom: target });
     }
 
     // Below the layer's minzoom, OverpassLoader stops auto-refreshing (to
@@ -3083,7 +3088,7 @@ export class MapboxAPI {
     }
 
     // Makes an Overpass layer load the current viewport, bypassing the minzoom
-    // gate - used by the zoom-gate message's "Load now" link, and by the
+    // gate - used by the zoom-gate message's "Refresh Data" link, and by the
     // creator's live preview. `ignoreCache: false` skips the call entirely when
     // the viewport is already covered, so a style tweak reuses what's loaded.
     // Swaps the link for a spinner while in flight, then closes the message

@@ -77,7 +77,7 @@ export class OverpassLoader {
     }
 
     // Bypasses the minzoom gate for an explicit, user-triggered load (e.g.
-    // clicking "Load now" on the zoom-gate message). `ignoreCache` also
+    // clicking "Refresh Data" on the zoom-gate message). `ignoreCache` also
     // re-queries a viewport that's already covered - true for a real refresh,
     // false for callers that only want to guarantee the layer has data (see
     // MapboxAPI.refreshOverpassLayer). Returns a promise that settles once the

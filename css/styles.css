@@ -1775,6 +1775,23 @@ body {
     min-width: 0;
 }
 
+.map-context-message__action {
+    display: inline-block;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.12);
+    color: inherit;
+    font: inherit;
+    line-height: 1.3;
+    padding: 1px 8px;
+    margin: 0 2px;
+    cursor: pointer;
+}
+
+.map-context-message__action:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
 .map-context-message__close {
     flex-shrink: 0;
     border: none;

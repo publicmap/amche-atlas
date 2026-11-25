@@ -1587,19 +1587,108 @@
         "Religion"
       ],
       "type": "overpass",
-      "description": "Live OSM features matching <code>amenity=place_of_worship</code>, <code>religion=*</code> and <code>landuse=religious</code>, fetched from the Overpass API as the viewport changes.",
-      "query": "[out:json][timeout:25];\n(\n  nwr[\"amenity\"=\"place_of_worship\"]({{bbox}});\n  nwr[\"religion\"]({{bbox}});\n  nwr[\"landuse\"=\"religious\"]({{bbox}});\n);\nout geom;",
+      "description": "Live OSM features matching <code>amenity=place_of_worship</code>, <code>religion=*</code>, <code>landuse=religious</code>, <code>historic=wayside_cross</code> and <code>historic=wayside_shrine</code>, fetched from the Overpass API as the viewport changes.",
+      "query": "[out:json][timeout:25];\n(\n  nwr[\"amenity\"=\"place_of_worship\"]({{bbox}});\n  nwr[\"religion\"]({{bbox}});\n  nwr[\"landuse\"=\"religious\"]({{bbox}});\n  nwr[\"historic\"=\"wayside_cross\"]({{bbox}});\n  nwr[\"historic\"=\"wayside_shrine\"]({{bbox}});\n);\nout geom;",
       "minzoom": 13,
       "attribution": "<a href='https://www.openstreetmap.org/copyright'>OpenStreetMap contributors</a>, <a href='https://overpass-api.de/'>Overpass API</a>",
       "license": "ODbL",
       "style": {
-        "circle-color": "#10b981",
+        "circle-color": [
+          "case",
+          [
+            "==",
+            [
+              "coalesce",
+              [
+                "get",
+                "religion"
+              ],
+              [
+                "match",
+                [
+                  "to-string",
+                  [
+                    "get",
+                    "historic"
+                  ]
+                ],
+                "wayside_cross",
+                "christian",
+                ""
+              ]
+            ],
+            "christian"
+          ],
+          [
+            "match",
+            [
+              "to-string",
+              [
+                "get",
+                "denomination"
+              ]
+            ],
+            [
+              "catholic",
+              "roman_catholic",
+              "latin_catholic",
+              "syro-malabar_catholic",
+              "syro-malankara_catholic"
+            ],
+            "#72a3fe",
+            "#ad8dfe"
+          ],
+          [
+            "match",
+            [
+              "to-string",
+              [
+                "coalesce",
+                [
+                  "get",
+                  "religion"
+                ],
+                [
+                  "match",
+                  [
+                    "to-string",
+                    [
+                      "get",
+                      "historic"
+                    ]
+                  ],
+                  "wayside_cross",
+                  "christian",
+                  ""
+                ]
+              ]
+            ],
+            "hindu",
+            "#fe7802",
+            "muslim",
+            "#20c554",
+            "buddhist",
+            "#cb9e07",
+            "sikh",
+            "#1dbcb5",
+            "jain",
+            "#ff6e81",
+            "jewish",
+            "#93b415",
+            "",
+            "#9ea5b1",
+            "#f554f4"
+          ]
+        ],
         "circle-radius": 3,
         "circle-stroke-color": "#110202",
         "circle-stroke-width": 1,
-        "line-color": "#10b981",
-        "line-width": 2,
-        "fill-color": "rgba(16,185,129,0.25)"
+        "line-color": "@circle-stroke-color",
+        "line-width": 1,
+        "fill-color": "@circle-color",
+        "fill-opacity": 0.25,
+        "text-color": "@circle-color",
+        "text-halo-color": "@circle-stroke-color"
       },
       "inspect": {
         "id": "id",
@@ -1608,6 +1697,7 @@
         "fields": [
           "religion",
           "denomination",
+          "historic",
           "wikidata"
         ]
       }
