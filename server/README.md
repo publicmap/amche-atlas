@@ -74,6 +74,20 @@ curl "http://localhost:8080/proxy?url=https://api.example.com/live-data&cache=60
 }
 ```
 
+#### `/goa-plot-info` - Goa land record lookup
+
+Looks up occupant details for a Goa survey plot from the OneMap Goa WMS (`dslr_goa_villages` layer). Used by `config/goa.js` (`getBhunakshaInfo`). Bhunaksha Goa itself blocks non-Indian datacenter IPs, so it can't be proxied from Railway.
+
+**Parameters:**
+- `giscode` (required) - e.g. `013001000240103000000VILLAGE`
+- `plot` (required) - e.g. `266/24`
+- `bbox` (required) - plot extent as `minLng,minLat,maxLng,maxLat` (max ~8 km); the layer only answers at large scales so the query must be near the plot
+
+```bash
+curl "http://localhost:8080/goa-plot-info?giscode=013001000240103000000VILLAGE&plot=266%2F24&bbox=73.80426,15.61510,73.80474,15.61556"
+# {"source":"onemapgoagis.goa.gov.in","plots":[{"plot":"266/24","village":"Siolim","taluka":"BARDEZ","occupants":["Juliet Fernandes","Gertrudes Fernandes"],"category":null}]}
+```
+
 #### `/health` - Health check endpoint
 
 Returns server status and API documentation.

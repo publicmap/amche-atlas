@@ -96,7 +96,7 @@ export const handlers = {
      * Used for: Survey plot boundaries layer
      * Properties needed: plot, giscode
      */
-    getBhunakshaInfo: async ({ feature }) => {
+    getBhunakshaInfo: async ({ feature, lngLat }) => {
         console.log('=== BHUNAKSHA HANDLER CALLED ===', new Date().toISOString());
         console.log('Feature:', feature);
 
@@ -119,8 +119,25 @@ export const handlers = {
         // URL encode the plot number
         const plotEncoded = plot.replace(/\//g, '%2F');
 
-        // Build API URL
+        // Official Bhunaksha record URL (linked for users to verify)
         const apiUrl = `https://bhunaksha.goa.gov.in/bhunaksha/ScalarDatahandler?OP=5&state=30&levels=${levels}%2C&plotno=${plotEncoded}`;
+
+        // Plot extent for the OneMap Goa lookup: feature geometry, else ~100m around the click
+        const coords = [];
+        const collect = (c) => typeof c?.[0] === 'number' ? coords.push(c) : (c || []).forEach(collect);
+        collect(feature.geometry?.coordinates);
+        let bbox = null;
+        if (coords.length) {
+            const lngs = coords.map(c => c[0]);
+            const lats = coords.map(c => c[1]);
+            bbox = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
+        } else if (lngLat) {
+            const d = 0.0005;
+            bbox = [lngLat.lng - d, lngLat.lat - d, lngLat.lng + d, lngLat.lat + d];
+        }
+        const fetchUrl = bbox
+            ? `https://amche-atlas-production.up.railway.app/goa-plot-info?giscode=${encodeURIComponent(giscode)}&plot=${encodeURIComponent(plot)}&bbox=${bbox.map(n => n.toFixed(6)).join(',')}`
+            : '';
 
         // Easter egg: Check if 'india-esz' layer is loaded to bypass delay
         const urlParams = new URLSearchParams(window.location.search);
@@ -138,7 +155,7 @@ export const handlers = {
 
         // Return loading placeholder with inline script that will execute in iframe context
         const loadingText = delay > 0
-            ? 'Please wait... requesting details from <a href="https://bhunaksha.goa.gov.in/" target="_blank">Goa Bhunaksha</a>.'
+            ? `Please wait... requesting land record. <a href="${apiUrl}" target="_blank">View on Bhunaksha</a>`
             : 'Loading...';
 
         return `
@@ -149,9 +166,10 @@ export const handlers = {
                 links: [
                     { label: 'Goa Land Record', href: 'https://bhunaksha.goa.gov.in/' },
                     { label: 'Form I & XIV', href: 'https://dslr.goa.gov.in/f114new.aspx' },
-                    { label: 'Property Register', href: 'https://goaonline.gov.in/Appln/UIL/LandRecords?__Key=&__cscKey=' }
+                    { label: 'Property Register', href: 'https://goaonline.gov.in/Appln/UIL/LandRecords?__Key=&__cscKey=' },
+                    { label: 'Verify on Bhunaksha', href: apiUrl }
                 ],
-                source: { label: 'Bhunaksha/Dharani', href: apiUrl, note: 'Retrieved live. For information purposes only' },
+                source: { label: 'OneMap Goa', href: 'https://onemapgoagis.goa.gov.in/', note: 'Retrieved live. For information purposes only' },
                 loadingHTML: externalDataLoading(loadingText)
             })}
             <script>
@@ -163,6 +181,7 @@ export const handlers = {
 
                     const requestId = '${requestId}';
                     const apiUrl = '${apiUrl.replace(/'/g, "\\'")}';
+                    const fetchUrl = '${fetchUrl.replace(/'/g, "\\'")}';
                     const delay = ${delay};
 
                     const container = document.getElementById(requestId);
@@ -205,52 +224,19 @@ export const handlers = {
                             return;
                         }
 
-                        console.log('[Bhunaksha] Fetching from API...');
-                        const response = await fetch(apiUrl);
-                        console.log('[Bhunaksha] Response status:', response.status);
-                        const text = await response.text();
-                        const data = text.trim() ? JSON.parse(text) : { has_data: 'N', _empty_response: true };
+                        if (!fetchUrl) throw new Error('No plot geometry available');
+                        const response = await fetch(fetchUrl);
+                        if (!response.ok) throw new Error('Proxy returned ' + response.status);
+                        const data = await response.json();
                         console.log('[Bhunaksha] Data received:', data);
 
-                        let contentHTML;
-                        const plotData = (data.plots && data.plots[0]) ? data.plots[0] : data;
-                        if (plotData.info && data.has_data === 'Y') {
-                            const isHTML = /<[^>]*>/g.test(plotData.info);
-
-                            if (isHTML) {
-                                const cleaned = plotData.info
-                                    .replace(/<\\/?html>/gi, '')
-                                    .replace(/<font[^>]*>/gi, '<span>')
-                                    .replace(/<\\/font>/gi, '</span>')
-                                    .trim();
-                                contentHTML = \`<div class="ext-data-value" style="padding:3px 0;white-space:normal;">\${cleaned}</div>\`;
-                            } else {
-                                const lines = plotData.info.split('\\n').slice(3).filter(l => !/-{10,}/.test(l));
-                                const rows = [];
-                                let currentKey = null;
-                                let currentValues = [];
-                                for (const line of lines) {
-                                    const trimmed = line.trim();
-                                    if (!trimmed) continue;
-                                    if (!trimmed.match(/^\\d+\\)/) && trimmed.includes(':')) {
-                                        if (currentKey !== null) rows.push([currentKey, currentValues.join('\\n')]);
-                                        const colonIdx = trimmed.indexOf(':');
-                                        currentKey = trimmed.substring(0, colonIdx).trim();
-                                        const afterColon = trimmed.substring(colonIdx + 1).trim();
-                                        currentValues = afterColon ? [afterColon] : [];
-                                    } else if (currentKey !== null) {
-                                        const nameMatch = trimmed.match(/^\\d+\\)\\.?\\s*(.+)/);
-                                        currentValues.push(nameMatch ? nameMatch[1] : trimmed);
-                                    }
-                                }
-                                if (currentKey !== null) rows.push([currentKey, currentValues.join('\\n')]);
-
-                                contentHTML = window.externalData.rows(rows);
-                                if (!contentHTML) contentHTML = window.externalData.message('No occupant data available');
-                            }
-                        } else {
-                            contentHTML = window.externalData.message('No occupant data available');
-                        }
+                        const record = (data.plots || [])[0];
+                        const rows = [];
+                        if (record?.occupants?.length) rows.push(['Occupants', record.occupants.join('\\n')]);
+                        if (record?.category) rows.push(['Category', record.category]);
+                        const contentHTML = rows.length
+                            ? window.externalData.rows(rows)
+                            : window.externalData.message('No occupant data available');
 
                         if (!document.body.contains(container)) {
                             console.warn('[Bhunaksha] Container removed from DOM during fetch, skipping update');
@@ -265,7 +251,7 @@ export const handlers = {
                         container.setAttribute('data-executed', 'true');
                     } catch (error) {
                         console.error('[Bhunaksha] Error:', error);
-                        const errorHTML = window.externalData.message('<sl-icon name="exclamation-octagon" style="font-size:14px;flex-shrink:0;"></sl-icon><span>Error fetching land record. Check <a href="https://bhunaksha.goa.gov.in" target="_blank">Bhunaksha Goa</a></span>', 'error');
+                        const errorHTML = window.externalData.message('<sl-icon name="exclamation-octagon" style="font-size:14px;flex-shrink:0;"></sl-icon><span>Error fetching land record. <a href="' + apiUrl + '" target="_blank">View record on Bhunaksha</a></span>', 'error');
                         if (container && document.body.contains(container)) {
                             container.innerHTML = errorHTML;
                             // Cache the error result too
