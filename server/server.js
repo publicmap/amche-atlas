@@ -15,6 +15,28 @@ const corsOptions = {
     maxAge: 86400 // 24 hours
 };
 
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+const ALLOWED_LOCAL_PORT = '4035';
+
+function isBlockedOrigin(value) {
+    if (!value) return false;
+    try {
+        const { hostname, port } = new URL(value);
+        return LOCAL_HOSTS.has(hostname) && port !== ALLOWED_LOCAL_PORT;
+    } catch {
+        return false;
+    }
+}
+
+app.use((req, res, next) => {
+    const origin = req.headers.origin || req.headers.referer;
+    if (isBlockedOrigin(origin)) {
+        console.warn(`[Proxy] Blocked request from ${origin}`);
+        return res.status(403).json({ error: 'Origin not allowed' });
+    }
+    next();
+});
+
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
@@ -259,7 +281,7 @@ app.get('/goa-bhunaksha', async (req, res) => {
     try {
         console.log('[GoaBhunaksha] GET', levels, plotno);
         const response = await fetch(apiUrl, {
-            signal: AbortSignal.timeout(15000),
+            signal: AbortSignal.timeout(45000),
             headers: {
                 'Accept': 'application/json, text/plain, */*',
                 'Accept-Language': 'en-US,en;q=0.9',
